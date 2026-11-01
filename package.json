@@ -1,0 +1,50 @@
+{
+  "name": "delta",
+  "productName": "Delta",
+  "version": "0.1.0",
+  "description": "A cross-platform desktop diff and merge tool inspired by Beyond Compare",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "main": "./dist/app/main/index.js",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "npm run build:web && electron tests/e2e/web.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "pack": "electron-vite build && electron-builder --config desktop/electron-builder.yml --dir",
+    "dist": "electron-vite build && electron-builder --config desktop/electron-builder.yml",
+    "dist:mac": "npm run dist -- --mac",
+    "dist:win": "npm run dist -- --win",
+    "dist:linux": "npm run dist -- --linux",
+    "build:server": "vite build --config web/vite.config.ts",
+    "build:web": "electron-vite build && npm run build:server",
+    "web": "node web/start.mjs",
+    "web:dev": "npm run build:server && node web/dev.mjs"
+  },
+  "allowScripts": {
+    "electron-winstaller": false,
+    "fsevents": false
+  },
+  "devDependencies": {
+    "@fontsource-variable/josefin-sans": "^5.3.0",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^6.0.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}

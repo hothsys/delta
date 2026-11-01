@@ -1,0 +1,44 @@
+# Packaging for macOS, Windows and Linux. `npm run dist` builds for the current platform;
+# installers go to dist/installers/. Builds are unsigned unless signing credentials are configured.
+# Paths are relative to the project folder; icon.png next to this file is the app icon.
+appId: dev.delta.diff
+productName: Delta
+directories:
+  output: dist/installers
+  buildResources: desktop
+files:
+  - dist/app/**
+  # The browser version's server isn't part of the desktop app.
+  - "!dist/app/server/**"
+  - "!dist/app/.web-build"
+  - package.json
+# Delta's own license and the bundled font's license must travel with the app.
+extraResources:
+  - LICENSE.md
+  - THIRD_PARTY_NOTICES.md
+asar: true
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.developer-tools
+  # Ad-hoc signing: no certificate needed, never picks up whatever certificates happen to be
+  # on the build machine, and gives the app the valid signature Apple Silicon requires (an
+  # unsigned download can be reported as "damaged"). Users open it the first time with
+  # right-click > Open. To sign releases properly, replace with a Developer ID identity (or
+  # set CSC_LINK / CSC_KEY_PASSWORD in CI).
+  identity: "-"
+  # Only notarization (which needs a Developer ID) requires the hardened runtime; with ad-hoc
+  # signing it would block the app's own libraries from loading.
+  hardenedRuntime: false
+win:
+  target:
+    - nsis
+    - portable
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+linux:
+  target:
+    - AppImage
+  category: Development

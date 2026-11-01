@@ -1,0 +1,39 @@
+# Builds installers for macOS, Windows and Linux on their native runners.
+# Runs on version tags (v1.2.3) and on demand; installers are attached as workflow artifacts.
+name: Build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# Building needs nothing more than reading the repository.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run dist -- --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: delta-${{ matrix.os }}
+          path: |
+            dist/installers/*.dmg
+            dist/installers/*.zip
+            dist/installers/*.exe
+            dist/installers/*.AppImage
+          if-no-files-found: error

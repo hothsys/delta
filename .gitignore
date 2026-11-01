@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+.DS_Store
+.claude/
+
+# Local agent instructions (not tracked)
+SPEC.md
+AGENTS.md
+CLAUDE.md
