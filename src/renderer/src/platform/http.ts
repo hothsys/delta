@@ -1,8 +1,10 @@
-import type { DeltaApi, FolderProgress, ReadResult } from '../../../shared/api';
+import type { DeltaApi, FolderProgress, LogEntry, ReadResult } from '../../../shared/api';
 import { confirmInPage, pick } from './dialogs';
 
 /** Matches the server's TOKEN_HEADER. */
 const TOKEN_HEADER = 'X-Delta-Token';
+/** Log entries are sent in batches, at most this often. */
+const LOG_FLUSH_MS = 1000;
 
 /**
  * `DeltaApi` for the browser version: every call goes to Delta's local server, carrying the
@@ -59,6 +61,25 @@ export function createHttpApi(): DeltaApi {
 
   const readFile = (path: string) => post<ReadResult>('/api/read', { path });
 
+  // Log entries wait a moment and go together; whatever is left goes when the tab closes
+  // (`keepalive` lets that request outlive the page).
+  let logQueue: LogEntry[] = [];
+  let logTimer: number | undefined;
+  const flushLog = (closing = false) => {
+    window.clearTimeout(logTimer);
+    logTimer = undefined;
+    if (!logQueue.length) return;
+    const entries = logQueue;
+    logQueue = [];
+    void fetch('/api/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', [TOKEN_HEADER]: token },
+      body: JSON.stringify({ entries }),
+      keepalive: closing,
+    }).catch(() => {}); // the server has stopped: nowhere to log to
+  };
+  window.addEventListener('pagehide', () => flushLog(true));
+
   const api: DeltaApi = {
     capabilities: { nativeDialogs: false, nativeMenu: false },
     openFileDialog: async (title) => {
@@ -112,6 +133,17 @@ export function createHttpApi(): DeltaApi {
     listDirectory: (path, showHidden) => post('/api/list-directory', { path, showHidden }),
     locations: () => post('/api/locations'),
     joinPath: (root, relPath) => joinPath(root, relPath),
+    log: (entry) => {
+      logQueue.push(entry);
+      logTimer ??= window.setTimeout(flushLog, LOG_FLUSH_MS);
+    },
+    logInfo: () => post('/api/log/info'),
+    setDebugLogging: (on) => post('/api/log/set-debug', { on }),
+    openLogsFolder: async () => {
+      const r = await post<{ ok: boolean; message?: string }>('/api/log/open-folder');
+      if (!r.ok) throw new Error(r.message);
+    },
+    diagnostics: () => post('/api/log/diagnostics'),
   };
   return api;
 }

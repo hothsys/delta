@@ -15,6 +15,7 @@ import {
   type Ref,
 } from 'react';
 import { diffChars, type Anchor, type CompareOptions, type DiffBlock, type IntraLineDiff } from '../../../engine';
+import { log } from '../log';
 import { mergeOp } from '../model/merge';
 import { maxColumns, RowKind, type RowModel, type Side } from '../model/rowModel';
 import {
@@ -384,7 +385,9 @@ export function DiffView(props: DiffViewProps) {
 
   const undoRedo = (which: 'undo' | 'redo' | Side) => {
     const r = which === 'undo' ? props.onUndo() : which === 'redo' ? props.onRedo() : props.onUndoSide(which);
-    if (!r) return;
+    const what = which === 'redo' ? 'Redo' : which === 'undo' ? 'Undo' : `Undo on the ${which === 'a' ? 'left' : 'right'}`;
+    if (!r) return log.debug('edit', `${what}: nothing to ${which === 'redo' ? 'redo' : 'undo'}`);
+    log.info('edit', what, { side: r.side === 'a' ? 'left' : 'right', line: r.op.start + 1 });
     setActive(r.side);
     inputs[r.side].current?.focus({ preventScroll: true });
     // Show where the change happened. The remembered selection is right for typing, but for a
@@ -421,7 +424,8 @@ export function DiffView(props: DiffViewProps) {
         if (isChange(i) && end <= caretRow) target = i;
       }
     }
-    if (target < 0) return;
+    if (target < 0) return log.debug('view', `No ${direction === 1 ? 'next' : 'previous'} difference`);
+    log.info('view', direction === 1 ? 'Next difference' : 'Previous difference', { block: target });
     const startRow = rows.blockStart[target];
     // Put the caret on the block's first line on this side, or where its lines would go.
     let r = startRow;
@@ -472,6 +476,12 @@ export function DiffView(props: DiffViewProps) {
     const to = other(from);
     const op = mergeOp(blocks[block], from, linesOf(from), linesOf(to));
     if (op.removed.length === 0 && op.inserted.length === 0) return;
+    log.info('merge', `Copied a change to the ${to === 'a' ? 'left' : 'right'}`, {
+      kind: blocks[block].kind,
+      line: op.start + 1,
+      removed: op.removed.length,
+      inserted: op.inserted.length,
+    });
     const before = selOf(to);
     const after = { anchor: transformPos(before.anchor, op), head: transformPos(before.head, op) };
     onEdit(to, op, { before, after, immediate: true });
@@ -691,18 +701,40 @@ export function DiffView(props: DiffViewProps) {
       items.push({
         label: `Align with ${lineLabel(p.side, p.line)}`,
         run: () => {
+          const [a, b] = side === 'a' ? [line, p.line] : [p.line, line];
+          log.info('edit', 'Aligned lines', { left: a + 1, right: b + 1 });
           setPendingAlign(null);
-          props.onAlign(side === 'a' ? line : p.line, side === 'a' ? p.line : line);
+          props.onAlign(a, b);
         },
       });
     } else {
-      items.push({ label: `Align ${lineLabel(side, line)} with…`, run: () => setPendingAlign({ side, line }) });
+      items.push({
+        label: `Align ${lineLabel(side, line)} with…`,
+        run: () => {
+          log.debug('edit', 'Choosing a line to align with', { side: side === 'a' ? 'left' : 'right', line: line + 1 });
+          setPendingAlign({ side, line });
+        },
+      });
     }
     if (pendingAlign) items.push({ label: 'Cancel alignment', run: () => setPendingAlign(null) });
     if (props.anchors.some((x) => x[side] === line)) {
-      items.push({ label: 'Remove this alignment', run: () => props.onUnalign(side, line) });
+      items.push({
+        label: 'Remove this alignment',
+        run: () => {
+          log.info('edit', 'Removed an alignment', { side: side === 'a' ? 'left' : 'right', line: line + 1 });
+          props.onUnalign(side, line);
+        },
+      });
     }
-    if (props.anchors.length > 0) items.push({ label: 'Clear all alignments', run: props.onClearAlignments });
+    if (props.anchors.length > 0) {
+      items.push({
+        label: 'Clear all alignments',
+        run: () => {
+          log.info('edit', 'Cleared all alignments', { count: props.anchors.length });
+          props.onClearAlignments();
+        },
+      });
+    }
     setMenu({ x: e.clientX, y: e.clientY, items });
   };
 

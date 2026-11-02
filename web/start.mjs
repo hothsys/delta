@@ -7,10 +7,15 @@
 // already running on the port, the server opens that copy instead (with the comparison, if
 // two paths were given).
 //
+// What it installs and builds, and any failure with npm's output, goes to start.log in Delta's
+// logs folder (~/Library/Logs/Delta on macOS), beside the server's web.log and the desktop app's
+// desktop.log.
+//
 // Only Node's built-in modules are used here: node_modules may not exist yet.
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -20,9 +25,32 @@ const STAMP = join(ROOT, 'dist/app/.web-build');
 const SERVER = join(ROOT, 'dist/app/server/index.js');
 /** Everything that goes into the build; a change to any of it means building again. */
 const SOURCES = ['src', 'package.json', 'package-lock.json', 'electron.vite.config.ts', 'web/vite.config.ts'];
+/** Delta's logs folder: the same one the server and the desktop app use. */
+const LOGS =
+  process.platform === 'darwin'
+    ? join(homedir(), 'Library', 'Logs', 'Delta')
+    : process.platform === 'win32'
+      ? join(process.env.APPDATA ?? join(homedir(), 'AppData', 'Roaming'), 'Delta', 'logs')
+      : join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'Delta', 'logs');
+const LOG = join(LOGS, 'start.log');
+/** start.log is small: past this it becomes start.log.1 (replacing the previous one). */
+const LOG_MAX_BYTES = 1024 * 1024;
 
-const fail = (message) => {
-  console.error(`\n${message}`);
+/** Adds a line (and any extra output, indented) to start.log. Never fails the start. */
+function note(message, output = '') {
+  try {
+    mkdirSync(dirname(LOG), { recursive: true });
+    if (existsSync(LOG) && statSync(LOG).size > LOG_MAX_BYTES) renameSync(LOG, `${LOG}.1`);
+    const extra = output.trim() ? `${output.trim().split('\n').map((l) => `    ${l}`).join('\n')}\n` : '';
+    appendFileSync(LOG, `${new Date().toISOString()} ${message}\n${extra}`, { mode: 0o600 });
+  } catch {
+    // Logging is a convenience here.
+  }
+}
+
+const fail = (message, output = '') => {
+  note(`FAILED: ${message}`, output);
+  console.error(`\n${message}${existsSync(LOG) ? `\nDetails are in ${LOG}` : ''}`);
   process.exit(1);
 };
 
@@ -31,19 +59,54 @@ if (major < MIN_NODE[0] || (major === MIN_NODE[0] && minor < MIN_NODE[1])) {
   fail(`Delta needs Node.js ${MIN_NODE.join('.')} or newer; this is ${process.version}. Get a current one at https://nodejs.org`);
 }
 
-/** Runs an npm command in the project folder; output is shown only if it fails (unless `show`). */
+/**
+ * Runs an npm command in the project folder; output is shown only if it fails (unless `show`).
+ *
+ * Ctrl+C reaches npm too (the terminal sends it to both). During an install npm doesn't quit at
+ * once: it first undoes what it had started, which waits for downloads in progress. So this
+ * waits for npm rather than exiting and leaving it running behind the prompt, says so, and
+ * stops it outright on a second Ctrl+C.
+ */
 function npm(args, { show = false, env = process.env } = {}) {
-  const r = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', args, {
-    cwd: ROOT,
-    env,
-    stdio: show ? 'inherit' : 'pipe',
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
+  const command = `npm ${args.join(' ')}`;
+  return new Promise((resolve) => {
+    const child = spawn(process.platform === 'win32' ? 'npm.cmd' : 'npm', args, {
+      cwd: ROOT,
+      env,
+      stdio: show ? 'inherit' : ['ignore', 'pipe', 'pipe'],
+      shell: process.platform === 'win32',
+    });
+    let output = '';
+    child.stdout?.on('data', (d) => (output += d));
+    child.stderr?.on('data', (d) => (output += d));
+    let interrupts = 0;
+    const onInterrupt = () => {
+      if (++interrupts === 1) console.error('\nStopping: npm is undoing what it started, which can take a moment. Press Ctrl+C again to stop it now.');
+      else child.kill('SIGKILL');
+    };
+    process.on('SIGINT', onInterrupt);
+    child.on('error', (err) => fail(`"${command}" couldn't start: ${err.message}.`));
+    child.on('close', (code) => {
+      process.off('SIGINT', onInterrupt);
+      if (interrupts) {
+        note(`Stopped with Ctrl+C during "${command}"`);
+        process.exit(130);
+      }
+      if (code !== 0) {
+        if (!show) process.stderr.write(output);
+        fail(`"${command}" failed.`, output);
+      }
+      resolve();
+    });
   });
-  if (r.status !== 0) {
-    if (!show) process.stderr.write(`${r.stdout ?? ''}${r.stderr ?? ''}`);
-    fail(`"npm ${args.join(' ')}" failed${r.error ? `: ${r.error.message}` : ''}.`);
-  }
+}
+
+/** Runs `step` (which returns a promise), noting how long it took. */
+async function timed(what, step) {
+  const t0 = Date.now();
+  note(`${what}…`);
+  await step();
+  note(`${what}: done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 }
 
 const mtime = (path) => {
@@ -86,7 +149,7 @@ if (!stopOnly && (!existsSync(installed) || mtime(join(ROOT, 'package-lock.json'
   // The browser version doesn't need Electron's ~100MB app binary (only the desktop app does),
   // so skip downloading it: a faster first start, and one that works behind proxies the
   // download doesn't support. `npm rebuild electron` fetches it later for the desktop app.
-  npm(['install', '--no-audit', '--no-fund'], { show: true, env: { ...process.env, ELECTRON_SKIP_BINARY_DOWNLOAD: '1' } });
+  await timed('Installing dependencies', () => npm(['install', '--no-audit', '--no-fund'], { show: true, env: { ...process.env, ELECTRON_SKIP_BINARY_DOWNLOAD: '1' } }));
 }
 
 // Build: on first run, and whenever anything that goes into it has changed since.
@@ -94,7 +157,7 @@ const sources = fingerprint();
 const builtFrom = existsSync(STAMP) ? readFileSync(STAMP, 'utf8') : '';
 if (!stopOnly && (!existsSync(SERVER) || !existsSync(join(ROOT, 'dist/app/renderer/index.html')) || builtFrom !== sources)) {
   console.log('Building Delta…');
-  npm(['run', 'build:web']);
+  await timed('Building', () => npm(['run', 'build:web']));
   writeFileSync(STAMP, sources);
 }
 

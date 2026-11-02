@@ -1633,6 +1633,11 @@ body {
   color: var(--muted);
 }
 
+.menu-check {
+  display: inline-block;
+  width: 1.2em;
+}
+
 .menubar-panel button:hover:not(:disabled) .menu-shortcut,
 .menubar-panel button.active:not(:disabled) .menu-shortcut {
   color: inherit;

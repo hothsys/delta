@@ -1,17 +1,21 @@
 import { lstat, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import type { LineEnding, ReadResult, SaveRequest, SaveResult, TextEncoding } from '../shared/api';
+import { log } from './log';
 
 /** A NUL byte in the first this-many bytes (outside UTF-16) marks a file as binary. */
 export const BINARY_SNIFF_BYTES = 8000;
 
 export async function readTextFile(path: string): Promise<ReadResult> {
+  const t0 = performance.now();
   try {
     const [buf, info] = await Promise.all([readFile(path), stat(path)]);
     const decoded = decode(buf);
     if (!decoded) {
+      log.info('files', 'Not a text file', { path, bytes: info.size });
       return { ok: false, path, reason: 'binary', message: binaryMessage(path) };
     }
+    log.debug('files', 'Read', { path, bytes: info.size, encoding: decoded.encoding, ms: Math.round(performance.now() - t0) });
     return {
       ok: true,
       file: {
@@ -25,18 +29,28 @@ export async function readTextFile(path: string): Promise<ReadResult> {
       },
     };
   } catch (err) {
+    log.warn('files', 'Could not read', { path, error: errorMessage(err) });
     return { ok: false, path, reason: 'error', message: errorMessage(err) };
   }
 }
 
 export async function writeTextFile(req: SaveRequest): Promise<SaveResult> {
+  const t0 = performance.now();
   try {
     // Latin-1 cannot represent characters typed beyond U+00FF; fall back to UTF-8 rather than lose them.
     const encoding: TextEncoding = req.encoding === 'latin1' && /[^\u0000-\u00ff]/.test(req.text) ? 'utf8' : req.encoding;
     await writeFileAtomic(req.path, encode(req.text, encoding));
     const info = await stat(req.path);
+    log.info('files', 'Saved', {
+      path: req.path,
+      bytes: info.size,
+      encoding,
+      converted: encoding !== req.encoding ? `${req.encoding} to ${encoding}` : undefined,
+      ms: Math.round(performance.now() - t0),
+    });
     return { ok: true, path: req.path, name: basename(req.path), mtimeMs: info.mtimeMs, size: info.size, encoding };
   } catch (err) {
+    log.error('files', 'Could not save', { path: req.path, error: errorMessage(err) });
     return { ok: false, message: errorMessage(err) };
   }
 }

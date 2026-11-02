@@ -34,6 +34,11 @@ const api: DeltaApi = {
   listDirectory: (path, showHidden) => ipcRenderer.invoke('browse:list', path, showHidden),
   locations: () => ipcRenderer.invoke('browse:locations'),
   joinPath: (root, relPath) => (relPath ? root.replace(/[\\/]+$/, '') + sep + relPath.split('/').join(sep) : root),
+  log: (entry) => ipcRenderer.send('log:write', entry),
+  logInfo: () => ipcRenderer.invoke('log:info'),
+  setDebugLogging: (on) => ipcRenderer.invoke('log:set-debug', on),
+  openLogsFolder: () => ipcRenderer.invoke('log:open-folder'),
+  diagnostics: () => ipcRenderer.invoke('log:diagnostics'),
 };
 
 contextBridge.exposeInMainWorld('delta', api);

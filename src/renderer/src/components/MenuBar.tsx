@@ -8,6 +8,7 @@ interface Item {
   command: Command;
   label: string;
   shortcut?: string;
+  checkbox?: boolean;
 }
 
 /**
@@ -21,25 +22,28 @@ const SECTIONS = MENU.map((section) => {
       if (rows.length && rows[rows.length - 1] !== 'separator') rows.push('separator');
     } else if ('command' in e) {
       const acc = acceleratorFor(e, isMac);
-      rows.push({ command: e.command, label: e.label, shortcut: acc && formatAccelerator(acc, isMac) });
+      rows.push({ command: e.command, label: e.label, shortcut: acc && formatAccelerator(acc, isMac), checkbox: e.checkbox });
     }
   }
   while (rows[rows.length - 1] === 'separator') rows.pop();
-  return { label: section.label, rows };
+  // A menu with check marks leaves room for them on every row, so the labels line up.
+  return { label: section.label, rows, checks: rows.some((r) => r !== 'separator' && r.checkbox) };
 });
 
 interface MenuBarProps {
   enabled: (command: Command) => boolean;
+  /** Whether a checkbox item is on. */
+  checked: (command: Command) => boolean;
   onCommand: (command: Command) => void;
 }
 
 /**
- * File, Edit and View menus for the browser version (the desktop app has a native menu).
+ * File, Edit, View and Help menus for the browser version (the desktop app has a native menu).
  * Pressing never takes focus from the editor, so commands act on what was being edited.
  * While a menu is open: arrow keys move, Enter chooses, Esc or a press elsewhere closes, and
  * hovering another menu's title switches to it.
  */
-export function MenuBar({ enabled, onCommand }: MenuBarProps) {
+export function MenuBar({ enabled, checked, onCommand }: MenuBarProps) {
   const [open, setOpen] = useState<number | null>(null);
   /** Highlighted row in the open menu (keyboard), or -1. */
   const [active, setActive] = useState(-1);
@@ -128,13 +132,17 @@ export function MenuBar({ enabled, onCommand }: MenuBarProps) {
               <button
                 key={row.command}
                 type="button"
-                role="menuitem"
+                role={row.checkbox ? 'menuitemcheckbox' : 'menuitem'}
+                aria-checked={row.checkbox ? checked(row.command) : undefined}
                 className={i === active ? 'active' : ''}
                 disabled={!enabled(row.command)}
                 onClick={() => choose(row)}
                 onMouseEnter={() => setActive(i)}
               >
-                <span>{row.label}</span>
+                <span>
+                  {SECTIONS[open].checks && <span className="menu-check">{row.checkbox && checked(row.command) ? '✓' : ''}</span>}
+                  {row.label}
+                </span>
                 {row.shortcut && <span className="menu-shortcut">{row.shortcut}</span>}
               </button>
             ),

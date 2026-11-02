@@ -13,6 +13,7 @@ import {
   type FolderProgress,
 } from '../shared/api';
 import { BINARY_SNIFF_BYTES, errorMessage, looksBinary } from './files';
+import { log } from './log';
 
 /** Never interesting in a comparison and often huge or noisy. */
 const IGNORED_NAMES = new Set(['.git', '.DS_Store']);
@@ -66,20 +67,44 @@ export async function compareFolders(
       options.onProgress({ ...progress, elapsedMs: now - t0 });
     },
   };
+  log.info('folders', 'Comparing folders', { left: leftRoot, right: rightRoot, mode });
+  const totals = () => ({ entries: progress.entries, files: progress.filesCompared, bytesRead: progress.bytesRead, ms: Math.round(performance.now() - t0) });
   try {
     // The roots themselves may be links to folders (entries inside are never followed).
     const [l, r] = await Promise.all([rootInfo(leftRoot), rootInfo(rightRoot)]);
-    if (l?.kind !== 'dir') return { ok: false, message: `${leftRoot} is not a folder.` };
-    if (r?.kind !== 'dir') return { ok: false, message: `${rightRoot} is not a folder.` };
+    const notFolder = (path: string): FolderCompareResult => {
+      log.warn('folders', 'Not a folder', { path });
+      return { ok: false, message: `${path} is not a folder.` };
+    };
+    if (l?.kind !== 'dir') return notFolder(leftRoot);
+    if (r?.kind !== 'dir') return notFolder(rightRoot);
     const root = await compareDir(ctx, '', '', leftRoot, rightRoot, l, r);
     const elapsedMs = performance.now() - t0;
     // Always finish with the final totals, however recently the last throttled report went out.
     options.onProgress?.({ ...progress, current: '', elapsedMs });
+    const unreadable = unreadableEntries(root);
+    log.info('folders', 'Folder comparison finished', { status: root.status, ...totals(), unreadable: unreadable.length || undefined });
+    for (const node of unreadable.slice(0, MAX_LOGGED_ERRORS)) log.warn('folders', "Couldn't read", { relPath: node.relPath || '.', error: node.error });
+    if (unreadable.length > MAX_LOGGED_ERRORS) log.warn('folders', `…and ${unreadable.length - MAX_LOGGED_ERRORS} more that couldn't be read`);
     return { ok: true, root, leftRoot, rightRoot, elapsedMs };
   } catch (err) {
-    if (err instanceof Cancelled) return { ok: false, cancelled: true, message: 'The comparison was cancelled.' };
+    if (err instanceof Cancelled) {
+      log.info('folders', 'Folder comparison cancelled', totals());
+      return { ok: false, cancelled: true, message: 'The comparison was cancelled.' };
+    }
+    log.error('folders', 'Folder comparison failed', totals(), err);
     return { ok: false, message: errorMessage(err) };
   }
+}
+
+/** Unreadable entries logged one by one after a scan; past this, only how many more. */
+const MAX_LOGGED_ERRORS = 50;
+
+/** Entries that couldn't be read, anywhere in the tree. */
+function unreadableEntries(node: FolderNode, found: FolderNode[] = []): FolderNode[] {
+  if (node.error) found.push(node);
+  for (const c of node.children ?? []) unreadableEntries(c, found);
+  return found;
 }
 
 function checkCancelled(ctx: Context): void {
@@ -367,8 +392,10 @@ export async function copyEntry(req: CopyRequest): Promise<CopyResult> {
     if (d && (d.kind !== s.kind || d.link !== undefined)) await rm(dst, { recursive: true, force: true });
     await mkdir(dirname(dst), { recursive: true });
     await cp(src, dst, { recursive: true, force: true, preserveTimestamps: true, verbatimSymlinks: true });
+    log.info('folders', 'Copied', { from: src, to: dst, kind: s.kind, replaced: !!d });
     return { ok: true };
   } catch (err) {
+    log.error('folders', 'Could not copy', { relPath: req.relPath, from: req.from, leftRoot: req.leftRoot, rightRoot: req.rightRoot, error: errorMessage(err) });
     return { ok: false, message: errorMessage(err) };
   }
 }

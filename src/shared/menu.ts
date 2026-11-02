@@ -13,6 +13,8 @@ export type MenuEntry =
       accelerator?: string;
       /** Where macOS uses a different accelerator (Redo: Cmd+Shift+Z there, Ctrl+Y elsewhere). */
       macAccelerator?: string;
+      /** Shown with a check mark when on (the host says which are). */
+      checkbox?: true;
     }
   /** Provided by the desktop host only (the browser has its own clipboard, zoom and window keys). */
   | { role: 'cut' | 'copy' | 'paste' | 'close' | 'zoom' | 'fullscreen' | 'devtools' }
@@ -64,6 +66,14 @@ export const MENU: MenuSection[] = [
       'separator',
       { role: 'fullscreen' },
       { role: 'devtools' },
+    ],
+  },
+  {
+    label: 'Help',
+    items: [
+      { command: 'toggle-debug-logging', label: 'Debug Logging', checkbox: true },
+      { command: 'open-logs-folder', label: 'Open Logs Folder' },
+      { command: 'copy-diagnostics', label: 'Copy Diagnostic Info' },
     ],
   },
 ];

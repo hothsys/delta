@@ -9,6 +9,7 @@ import type {
   FolderNode,
   FolderProgress,
   LoadedFile,
+  LogInfo,
   ReadResult,
   RecentComparison,
   RecentList,
@@ -21,6 +22,7 @@ import { MenuBar } from './components/MenuBar';
 import { Notice, type NoticeState } from './components/Notice';
 import { StartScreen } from './components/StartScreen';
 import { Toolbar, type Theme } from './components/Toolbar';
+import { log, setLogLevel } from './log';
 import type { Side } from './model/rowModel';
 import { api } from './platform';
 import { newSourceId, useComparison, type Source } from './useComparison';
@@ -64,6 +66,7 @@ export function App() {
   /** The comparison left open when going Home, so the start screen can offer to resume it. */
   const [resumeMode, setResumeMode] = useState<'files' | 'folders' | null>(null);
   const [recents, setRecents] = useState<RecentList>({ items: [], homeDir: '' });
+  const [logInfo, setLogInfo] = useState<LogInfo | null>(null);
 
   // Folder comparison. File comparisons opened from it can return to it.
   const [roots, setRoots] = useState<{ left: string; right: string } | null>(null);
@@ -96,6 +99,7 @@ export function App() {
    */
   const changeTheme = (next: Theme) => {
     if (next === (pendingTheme.current ?? theme)) return;
+    log.info('view', 'Theme changed', { theme: next });
     if (!('startViewTransition' in document) || matchMedia('(prefers-reduced-motion: reduce)').matches) return setTheme(next);
     // The transition applies the change a moment later; until then a second toggle must start
     // from this theme, not the one still on screen.
@@ -132,11 +136,13 @@ export function App() {
   const confirmDiscard = async (sides: Side[]) => {
     const dirty = sides.filter(edited);
     if (dirty.length === 0) return true;
-    return api.confirm({
+    const ok = await api.confirm({
       message: `Discard your changes to ${dirty.map((s) => sources[s].label).join(' and ')}?`,
       detail: 'Your edits have not been saved.',
       confirmLabel: 'Discard Changes',
     });
+    log.info('edit', ok ? 'Discarded unsaved changes' : 'Kept unsaved changes', { sides: dirty.map(sideName).join(',') });
+    return ok;
   };
 
   /**
@@ -185,6 +191,11 @@ export function App() {
       // Files opened from inside a folder comparison are not listed separately.
       if (a.file && b.file) remember('files', a.file.path, b.file.path);
     }
+    log.info('files', 'Comparing files', {
+      left: a.file?.path ?? a.missingPath,
+      right: b.file?.path ?? b.missingPath,
+      fromFolders: fromFolders || undefined,
+    });
     setResumeMode(null);
     setNotice(null);
     setSources({ a, b });
@@ -195,10 +206,10 @@ export function App() {
   const compareFiles = async (preset?: LoadedFile) => {
     const leftResult = preset ? null : await api.openFileDialog('Choose the left file');
     const left = preset ?? (leftResult && fileOrNotice(leftResult));
-    if (!left) return;
+    if (!left) return log.debug('files', 'No left file chosen');
     const rightResult = await api.openFileDialog('Choose the right file');
     const right = rightResult && fileOrNotice(rightResult);
-    if (!right) return;
+    if (!right) return log.debug('files', 'No right file chosen');
     await showFiles(fromFile(left), fromFile(right));
   };
 
@@ -210,7 +221,7 @@ export function App() {
     let path = source.file?.path ?? source.missingPath;
     if (as || !path) {
       path = (await api.saveFileDialog(path ?? source.label)) ?? undefined;
-      if (!path) return;
+      if (!path) return log.debug('files', 'Save cancelled', { side: sideName(side) });
     }
     // A file being created (missing from one folder) follows its counterpart's conventions.
     const other = side === 'a' ? 'b' : 'a';
@@ -226,9 +237,16 @@ export function App() {
         detail: 'It was read as Latin-1, which can\'t store some of the characters it now contains. Saving converts the whole file to UTF-8.',
         confirmLabel: 'Save as UTF-8',
       });
+      log.info('files', ok ? 'Saving as UTF-8 (was Latin-1)' : 'Save cancelled: kept Latin-1', { side: sideName(side) });
       if (!ok) return;
     }
     const result = await api.saveFile({ path, text, encoding });
+    log.info('files', result.ok ? `Saved the ${sideName(side)} side` : `Could not save the ${sideName(side)} side`, {
+      path,
+      as: as || undefined,
+      lines: doc.lines.length,
+      error: result.ok ? undefined : result.message,
+    });
     if (!result.ok) {
       setNotice({ kind: 'error', text: `Could not save ${source.label}: ${result.message}` });
       return;
@@ -253,6 +271,7 @@ export function App() {
     if (targets.length === 0 || !(await confirmDiscard(targets))) return;
     const results = await Promise.all(targets.map((s) => api.readFile(sources[s].file!.path)));
     const errors = results.flatMap((r) => (r.ok ? [] : [r.message]));
+    log.info('files', 'Reloaded from disk', { sides: targets.map(sideName).join(','), failed: errors.length || undefined });
     setNotice(errors.length ? { kind: 'error', text: errors.join(' ') } : null);
     restoreScroll.current = view.current?.scrollTop() ?? 0;
     setSources((s) => {
@@ -278,6 +297,7 @@ export function App() {
     if (sides.length === 0) return;
     const names = sides.map((s) => sources[s].label).join(' and ');
     const unsavedNote = sides.some(edited) ? ' Reloading will discard your unsaved edits.' : '';
+    log.info('files', 'Changed on disk; offered to reload', { path, unsaved: sides.some(edited) || undefined });
     setNotice({
       kind: 'info',
       text: `${names} changed on disk.${unsavedNote}`,
@@ -307,6 +327,7 @@ export function App() {
       result = await api.compareFolders(r.left, r.right, mode);
     } catch (err) {
       // The request itself failed (the server stopped, say): never leave "Comparing…" up.
+      log.error('folders', 'The folder comparison request failed', {}, err);
       if (id === scanId.current) {
         setFolderBusy(false);
         setFolderRefreshing(false);
@@ -326,6 +347,7 @@ export function App() {
   };
 
   const changeFolderMode = (mode: FolderCompareMode) => {
+    log.info('folders', 'Compare by changed', { mode });
     setFolderMode(mode);
     localStorage.setItem(FOLDER_MODE_KEY, mode);
     void rescan(roots, mode);
@@ -340,6 +362,7 @@ export function App() {
       setPicked(null);
       remember('folders', r.left, r.right);
     }
+    log.info('folders', fresh ? 'Opened a folder comparison' : 'Reopened the folder comparison', { left: r.left, right: r.right, mode: folderMode });
     setResumeMode(null);
     setRoots(r);
     setMode('folders');
@@ -350,15 +373,16 @@ export function App() {
   /** Asks for a left and then a right folder. */
   const compareFolders = async () => {
     const left = await api.openFolderDialog('Choose the left folder');
-    if (!left) return;
+    if (!left) return log.debug('folders', 'No left folder chosen');
     const right = await api.openFolderDialog('Choose the right folder');
-    if (!right) return;
+    if (!right) return log.debug('folders', 'No right folder chosen');
     showFolders({ left, right });
   };
 
   const browseFolder = async (side: TreeSide) => {
     if (!roots) return;
     const picked = await api.openFolderDialog(`Choose the ${side} folder`);
+    log.info('folders', picked ? `Chose another ${side} folder` : `No ${side} folder chosen`, { path: picked ?? undefined });
     if (picked) showFolders({ ...roots, [side]: picked });
   };
 
@@ -366,6 +390,7 @@ export function App() {
   const openFromFolders = async (node: FolderNode) => {
     if (!roots) return;
     if (node.left?.binary || node.right?.binary) {
+      log.info('folders', 'Refused to compare a binary file', { relPath: node.relPath });
       setNotice({ kind: 'error', text: `${node.name} is a binary file. Delta compares text files only.` });
       return;
     }
@@ -395,6 +420,7 @@ export function App() {
             : undefined,
         confirmLabel: 'Replace',
       });
+      log.info('folders', ok ? 'Replace confirmed' : 'Replace cancelled', { relPath: node.relPath, from });
       if (!ok) return;
     }
     const r = await api.copyEntry({ leftRoot: roots.left, rightRoot: roots.right, relPath: node.relPath, from });
@@ -467,6 +493,7 @@ export function App() {
           : {
               label: `Select “${node.name}” for comparison`,
               run: () => {
+                log.info('folders', 'Selected a file for comparison', { path });
                 setPicked({ side, relPath: node.relPath, path, name: node.name });
                 setNotice({
                   kind: 'info',
@@ -483,6 +510,7 @@ export function App() {
   /** Returns to the folder comparison as it was, rescanning in the background only if a file was saved. */
   const backToFolders = async () => {
     if (!roots || !(await leaveFiles())) return;
+    log.info('folders', 'Back to the folder comparison', { rescan: folderStale.current || undefined });
     if (!folderResult?.ok) return showFolders(roots, false);
     setResumeMode(null);
     setMode('folders');
@@ -493,6 +521,7 @@ export function App() {
   // ---- Home and recent comparisons -------------------------------------------------------
 
   const goHome = () => {
+    log.info('app', 'Home', { from: mode });
     setResumeMode(mode === 'start' ? resumeMode : mode);
     setNotice(null);
     setMode('start');
@@ -500,6 +529,7 @@ export function App() {
 
   /** Back to a folder comparison left open from Home; refreshes it if a file was saved since. */
   const resumeFolders = () => {
+    log.info('app', 'Resumed the folder comparison');
     setResumeMode(null);
     setMode('folders');
     if (folderStale.current) void rescan(roots, folderMode, true);
@@ -507,6 +537,7 @@ export function App() {
 
   /** Back to a file comparison left open from Home; says so if a file changed on disk meanwhile. */
   const resumeFiles = async () => {
+    log.info('app', 'Resumed the file comparison');
     setResumeMode(null);
     setMode('files');
     for (const side of ['a', 'b'] as const) {
@@ -534,11 +565,13 @@ export function App() {
   }, [mode]);
 
   const openRecent = async (item: RecentComparison) => {
+    log.info('app', 'Opened a recent comparison', { kind: item.kind });
     if (item.kind === 'folders') showFolders({ left: item.left.path, right: item.right.path });
     else await openPaths([item.left.path, item.right.path]);
   };
 
   const forgetRecent = async (item: RecentComparison) => {
+    log.info('app', 'Removed a recent comparison', { kind: item.kind, left: item.left.path, right: item.right.path });
     await api.forgetComparison(item.kind, item.left.path, item.right.path);
     await loadRecents();
   };
@@ -562,6 +595,7 @@ export function App() {
       return;
     }
     const missing = paths.slice(0, 2).filter((_, i) => kinds[i] === null);
+    log.warn('app', 'Nothing to compare at the paths given', { paths: paths.join(' | '), missing: missing.length });
     setNotice({
       kind: 'error',
       text: missing.length ? `${missing.join(' and ')} ${missing.length > 1 ? "weren't" : "wasn't"} found.` : 'Choose two files or two folders to compare.',
@@ -574,7 +608,8 @@ export function App() {
   const onCommand = useRef<(c: Command) => void>(() => {});
   onCommand.current = (command: Command) => {
     // The native menu doesn't grey items out, so commands that don't apply here do nothing.
-    if (!commandEnabled(command)) return;
+    if (!commandEnabled(command)) return log.debug('menu', 'Command not available here', { command, mode });
+    log.debug('menu', 'Command', { command });
     switch (command) {
       case 'compare-files':
         return void compareFiles();
@@ -602,19 +637,77 @@ export function App() {
         return view.current?.goToDifference(-1);
       case 'toggle-theme':
         return toggleTheme();
+      case 'toggle-debug-logging':
+        return void toggleDebugLogging();
+      case 'open-logs-folder':
+        return void api.openLogsFolder().catch((err: unknown) => {
+          log.warn('app', 'Could not open the logs folder', {}, err);
+          setNotice({ kind: 'error', text: `Could not open the logs folder: ${err instanceof Error ? err.message : String(err)}` });
+        });
+      case 'copy-diagnostics':
+        return void copyDiagnostics();
     }
   };
   useEffect(() => api.onCommand((c) => onCommand.current(c)), []);
+
+  // ---- Logging ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    log.info('app', 'Interface opened', { host: api.capabilities.nativeMenu ? 'desktop' : 'browser', window: `${innerWidth}x${innerHeight}` });
+    void api.logInfo().then((info) => {
+      setLogLevel(info.level);
+      setLogInfo(info);
+    });
+  }, []);
+
+  /** Help > Debug Logging. */
+  const toggleDebugLogging = async () => {
+    const info = await api.setDebugLogging(logInfo?.level !== 'debug');
+    setLogLevel(info.level);
+    setLogInfo(info);
+    setNotice({
+      kind: 'info',
+      text: info.level === 'debug' ? `Debug logging is on, until you turn it off. The log is ${info.file ?? 'unavailable'}.` : 'Debug logging is off.',
+    });
+  };
+
+  /** Help > Copy Diagnostic Info: versions, settings and the latest log entries, for a bug report. */
+  const copyDiagnostics = async () => {
+    const text = api.diagnostics().then((t) => {
+      // After the host's summary, before its log entries.
+      const [summary, ...rest] = t.split('\n\n');
+      return [`${summary}\nInterface: ${navigator.userAgent}`, ...rest].join('\n\n');
+    });
+    try {
+      // Safari only allows copying during the click, so the text is handed over as a promise.
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ 'text/plain': text.then((t) => new Blob([t], { type: 'text/plain' })) })]);
+      } else await navigator.clipboard.writeText(await text);
+      log.info('app', 'Copied diagnostic info');
+      setNotice({ kind: 'info', text: 'Diagnostic info copied. Paste it into your bug report.' });
+    } catch (err) {
+      log.warn('app', 'Could not copy diagnostic info', {}, err);
+      setNotice({ kind: 'error', text: `Could not copy diagnostic info: ${err instanceof Error ? err.message : String(err)}` });
+    }
+  };
+
 
   // Anything that fails without its own handling (a request to a server that stopped, say)
   // still tells the user, instead of silently doing nothing.
   useEffect(() => {
     const onRejection = (e: PromiseRejectionEvent) => {
+      log.error('app', 'Unhandled rejection', {}, e.reason);
       const reason = e.reason instanceof Error ? e.reason.message : String(e.reason);
       setNotice({ kind: 'error', text: `Something went wrong: ${reason}` });
     };
+    // Errors nothing else caught are logged with their stacks.
+    const onError = (e: ErrorEvent) => log.error('app', 'Uncaught error', {}, e.error ?? e.message);
     window.addEventListener('unhandledrejection', onRejection);
-    return () => window.removeEventListener('unhandledrejection', onRejection);
+    window.addEventListener('error', onError);
+    return () => {
+      window.removeEventListener('unhandledrejection', onRejection);
+      window.removeEventListener('error', onError);
+    };
   }, []);
 
   /** Whether a command applies to what's on screen (for the in-page menu and shortcuts). */
@@ -623,6 +716,9 @@ export function App() {
       case 'compare-files':
       case 'compare-folders':
       case 'toggle-theme':
+      case 'toggle-debug-logging':
+      case 'open-logs-folder':
+      case 'copy-diagnostics':
         return true;
       case 'refresh':
         return mode === 'folders' ? !!roots && !folderBusy && !folderRefreshing : mode === 'files' && !!(sources.a.file || sources.b.file);
@@ -663,6 +759,7 @@ export function App() {
     if (launched.current) return; // effects run twice in development
     launched.current = true;
     void api.launchRequest().then((req) => {
+      if (req.kind !== 'none') log.info('app', 'Opening what Delta was launched with', { kind: req.kind });
       if (req.kind === 'folders') showFolders({ left: req.left, right: req.right });
       if (req.kind === 'files') void openPaths([req.left, req.right].filter((p): p is string => !!p));
     });
@@ -671,7 +768,7 @@ export function App() {
   // ---- Rendering -------------------------------------------------------------------------
 
   const noticeBar = notice && <Notice notice={notice} onDismiss={() => setNotice(null)} />;
-  const menuBar = !api.capabilities.nativeMenu && <MenuBar enabled={commandEnabled} onCommand={(c) => onCommand.current(c)} />;
+  const menuBar = !api.capabilities.nativeMenu && <MenuBar enabled={commandEnabled} checked={(c) => c === 'toggle-debug-logging' && logInfo?.level === 'debug'} onCommand={(c) => onCommand.current(c)} />;
   if (mode === 'folders' && roots) {
     return (
       <div className="app">
@@ -685,15 +782,24 @@ export function App() {
           expanded={expanded}
           onExpandedChange={setExpanded}
           hideSame={hideSame}
-          onHideSameChange={setHideSame}
+          onHideSameChange={(hide) => {
+            log.info('folders', hide ? 'Hiding identical entries' : 'Showing identical entries');
+            setHideSame(hide);
+          }}
           selected={selected}
           onSelect={setSelected}
           onBrowse={(side) => void browseFolder(side)}
-          onRescan={() => void rescan()}
+          onRescan={() => {
+            log.info('folders', 'Rescan');
+            void rescan();
+          }}
           compareMode={folderMode}
           onCompareModeChange={changeFolderMode}
           progress={folderProgress}
-          onCancel={() => void api.cancelFolderCompare()}
+          onCancel={() => {
+            log.info('folders', 'Cancel pressed');
+            void api.cancelFolderCompare();
+          }}
           onOpen={(node) => void openFromFolders(node)}
           onCopy={(node, from) => void copyInFolders(node, from)}
           onEntryContextMenu={onEntryContextMenu}
@@ -741,16 +847,25 @@ export function App() {
         onHome={goHome}
         onBackToFolders={roots ? backToFolders : undefined}
         whitespace={whitespace}
-        onWhitespaceChange={setWhitespace}
+        onWhitespaceChange={(w) => {
+          log.info('view', 'Whitespace option changed', { whitespace: w });
+          setWhitespace(w);
+        }}
         ignoreCase={ignoreCase}
-        onIgnoreCaseChange={setIgnoreCase}
+        onIgnoreCaseChange={(on) => {
+          log.info('view', 'Ignore case changed', { ignoreCase: on });
+          setIgnoreCase(on);
+        }}
         theme={theme}
         onThemeChange={changeTheme}
         stats={cmp.stats}
         busy={cmp.busy}
         elapsedMs={cmp.elapsedMs}
         canRefresh={watched.length > 0}
-        onRefresh={() => void reload()}
+        onRefresh={() => {
+          log.info('files', 'Refresh pressed');
+          void reload();
+        }}
       />
       {noticeBar}
       {cmp.error && <div className="error">Comparison failed: {cmp.error}</div>}
