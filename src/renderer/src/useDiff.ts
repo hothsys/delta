@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Anchor, LineDiffOptions, LineDiffResult } from '../../engine';
 import type { DiffRequest, DiffResponse } from './diff.worker';
+import { log } from './log';
 import type { RowModel } from './model/rowModel';
 
 export interface DiffInput {
@@ -23,6 +24,9 @@ export interface DiffState {
   error: string | null;
 }
 
+/** A diff taking this long is logged even when debug logging is off. */
+const SLOW_DIFF_MS = 1000;
+
 /** Diffs two texts in a Web Worker. Only the latest request's answer is kept. */
 export function useDiff(input: DiffInput, options: Omit<LineDiffOptions, 'anchors'>): DiffState {
   const workerRef = useRef<Worker | null>(null);
@@ -42,8 +46,13 @@ export function useDiff(input: DiffInput, options: Omit<LineDiffOptions, 'anchor
       const msg = e.data;
       if (msg.id !== latest.current.id) return;
       if (msg.ok) {
+        // Every diff in the debug log; one slow enough to notice in the normal log too.
+        const fields = { ms: Math.round(msg.elapsedMs), rows: msg.rows.count, blocks: msg.result.blocks.length };
+        if (msg.elapsedMs >= SLOW_DIFF_MS) log.info('diff', 'Slow comparison', fields);
+        else log.debug('diff', 'Compared', fields);
         setState({ result: msg.result, rows: msg.rows, tag: latest.current.tag, busy: false, elapsedMs: msg.elapsedMs, error: null });
       } else {
+        log.error('diff', 'The comparison failed', { error: msg.error });
         setState((s) => ({ ...s, busy: false, error: msg.error }));
       }
     };

@@ -23,4 +23,8 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-node "$(dirname "$0")/web/start.mjs" "$@" || { [[ -t 0 ]] && read -r -p "Press Return to close."; exit 1; }
+node "$(dirname "$0")/web/start.mjs" "$@"
+code=$?
+# Keep a double-clicked window open to show what went wrong, but not after Ctrl+C (exit code 130).
+if [[ $code -ne 0 && $code -ne 130 && -t 0 ]]; then read -r -p "Press Return to close."; fi
+exit $code

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, type WebContents } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell, type WebContents } from 'electron';
 import { stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -6,10 +6,19 @@ import type { ComparisonKind, ConfirmOptions, CopyRequest, FolderCompareMode, Sa
 import { readTextFile, writeTextFile } from '../node/files';
 import { compareFolders, copyEntry } from '../node/folders';
 import { listDirectory, locations } from '../node/browse';
-import { buildMenu } from './menu';
+import { installMenu } from './menu';
 import { RecentStore } from '../node/recents';
 import { launchRequest } from '../node/launch';
+import { log, logLevel, takeLogLevel, writeFromInterface } from '../node/log';
+import { diagnostics, logInfo, logsFolder, setDebugLogging, startLogging } from '../node/logging';
 import { noteOwnWrite, setWatched, type ChangeSubscriber } from '../node/watch';
+
+// In development Electron is started as `electron <app dir> …args`, so skip one more.
+const args = takeLogLevel(process.argv.slice(app.isPackaged ? 1 : 2));
+
+// Logged without changing what happens next (Electron's own error dialog, for one).
+process.on('uncaughtExceptionMonitor', (err, origin) => log.error('app', `Uncaught ${origin === 'unhandledRejection' ? 'rejection' : 'exception'}`, err));
+process.on('unhandledRejection', (reason) => log.error('app', 'Unhandled rejection', reason instanceof Error ? reason : { reason: String(reason) }));
 
 /** Windows with edits that have not been saved, so closing them asks first. */
 const unsaved = new Set<number>();
@@ -32,7 +41,11 @@ function createWindow(): void {
     },
   });
 
+  log.info('app', 'Window opened', { id: win.webContents.id });
   win.once('ready-to-show', () => win.show());
+  win.webContents.on('render-process-gone', (_e, d) => log.error('app', 'The window\'s page stopped', { reason: d.reason, exitCode: d.exitCode }));
+  win.on('unresponsive', () => log.warn('app', 'The window stopped responding'));
+  win.on('responsive', () => log.info('app', 'The window is responding again'));
   // The window only ever shows Delta. Never navigate it elsewhere (a link, or a file dropped
   // past the page's guard), which would replace the app and lose unsaved edits.
   win.webContents.on('will-navigate', (e) => e.preventDefault());
@@ -51,9 +64,13 @@ function createWindow(): void {
       message: 'You have unsaved changes.',
       detail: 'Close the window and discard them?',
     });
+    log.info('app', choice === 0 ? 'Closing the window, discarding unsaved changes' : 'Kept the window open (unsaved changes)');
     if (choice !== 0) e.preventDefault();
   });
-  win.on('closed', () => unsaved.delete(id));
+  win.on('closed', () => {
+    unsaved.delete(id);
+    log.info('app', 'Window closed', { id });
+  });
 
   // electron-vite sets this while running `npm run dev` so the renderer is served with hot reload.
   const devUrl = process.env.ELECTRON_RENDERER_URL;
@@ -76,30 +93,48 @@ function subscriberFor(wc: WebContents): ChangeSubscriber {
   return s;
 }
 
-function registerIpc(): void {
-  const recents = new RecentStore(join(app.getPath('userData'), 'recent-comparisons.json'));
-  ipcMain.handle('recents:list', async () => ({ items: await recents.list(), homeDir: homedir() }));
-  ipcMain.handle('recents:remember', (_e, kind: ComparisonKind, left: string, right: string) => recents.remember(kind, left, right));
-  ipcMain.handle('recents:forget', (_e, kind: ComparisonKind, left: string, right: string) => recents.forget(kind, left, right));
+/**
+ * `ipcMain.handle`, timing each call in the debug log and logging failures (which the
+ * renderer sees as a rejected promise).
+ */
+function handle<A extends unknown[]>(channel: string, fn: (e: Electron.IpcMainInvokeEvent, ...args: A) => unknown): void {
+  ipcMain.handle(channel, async (e, ...a: unknown[]) => {
+    const t0 = performance.now();
+    try {
+      const result = await fn(e, ...(a as A));
+      if (!channel.startsWith('log:')) log.debug('ipc', channel, { ms: Math.round(performance.now() - t0) });
+      return result;
+    } catch (err) {
+      log.error('ipc', `${channel} failed`, err as Error);
+      throw err;
+    }
+  });
+}
+
+function registerIpc(dataDir: string): void {
+  const recents = new RecentStore(join(dataDir, 'recent-comparisons.json'));
+  handle('recents:list', async () => ({ items: await recents.list(), homeDir: homedir() }));
+  handle('recents:remember', (_e, kind: ComparisonKind, left: string, right: string) => recents.remember(kind, left, right));
+  handle('recents:forget', (_e, kind: ComparisonKind, left: string, right: string) => recents.forget(kind, left, right));
 
   const windowOf = (e: Electron.IpcMainInvokeEvent) => BrowserWindow.fromWebContents(e.sender)!;
 
-  ipcMain.handle('file:open-dialog', async (e, title: string) => {
+  handle('file:open-dialog', async (e, title: string) => {
     const r = await dialog.showOpenDialog(windowOf(e), { title, properties: ['openFile'] });
     return r.canceled || r.filePaths.length === 0 ? null : readTextFile(r.filePaths[0]);
   });
-  ipcMain.handle('file:read', (_e, path: string) => readTextFile(path));
-  ipcMain.handle('file:save-dialog', async (e, defaultName: string) => {
+  handle('file:read', (_e, path: string) => readTextFile(path));
+  handle('file:save-dialog', async (e, defaultName: string) => {
     const r = await dialog.showSaveDialog(windowOf(e), { defaultPath: defaultName });
     return r.canceled || !r.filePath ? null : r.filePath;
   });
-  ipcMain.handle('file:save', async (_e, req: SaveRequest) => {
+  handle('file:save', async (_e, req: SaveRequest) => {
     const result = await writeTextFile(req);
     if (result.ok) noteOwnWrite(result.path, result.mtimeMs);
     return result;
   });
-  ipcMain.handle('file:watch', (e, paths: string[]) => setWatched(subscriberFor(e.sender), paths));
-  ipcMain.handle('dialog:confirm', async (e, o: ConfirmOptions) => {
+  handle('file:watch', (e, paths: string[]) => setWatched(subscriberFor(e.sender), paths));
+  handle('dialog:confirm', async (e, o: ConfirmOptions) => {
     const r = await dialog.showMessageBox(windowOf(e), {
       type: 'question',
       buttons: [o.confirmLabel, 'Cancel'],
@@ -110,22 +145,21 @@ function registerIpc(): void {
     });
     return r.response === 0;
   });
-  // In development Electron is started as `electron <app dir> …args`, so skip one more.
-  ipcMain.handle('app:launch-request', () => launchRequest(process.argv.slice(app.isPackaged ? 1 : 2)));
-  ipcMain.handle('app:path-kind', async (_e, path: string) => {
+  handle('app:launch-request', () => launchRequest(args.rest));
+  handle('app:path-kind', async (_e, path: string) => {
     try {
       return (await stat(path)).isDirectory() ? 'dir' : 'file';
     } catch {
       return null;
     }
   });
-  ipcMain.handle('folder:open-dialog', async (e, title: string) => {
+  handle('folder:open-dialog', async (e, title: string) => {
     const r = await dialog.showOpenDialog(windowOf(e), { title, properties: ['openDirectory'] });
     return r.canceled || r.filePaths.length === 0 ? null : r.filePaths[0];
   });
   // One folder comparison per window: starting another (or Cancel) aborts the one running.
   const running = new Map<number, AbortController>();
-  ipcMain.handle('folder:compare', async (e, left: string, right: string, mode: FolderCompareMode) => {
+  handle('folder:compare', async (e, left: string, right: string, mode: FolderCompareMode) => {
     running.get(e.sender.id)?.abort();
     const controller = new AbortController();
     running.set(e.sender.id, controller);
@@ -138,24 +172,52 @@ function registerIpc(): void {
       if (running.get(e.sender.id) === controller) running.delete(e.sender.id);
     }
   });
-  ipcMain.handle('folder:cancel', (e) => running.get(e.sender.id)?.abort());
-  ipcMain.handle('folder:copy', (_e, req: CopyRequest) => copyEntry(req));
-  ipcMain.handle('browse:list', (_e, path: string, showHidden: boolean) => listDirectory(path, showHidden));
-  ipcMain.handle('browse:locations', () => locations());
+  handle('folder:cancel', (e) => running.get(e.sender.id)?.abort());
+  handle('folder:copy', (_e, req: CopyRequest) => copyEntry(req));
+  handle('browse:list', (_e, path: string, showHidden: boolean) => listDirectory(path, showHidden));
+  handle('browse:locations', () => locations());
   ipcMain.on('app:unsaved-changes', (e, value: boolean) => {
     if (value) unsaved.add(e.sender.id);
     else unsaved.delete(e.sender.id);
   });
+
+  ipcMain.on('log:write', (_e, entry: unknown) => writeFromInterface(entry));
+  handle('log:info', () => logInfo());
+  handle('log:set-debug', async (_e, on: boolean) => {
+    const info = await setDebugLogging(dataDir, on === true);
+    installMenu();
+    return info;
+  });
+  handle('log:open-folder', async () => {
+    const folder = logsFolder();
+    const failed = folder ? await shell.openPath(folder) : 'There is no log.';
+    if (failed) throw new Error(failed);
+  });
+  handle('log:diagnostics', () => diagnostics(`desktop${app.isPackaged ? '' : ', development'}`, app.getVersion(), dataDir));
 }
 
 app.whenReady().then(() => {
-  Menu.setApplicationMenu(buildMenu());
-  registerIpc();
+  const dataDir = app.getPath('userData');
+  const { level, from, file } = startLogging({ dir: app.getPath('logs'), name: 'desktop.log', dataDir, cli: args.level });
+  log.info('app', 'Delta started', {
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    system: `${process.platform} ${process.arch}`,
+    packaged: app.isPackaged,
+    level,
+    levelFrom: from,
+    log: file,
+  });
+  if (args.level !== undefined && level !== args.level) log.warn('app', 'Unknown log level; use error, warn, info or debug', { given: args.level });
+  installMenu((command) => command === 'toggle-debug-logging' && logLevel() === 'debug');
+  registerIpc(dataDir);
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+app.on('will-quit', () => log.info('app', 'Delta quit'));
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

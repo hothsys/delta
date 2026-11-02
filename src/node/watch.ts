@@ -1,4 +1,5 @@
 import { unwatchFile, watchFile, type Stats } from 'node:fs';
+import { log } from './log';
 
 /** How often watched files are polled. Polling, unlike fs.watch, survives editors that save by replacing the file. */
 const POLL_MS = 1000;
@@ -30,6 +31,7 @@ export function setWatched(owner: ChangeSubscriber, paths: string[]): void {
   for (const p of next) if (!prev?.has(p)) acquire(owner, p);
   byOwner.set(owner, next);
   if (!prev) owner.onClose(() => stopWatching(owner));
+  log.debug('watch', 'Watching', { files: next.size, total: watchers.size });
 }
 
 /** Drops every watch held by `owner` (when its window or stream goes away). */
@@ -44,6 +46,7 @@ function acquire(owner: ChangeSubscriber, path: string): void {
     const listener = (curr: Stats, prev: Stats) => {
       if (curr.mtimeMs === prev.mtimeMs && curr.size === prev.size) return;
       if (ownWrites.get(path) === curr.mtimeMs) return;
+      log.info('watch', 'Changed on disk', { path, exists: curr.mtimeMs !== 0 });
       for (const o of watchers.get(path)?.owners ?? []) if (!o.closed()) o.send(path);
     };
     w = { listener, owners: new Set() };

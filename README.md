@@ -166,9 +166,35 @@ npm run dist     # new installer in dist/installers/
 - **"A Delta started before an update is still running on port 5910"**: a copy from before you updated is still running and can't take over. Run `./start.command --restart` (or `start.cmd --restart`, or `npm run web -- --restart`).
 - **"Port 5910 is already in use by another program"**: something else is using that port. Stop it, or start Delta on another one: `./start.command --port 5920`.
 - **macOS won't open start.command** ("cannot be opened because it is from an unidentified developer", typically after downloading the project as a ZIP): right-click it, choose **Open**, then **Open** again. Or run `./start.command` in Terminal. If it says "permission denied", run `chmod +x start.command` once.
+- **Ctrl+C doesn't stop it straight away while it's installing**: npm first undoes the half-finished install, which waits for downloads in progress. Delta says so; press Ctrl+C a second time to stop npm at once (the next start installs again).
 - **The browser version doesn't start**: the window it runs in shows what went wrong. The first start installs dependencies and builds, so it needs an internet connection; if `npm install` fails, fix the problem it reports and start again.
 - **The desktop app says Electron failed to install** after you first used the browser version: the browser version skips downloading Electron's app binary, which only the desktop app needs. Run `npm rebuild electron` once.
 - **Nothing happens when the desktop app starts from a downloaded installer** (macOS): use right-click → Open the first time, as described above.
+- **Anything else:** look in Delta's log (below). To report a problem, choose **Help → Copy Diagnostic Info** and paste the result into your report: it has Delta's version, your system and the latest log entries.
+
+### Logs
+
+Delta keeps a log of what you do in it (files and folders compared, saves, merges, copies, settings changed) and of anything that goes wrong. It records paths, sizes, counts and timings, never the contents of your files or what you type.
+
+All logs are in one folder, whichever version you use:
+
+| System | Logs folder |
+|---|---|
+| macOS | `~/Library/Logs/Delta` |
+| Windows | `%APPDATA%\Delta\logs` |
+| Linux | `~/.config/Delta/logs` |
+
+It holds `desktop.log` (the desktop app), `web.log` (the browser version) and `start.log` (what `start.command` installed and built, and why it failed if it did). **Help → Open Logs Folder** opens it, and the browser version prints its log's path when it starts. Each log is kept to 5MB: when it fills up it's renamed `.1` (and the older ones `.2` and `.3`), and the oldest is deleted, so logs never use more than about 20MB.
+
+**More detail:** turn on **Help → Debug Logging** to also log every request, comparison timing and file read. It stays on (in both versions) until you turn it off. You can also set the level when starting Delta, which takes priority over the menu setting:
+
+```sh
+./start.command --log-level debug             # browser version (also start.cmd, npm run web -- --log-level debug)
+DELTA_LOG_LEVEL=debug ./start.command         # the same, with an environment variable
+/Applications/Delta.app/Contents/MacOS/Delta --log-level=debug   # desktop app on macOS
+```
+
+Levels, from least to most detail: `error`, `warn`, `info` (the default) and `debug`.
 
 ## Features
 
@@ -202,7 +228,7 @@ npm run dist     # new installer in dist/installers/
 
 ## Keyboard shortcuts
 
-Use **Cmd** on macOS and **Ctrl** on Windows and Linux. They work in both versions; the browser version also has File, Edit and View menus above the app.
+Use **Cmd** on macOS and **Ctrl** on Windows and Linux. They work in both versions; the browser version also has File, Edit, View and Help menus above the app.
 
 | Shortcut | Action |
 |---|---|
@@ -266,7 +292,7 @@ src/          the source code
   main/         desktop: Electron main process, native menu
   preload/      desktop: the secure bridge between the interface and the main process
   server/       browser: the local server and its security checks
-  node/         file, folder, recents and watching code used by both
+  node/         file, folder, recents, watching and logging code used by both
   shared/       types and the menu definition used everywhere
 tests/        unit tests, and e2e/ (end-to-end checks of the browser version)
 desktop/      how the desktop installers are built (electron-builder.yml, app icon)

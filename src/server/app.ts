@@ -2,14 +2,17 @@ import { randomBytes } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { homedir } from 'node:os';
-import { extname, join, normalize, resolve, sep } from 'node:path';
+import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import type { ComparisonKind, CopyRequest, FolderCompareMode, LaunchRequest, SaveRequest } from '../shared/api';
 import { listDirectory, locations } from '../node/browse';
 import { readTextFile, writeTextFile } from '../node/files';
 import { compareFolders, copyEntry } from '../node/folders';
 import { launchRequest } from '../node/launch';
+import { log, writeFromInterface } from '../node/log';
+import { diagnostics, logInfo, logsFolder, setDebugLogging } from '../node/logging';
 import { RecentStore } from '../node/recents';
 import { noteOwnWrite, setWatched, type ChangeSubscriber } from '../node/watch';
+import { openExternally } from './open';
 import { checkApiRequest, checkHost, checkStreamRequest, type Rejection } from './security';
 
 export interface ServerOptions {
@@ -19,6 +22,12 @@ export interface ServerOptions {
   staticDir: string;
   /** Where recent comparisons are kept (shared with the desktop app). */
   recentsFile: string;
+  /** Delta's settings folder (the Debug Logging setting); defaults to the recents file's folder. */
+  dataDir?: string;
+  /** Delta's version, for Copy Diagnostic Info. */
+  version?: string;
+  /** Shows a folder in the file manager (Open Logs Folder); replaceable for tests. */
+  openFolder?: (path: string) => void;
 }
 
 export interface DeltaServer extends Server {
@@ -31,6 +40,8 @@ export interface DeltaServer extends Server {
 
 /** Largest request body accepted (a save carries the whole file). */
 const MAX_BODY_BYTES = 512 * 1024 * 1024;
+/** Log entries accepted in one request from the page. */
+const MAX_LOG_ENTRIES = 200;
 /** Keeps the event stream open through proxies and sleep; also how often closed streams are noticed. */
 const KEEPALIVE_MS = 25_000;
 /** Launch ids are kept so reloading a launched page reopens its comparison; this many at most. */
@@ -53,6 +64,8 @@ const oneOf = <T extends string>(v: unknown, name: string, allowed: readonly T[]
  */
 export function createDeltaServer(options: ServerOptions): DeltaServer {
   const recents = new RecentStore(options.recentsFile);
+  const dataDir = options.dataDir ?? dirname(options.recentsFile);
+  const openFolder = options.openFolder ?? openExternally;
   /** Event streams by client id: file watching and folder-comparison progress go through them. */
   const streams = new Map<string, ChangeSubscriber & { emit(event: string, data: unknown): void }>();
   /** One folder comparison per client: starting another (or Cancel) aborts the one running. */
@@ -127,7 +140,9 @@ export function createDeltaServer(options: ServerOptions): DeltaServer {
     // A later launch (`server.sh start a b`, the launchers) handing its paths to this server.
     '/api/handoff': async (b) => {
       if (!Array.isArray(b.paths) || !b.paths.every((p) => typeof p === 'string')) throw new BadRequest('"paths" must be a list of strings.');
-      return { id: addLaunch(launchRequest(b.paths as string[])) };
+      const request = launchRequest(b.paths as string[]);
+      log.info('server', 'Another launch handed over', { kind: request.kind, paths: (b.paths as string[]).length });
+      return { id: addLaunch(request) };
     },
     '/api/list-directory': (b) => listDirectory(str(b.path, 'path'), b.showHidden === true),
     '/api/locations': () => locations(),
@@ -138,10 +153,36 @@ export function createDeltaServer(options: ServerOptions): DeltaServer {
       setWatched(client, paths);
       return { ok: true };
     },
+    // The page's log entries, sent in batches.
+    '/api/log': async (b) => {
+      if (Array.isArray(b.entries)) for (const e of b.entries.slice(0, MAX_LOG_ENTRIES)) writeFromInterface(e);
+      return { ok: true };
+    },
+    '/api/log/info': async () => logInfo(),
+    '/api/log/set-debug': (b) => setDebugLogging(dataDir, b.on === true),
+    '/api/log/open-folder': async () => {
+      // Only ever the server's own logs folder: the page can't name a path to open.
+      const folder = logsFolder();
+      if (!folder) return { ok: false, message: 'There is no log.' };
+      openFolder(folder);
+      return { ok: true };
+    },
+    '/api/log/diagnostics': async () => diagnostics('browser version', options.version ?? 'unknown', dataDir),
   };
 
   const server = createServer((req, res) => {
+    const t0 = performance.now();
+    const path = (req.url ?? '/').split('?')[0];
+    res.on('finish', () => {
+      // The page's own log batches would only log themselves.
+      if (path !== '/api/log' && res.statusCode < 400) log.debug('server', `${req.method} ${path}`, { status: res.statusCode, ms: Math.round(performance.now() - t0) });
+    });
     void handle(req, res).catch((err) => {
+      if (err instanceof BadRequest) log.warn('server', 'Bad request', { path, error: err.message });
+      else {
+        log.error('server', `${req.method} ${path} failed`, err);
+        console.error(`Delta: ${req.method} ${path} failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+      }
       if (!res.headersSent) send(res, err instanceof BadRequest ? 400 : 500, { ok: false, message: String(err?.message ?? err) });
       else res.end();
     });
@@ -151,25 +192,26 @@ export function createDeltaServer(options: ServerOptions): DeltaServer {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (url.pathname === '/api/events') return openStream(req, res, url);
     if (url.pathname.startsWith('/api/')) {
-      if (req.method !== 'POST') return send(res, 405, { ok: false, message: 'Use POST.' });
+      if (req.method !== 'POST') return reject(req, res, { status: 405, message: 'Use POST.' });
       const rejected = checkApiRequest(req, port(), options.token);
-      if (rejected) return reject(res, rejected);
+      if (rejected) return reject(req, res, rejected);
       const route = routes[url.pathname];
-      if (!route) return send(res, 404, { ok: false, message: 'Unknown API route.' });
+      if (!route) return reject(req, res, { status: 404, message: 'Unknown API route.' });
       const body = await readJson(req);
       return send(res, 200, await route(body));
     }
     const rejected = checkHost(req, port());
-    if (rejected) return reject(res, rejected);
+    if (rejected) return reject(req, res, rejected);
     return serveStatic(url.pathname, res);
   }
 
   /** Server-Sent Events: "file changed on disk" notifications for one browser tab. */
   function openStream(req: IncomingMessage, res: ServerResponse, url: URL): void {
     const rejected = checkStreamRequest(req, port(), options.token, url.searchParams.get('token'));
-    if (rejected) return reject(res, rejected);
+    if (rejected) return reject(req, res, rejected);
     const id = url.searchParams.get('client');
-    if (!id) return send(res, 400, { ok: false, message: 'Missing client id.' });
+    if (!id) return reject(req, res, { status: 400, message: 'Missing client id.' });
+    log.debug('server', 'Page connected', { client: id.slice(0, 8), pages: streams.size + 1 });
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
     res.write(': connected\n\n');
     const closeListeners: (() => void)[] = [];
@@ -194,6 +236,7 @@ export function createDeltaServer(options: ServerOptions): DeltaServer {
       if (streams.get(id) === subscriber) {
         comparisons.get(id)?.abort();
         streams.delete(id);
+        log.debug('server', 'Page disconnected', { client: id.slice(0, 8), pages: streams.size });
       }
       for (const l of closeListeners) l();
     });
@@ -250,7 +293,9 @@ function send(res: ServerResponse, status: number, body: unknown): void {
   res.end(data);
 }
 
-function reject(res: ServerResponse, r: Rejection): void {
+/** Refuses a request, logging why: a refusal can mean something other than Delta's page tried. */
+function reject(req: IncomingMessage, res: ServerResponse, r: Rejection): void {
+  log.warn('server', 'Refused a request', { method: req.method, path: (req.url ?? '').split('?')[0], status: r.status, reason: r.message, origin: req.headers.origin, host: req.headers.host });
   send(res, r.status, { ok: false, message: r.message });
 }
 

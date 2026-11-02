@@ -22,6 +22,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const T = mkdtempSync(join(tmpdir(), 'delta-e2e-'));
 const DATA = join(T, 'settings');
+const LOGS = join(T, 'logs');
+const logText = () => (existsSync(join(LOGS, 'web.log')) ? readFileSync(join(LOGS, 'web.log'), 'utf8') : '');
 const F = join(T, 'files');
 mkdirSync(F);
 writeFileSync(join(F, 'left.txt'), 'alpha\nbravo\ncharlie\ndelta\necho\n');
@@ -66,12 +68,12 @@ const section = (name) => console.log(`\n${name}`);
 
 // The server runs on Electron's own Node (ELECTRON_RUN_AS_NODE), so no separate Node is needed.
 const env = { ...process.env, DELTA_NO_BROWSER: '1', ELECTRON_RUN_AS_NODE: '1' };
-const server = spawn(process.execPath, [SERVER, '--port', String(PORT), '--data-dir', DATA], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+const server = spawn(process.execPath, [SERVER, '--port', String(PORT), '--data-dir', DATA, '--log-dir', LOGS], { env, stdio: ['ignore', 'pipe', 'pipe'] });
 server.stderr.on('data', (d) => appendFileSync(join(T, 'server.log'), d));
 
 /** Launches Delta again with paths, as a user would; the running server takes them. Returns the URL. */
 function launch(...paths) {
-  const r = spawnSync(process.execPath, [SERVER, '--port', String(PORT), '--data-dir', DATA, ...paths], { env, encoding: 'utf8', timeout: 15000 });
+  const r = spawnSync(process.execPath, [SERVER, '--port', String(PORT), '--data-dir', DATA, '--log-dir', LOGS, ...paths], { env, encoding: 'utf8', timeout: 15000 });
   const url = /(http:\/\/\S+launch=[0-9a-f]+)/.exec(r.stdout)?.[1];
   if (!url) throw new Error(`no launch URL from: ${r.stdout} ${r.stderr}`);
   return { url, output: r.stdout };
@@ -141,7 +143,7 @@ const rowStatus = (name) => js(`(() => { const r = [...document.querySelectorAll
 async function run() {
   section('Start screen');
   await open(firstUrl);
-  check('loads with the menu bar and both choices', await js(`!!document.querySelector('.start') && document.querySelectorAll('.start-choice').length === 2 && [...document.querySelectorAll('.menubar-title')].map((b) => b.innerText).join() === 'File,Edit,View'`));
+  check('loads with the menu bar and both choices', await js(`!!document.querySelector('.start') && document.querySelectorAll('.start-choice').length === 2 && [...document.querySelectorAll('.menubar-title')].map((b) => b.innerText).join() === 'File,Edit,View,Help'`));
 
   section('Comparing files through the in-app file browser');
   await key('o', [MOD]);
@@ -242,6 +244,37 @@ async function run() {
   const recents = await js(`[...document.querySelectorAll('.recents li, .recents .recent')].map((e) => e.innerText.replace(/\\s+/g, ' '))`);
   check('comparisons are listed on the start screen', recents.some((r) => r.includes('latin1.txt')) && recents.some((r) => r.includes('L') && r.includes('R')), JSON.stringify(recents));
   check('a path that no longer exists is flagged', await js(`[...document.querySelectorAll('.recents .flag.warn')].some((f) => f.innerText === 'Not found')`));
+
+  section('Logging');
+  await sleep(1500); // the page sends its entries about once a second
+  const text = logText();
+  check('the server logs that it started', /INFO  server   Delta started .*level=info/.test(text));
+  check("the page's actions are logged", ['ui.files Comparing files', 'ui.merge Copied a change to the right', 'ui.edit  Undo', 'ui.view  Next difference', 'ui.folders Compare by changed', 'ui.files Reloaded from disk'].every((s) => text.includes(s)), text.slice(-1500));
+  check('so are saves and copies, with paths and sizes', /INFO  files    Saved  path=\S+right\.txt bytes=\d+/.test(text) && text.includes('INFO  folders  Copied'));
+  check('file contents never are', !['bravo', 'BRAVO', 'charlie', 'foxtrot', 'only on the left', 'caf'].some((w) => text.includes(w)));
+  const checkedNow = () => js(`[...document.querySelectorAll('.menubar-panel [role=menuitemcheckbox]')].map((b) => b.getAttribute('aria-checked')).join()`);
+  await clickText('.menubar-title', 'Help');
+  check('Help offers Debug Logging, Open Logs Folder and Copy Diagnostic Info', (await js(`[...document.querySelectorAll('.menubar-panel [role^=menuitem]')].map((b) => b.innerText.replace('✓', '').trim()).join('|')`)) === 'Debug Logging|Open Logs Folder|Copy Diagnostic Info');
+  check('Debug Logging starts off', (await checkedNow()) === 'false');
+  await clickText('.menubar-panel [role=menuitemcheckbox]', 'Debug Logging');
+  check('turning it on says where the log is', await waitFor(`document.querySelector('.notice')?.innerText.includes('Debug logging is on')`));
+  await clickText('.menubar-title', 'Help');
+  check('and shows a check mark', (await checkedNow()) === 'true');
+  await clickText('.menubar-title', 'Help'); // closes it
+  await waitFor(`!!document.querySelector('.recents') && !document.querySelector('.menubar-panel')`);
+  await sleep(1500);
+  check('requests are logged while it is on', /DEBUG server   POST \/api\/recents\/list  status=200/.test(logText()));
+  check('and it is saved for the next start', JSON.parse(readFileSync(join(DATA, 'settings.json'), 'utf8')).logLevel === 'debug');
+  await clickText('.menubar-title', 'Help');
+  await js(`document.querySelector('.menubar-panel [role=menuitemcheckbox]').click(); true`); // its text now starts with ✓
+  check('turning it off clears the setting', await waitFor(`document.querySelector('.notice')?.innerText.includes('Debug logging is off')`) && !('logLevel' in JSON.parse(readFileSync(join(DATA, 'settings.json'), 'utf8'))));
+  // A hidden window never has focus, which the real clipboard requires; capture what's written instead.
+  await js(`window.copied = null; navigator.clipboard.write = async (items) => { window.copied = await (await items[0].getType('text/plain')).text(); }; true`);
+  await clickText('.menubar-title', 'Help');
+  await clickText('.menubar-panel [role=menuitem]', 'Copy Diagnostic Info');
+  await waitFor(`document.querySelector('.notice')?.innerText.includes('Diagnostic info copied')`);
+  const copied = (await js('window.copied')) ?? '';
+  check('Copy Diagnostic Info copies versions and recent entries', copied.includes('(browser version)') && copied.includes('Interface: ') && copied.includes('Latest log entries:'), copied.slice(0, 200) || (await js(`document.querySelector('.notice')?.innerText`)));
 
   check('no errors in the page console', errors.length === 0, errors.join(' / '));
 }

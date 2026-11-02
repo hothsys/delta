@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { dirname, join, parse, resolve } from 'node:path';
 import type { DirEntry, DirectoryListing, Location } from '../shared/api';
 import { errorMessage } from './files';
+import { log } from './log';
 
 /** A folder's entries (folders first, then files, by name). Hidden entries only when asked for. */
 export async function listDirectory(path: string, showHidden = false): Promise<DirectoryListing> {
@@ -38,8 +39,10 @@ export async function listDirectory(path: string, showHidden = false): Promise<D
         a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }),
     );
     const parent = dirname(dir);
+    log.debug('browse', 'Listed', { path: dir, entries: entries.length, hidden: showHidden });
     return { ok: true, path: dir, parent: parent === dir ? null : parent, entries };
   } catch (err) {
+    log.warn('browse', 'Could not list', { path: dir, error: errorMessage(err) });
     return { ok: false, path: dir, message: errorMessage(err) };
   }
 }

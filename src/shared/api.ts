@@ -60,7 +60,40 @@ export type Command =
   | 'compare-folders'
   | 'toggle-theme'
   | 'next-difference'
-  | 'previous-difference';
+  | 'previous-difference'
+  | 'toggle-debug-logging'
+  | 'open-logs-folder'
+  | 'copy-diagnostics';
+
+// ---- Logging ---------------------------------------------------------------------------
+
+/** Most to least severe; a log level writes its own entries and everything above it. */
+export const LOG_LEVELS = ['error', 'warn', 'info', 'debug'] as const;
+export type LogLevel = (typeof LOG_LEVELS)[number];
+
+/** Extra details on a log entry: paths, sizes, counts, timings. Never file contents. */
+export type LogFields = Record<string, string | number | boolean | null | undefined>;
+
+/** An entry written by the interface. */
+export interface LogEntry {
+  level: LogLevel;
+  /** What part of Delta it's about: `files`, `folders`, `merge`… */
+  area: string;
+  message: string;
+  fields?: LogFields;
+  /** For errors. */
+  stack?: string;
+}
+
+/** Where the log level came from, strongest first. */
+export type LogLevelSource = 'command line' | 'DELTA_LOG_LEVEL' | 'setting' | 'default';
+
+export interface LogInfo {
+  level: LogLevel;
+  from: LogLevelSource;
+  /** The log file, or null if it couldn't be opened. */
+  file: string | null;
+}
 
 // ---- Folder comparison ----------------------------------------------------------------
 
@@ -240,4 +273,13 @@ export interface DeltaApi {
   locations(): Promise<Location[]>;
   /** Joins a root and a relative path from a `FolderNode` using the platform separator. */
   joinPath(root: string, relPath: string): string;
+  /** Adds an entry to the log (sent in the background; never fails). */
+  log(entry: LogEntry): void;
+  logInfo(): Promise<LogInfo>;
+  /** Turns debug logging on or off, now and on later starts. */
+  setDebugLogging(on: boolean): Promise<LogInfo>;
+  /** Shows the logs folder in Finder, Explorer or the file manager. */
+  openLogsFolder(): Promise<void>;
+  /** Versions, settings and the latest log lines, for a bug report. */
+  diagnostics(): Promise<string>;
 }
