@@ -5,7 +5,7 @@ import { patchRows, type RowModel, type Side } from './model/rowModel';
 import { applyOp, invertOp, type EditOp, type Selection } from './model/textEdit';
 import { UndoHistory, type UndoEntry } from './model/undo';
 import { useDiff, type DiffInput } from './useDiff';
-import type { LineEnding, TextEncoding } from '../../shared/api';
+import type { EolCounts, LineEnding, TextEncoding } from '../../shared/api';
 
 /**
  * An open text. `lines` is edited in place for speed on large files; `version` changes on
@@ -37,7 +37,16 @@ export interface Source {
   label: string;
   text: string;
   /** Present when the text came from disk; needed to save it back the same way. */
-  file?: { path: string; encoding: TextEncoding; eol: LineEnding; mtimeMs: number };
+  file?: {
+    path: string;
+    encoding: TextEncoding;
+    eol: LineEnding;
+    mtimeMs: number;
+    /** For the status line under the pane: as last read or saved. */
+    size: number;
+    eolCounts: EolCounts;
+    asciiOnly: boolean;
+  };
   /** For a file that exists in only one compared folder: where saving this side creates it. */
   missingPath?: string;
 }

@@ -14,6 +14,8 @@ interface ToolbarProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   stats: DiffStats | null;
+  /** When the text is identical but the files still differ (encoding, line endings…), says how. */
+  identicalNote?: string | null;
   busy: boolean;
   elapsedMs: number;
   canRefresh: boolean;
@@ -47,7 +49,11 @@ export function Toolbar(props: ToolbarProps) {
       <span className="stats">
         {stats && (
           <>
-            <strong>{stats.changeBlocks === 0 ? 'Identical' : `${stats.changeBlocks} ${stats.changeBlocks === 1 ? 'difference' : 'differences'}`}</strong>
+            <strong>
+              {stats.changeBlocks === 0
+                ? (props.identicalNote ?? 'Identical')
+                : `${stats.changeBlocks} ${stats.changeBlocks === 1 ? 'difference' : 'differences'}`}
+            </strong>
             <span className="stat mod">{stats.modifiedPairs} modified</span>
             <span className="stat ins">{stats.insertedLines} inserted</span>
             <span className="stat del">{stats.deletedLines} deleted</span>

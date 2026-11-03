@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { decode, dominantEol, encode, readTextFile, writeTextFile } from '../../src/node/files';
+import { countEols, decode, dominantEol, encode, isAscii, readTextFile, writeTextFile } from '../../src/node/files';
 import type { TextEncoding } from '../../src/shared/api';
 
 describe('decode / encode', () => {
@@ -38,6 +38,26 @@ describe('dominantEol', () => {
   });
 });
 
+describe('countEols', () => {
+  it('counts each kind of line break, a CR before LF being one CRLF', () => {
+    expect(countEols('a\nb\n')).toEqual({ lf: 2, crlf: 0, cr: 0 });
+    expect(countEols('a\r\nb\r\n')).toEqual({ lf: 0, crlf: 2, cr: 0 });
+    expect(countEols('a\rb\r')).toEqual({ lf: 0, crlf: 0, cr: 2 });
+    expect(countEols('a\r\nb\nc\rd')).toEqual({ lf: 1, crlf: 1, cr: 1 });
+    expect(countEols('no breaks')).toEqual({ lf: 0, crlf: 0, cr: 0 });
+    expect(countEols('')).toEqual({ lf: 0, crlf: 0, cr: 0 });
+    expect(dominantEol({ lf: 1, crlf: 5, cr: 0 })).toBe('\r\n');
+  });
+});
+
+describe('isAscii', () => {
+  it('is true only when every byte is 7-bit', () => {
+    expect(isAscii(Buffer.from('plain text\n'))).toBe(true);
+    expect(isAscii(Buffer.from('café'))).toBe(false);
+    expect(isAscii(Buffer.alloc(0))).toBe(true);
+  });
+});
+
 describe('reading and writing files', () => {
   const dir = mkdtempSync(join(tmpdir(), 'delta-'));
 
@@ -46,6 +66,14 @@ describe('reading and writing files', () => {
     writeFileSync(p, 'one\r\ntwo\r\n');
     const r = await readTextFile(p);
     expect(r.ok && r.file).toMatchObject({ name: 'a.txt', text: 'one\r\ntwo\r\n', encoding: 'utf8', eol: '\r\n', size: 10 });
+    expect(r.ok && r.file).toMatchObject({ eolCounts: { lf: 0, crlf: 2, cr: 0 }, asciiOnly: true });
+    // ASCII is reported for UTF-8 only: accents, or a byte-order mark, mean it isn't plain ASCII.
+    writeFileSync(join(dir, 'accent.txt'), 'naïve\n');
+    writeFileSync(join(dir, 'bom.txt'), Buffer.from([0xef, 0xbb, 0xbf, 0x61, 0x0a]));
+    writeFileSync(join(dir, 'latin.txt'), Buffer.from([0x63, 0x61, 0x66, 0xe9]));
+    for (const [name, encoding] of [['accent.txt', 'utf8'], ['bom.txt', 'utf8-bom'], ['latin.txt', 'latin1']]) {
+      expect((await readTextFile(join(dir, name))) as unknown).toMatchObject({ ok: true, file: { encoding, asciiOnly: false } });
+    }
 
     const bin = join(dir, 'b.bin');
     writeFileSync(bin, Buffer.from([1, 2, 0, 3]));

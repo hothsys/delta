@@ -8,6 +8,13 @@ export type TextEncoding = 'utf8' | 'utf8-bom' | 'utf16le' | 'utf16be' | 'latin1
 
 export type LineEnding = '\n' | '\r\n' | '\r';
 
+/** How many line breaks of each kind a file has (a file can mix them). */
+export interface EolCounts {
+  lf: number;
+  crlf: number;
+  cr: number;
+}
+
 export interface LoadedFile {
   path: string;
   /** File name without directories. */
@@ -16,6 +23,11 @@ export interface LoadedFile {
   encoding: TextEncoding;
   /** The most common line ending, used when saving. `\n` for files without line breaks. */
   eol: LineEnding;
+  /** Every line break counted by kind, so mixed line endings can be reported. */
+  eolCounts: EolCounts;
+  /** UTF-8 text that is all 7-bit characters, i.e. plain ASCII. False for other encodings. */
+  asciiOnly: boolean;
+  /** Size on disk in bytes. */
   size: number;
   mtimeMs: number;
 }

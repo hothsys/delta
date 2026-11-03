@@ -200,6 +200,7 @@ Levels, from least to most detail: `error`, `warn`, `info` (the default) and `de
 
 **Comparing files**
 - Side-by-side view with synchronised scrolling. Deleted, inserted and modified lines are colour-coded, and the changed *words* in a modified line are highlighted (red for removed, green for added).
+- A **status line under each pane** shows the file's encoding (ASCII, UTF-8, UTF-8 with BOM, UTF-16 or Latin-1), line endings (LF, CRLF, CR or mixed), line count, a missing final newline, and size. Whatever differs between the two files is highlighted, and files whose text is identical but whose encoding or line endings aren't say so ("Identical text; line endings differ").
 - A **line-details strip** at the bottom shows the current line pair in full, with visible whitespace (`·` spaces, `→` tabs, `¶` line ends), so long lines and spacing changes are easy to inspect.
 - A **centre gutter** links each change on the left to its counterpart on the right, and an **overview map** on the right shows every change in the file at a glance. Click it to jump.
 - **Whitespace and case options:** compare everything, or ignore leading/trailing whitespace, whitespace changes, all whitespace, or letter case.

@@ -39,7 +39,9 @@ import type { Docs, EditMeta } from '../useComparison';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import { Gutter, type GutterHandle } from './Gutter';
 import { SaveIcon, UndoIcon } from './icons';
+import { FileStatus } from './FileStatus';
 import { LineDetails } from './LineDetails';
+import type { FileDetails } from '../model/fileDetails';
 import { BAND_ROWS, BAND_WIDTH, CELL_PADDING, charWidth, FONT, GUTTER_WIDTH, OVERVIEW_WIDTH, ROW_HEIGHT, TAB_SIZE } from './layout';
 import { scrollTopForRow } from '../model/overview';
 import { splitPath, tildePath } from '../model/paths';
@@ -91,6 +93,10 @@ interface DiffViewProps {
   onAlign: (a: number, b: number) => void;
   onUnalign: (side: Side, line: number) => void;
   onClearAlignments: () => void;
+  /** Each side's file encoding, size and line endings, for the status line under its pane. */
+  fileDetails: Record<Side, FileDetails | null>;
+  /** File conventions that differ between the sides, emphasised in both status lines. */
+  conventionsDiffer: { encoding: boolean; eol: boolean; newline: boolean };
 }
 
 /** What undo and redo did: the side and edit they applied, and the selection they remembered. */
@@ -808,7 +814,7 @@ export function DiffView(props: DiffViewProps) {
   const style = {
     font: FONT,
     gridTemplateColumns: `minmax(0, ${split}fr) ${GUTTER_WIDTH}px minmax(0, ${1 - split}fr) ${OVERVIEW_WIDTH}px`,
-    gridTemplateRows: 'auto 1fr auto',
+    gridTemplateRows: 'auto 1fr auto auto',
     '--row-height': `${ROW_HEIGHT}px`,
     '--tab-size': TAB_SIZE,
   } as CSSProperties;
@@ -876,6 +882,17 @@ export function DiffView(props: DiffViewProps) {
       highlight: kind === RowKind.Unimportant ? 'chg-minor' : side === 'a' ? 'chg-del' : 'chg-ins',
     };
   };
+
+  const fileStatus = (side: Side) => (
+    <FileStatus
+      side={side}
+      details={props.fileDetails[side]}
+      lines={linesOf(side).length}
+      trailingNewline={props.docs[side].trailingNewline}
+      edited={props.isEdited(side)}
+      differs={props.conventionsDiffer}
+    />
+  );
 
   const header = (side: Side) => (
     <div className="pane-header">
@@ -946,6 +963,10 @@ export function DiffView(props: DiffViewProps) {
         onJump={scrollTo}
         handleRef={overview}
       />
+      {fileStatus('a')}
+      <div className="file-status gutter-status" />
+      {fileStatus('b')}
+      <div className="file-status overview-status" />
       <LineDetails left={detail('a')} right={detail('b')} charWidth={cw} rowKey={detailRow < 0 ? '' : `${detailRow}:${rows.a[detailRow]}:${rows.b[detailRow]}`} />
       {pendingAlign && (
         <div className="align-hint" role="status">

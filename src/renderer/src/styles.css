@@ -888,6 +888,35 @@ body {
   outline-offset: -3px;
 }
 
+/* File status lines (under each pane) */
+
+.file-status {
+  display: flex;
+  gap: 14px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 3px 12px;
+  font: 12px var(--ui-font);
+  color: var(--muted);
+  white-space: nowrap;
+  background: var(--chrome-bg);
+  border-top: 1px solid var(--border);
+}
+
+.gutter-status,
+.overview-status {
+  padding: 0;
+}
+
+.fs-item {
+  flex: none;
+}
+
+.fs-item.differs {
+  font-weight: 700;
+  color: var(--stat-mod);
+}
+
 /* Line details strip */
 
 .line-details {
