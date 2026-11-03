@@ -60,6 +60,7 @@ export const MENU: MenuSection[] = [
       { command: 'next-difference', label: 'Next Difference', accelerator: 'F7' },
       { command: 'previous-difference', label: 'Previous Difference', accelerator: 'Shift+F7' },
       'separator',
+      { command: 'toggle-prettify', label: 'Prettify', checkbox: true },
       { command: 'toggle-theme', label: 'Toggle Dark Mode' },
       'separator',
       { role: 'zoom' },

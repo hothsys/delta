@@ -22,6 +22,8 @@ interface GutterProps {
   last: number;
   /** Merges need up-to-date block boundaries, so they are disabled until a pending re-diff lands. */
   mergeEnabled: boolean;
+  /** Shown on the merge buttons instead of what they'd do, when merging is off for a reason (Prettify). */
+  mergeDisabledReason?: string;
   onMerge: (block: number, from: Side) => void;
   /** Hovering or focusing a merge button previews what it would change (null when it ends). */
   onMergePreview: (preview: { block: number; from: Side } | null) => void;
@@ -143,7 +145,7 @@ export function Gutter(props: GutterProps) {
           className={`merge merge-${kind} merge-from-${from}${remove ? ' merge-remove' : ''}`}
           style={{ top }}
           disabled={!props.mergeEnabled}
-          title={mergeTitle(blocks[i], from)}
+          title={props.mergeDisabledReason ?? mergeTitle(blocks[i], from)}
           aria-label={from === 'a' ? (remove ? 'Remove on the right' : 'Copy to right') : remove ? 'Remove on the left' : 'Copy to left'}
           onClick={() => {
             endPreview();

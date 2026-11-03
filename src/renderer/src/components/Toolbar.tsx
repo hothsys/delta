@@ -24,6 +24,12 @@ interface ToolbarProps {
   onBackToFolders?: () => void;
   /** Back to the start screen (the comparison stays open and can be resumed). */
   onHome: () => void;
+  prettify: {
+    on: boolean;
+    /** Why it can't be used for these files, if it can't. */
+    unavailable?: string;
+    onToggle: () => void;
+  };
 }
 
 export function Toolbar(props: ToolbarProps) {
@@ -43,6 +49,19 @@ export function Toolbar(props: ToolbarProps) {
         ignoreCase={props.ignoreCase}
         onIgnoreCaseChange={props.onIgnoreCaseChange}
       />
+      <button
+        type="button"
+        className={`prettify-button${props.prettify.on ? ' on' : ''}`}
+        aria-pressed={props.prettify.on}
+        onClick={props.prettify.onToggle}
+        disabled={!!props.prettify.unavailable}
+        title={
+          props.prettify.unavailable ??
+          (props.prettify.on ? 'Turn off Prettify and edit the files again' : 'Format both files one statement, rule or element per line, for a readable comparison (read-only)')
+        }
+      >
+        {'{ }'} Prettify
+      </button>
 
       <div className="spacer" />
 

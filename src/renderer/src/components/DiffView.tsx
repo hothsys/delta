@@ -97,6 +97,11 @@ interface DiffViewProps {
   fileDetails: Record<Side, FileDetails | null>;
   /** File conventions that differ between the sides, emphasised in both status lines. */
   conventionsDiffer: { encoding: boolean; eol: boolean; newline: boolean };
+  /**
+   * Set while the view can't be edited (Prettify is on), saying why. The caret, selection,
+   * copying and alignment still work; typing, merging, saving and undo do nothing.
+   */
+  readOnly?: string;
 }
 
 /** What undo and redo did: the side and edit they applied, and the selection they remembered. */
@@ -364,6 +369,7 @@ export function DiffView(props: DiffViewProps) {
 
   /** Replaces the active side's selection with `text`. */
   const insert = (text: string, group?: string) => {
+    if (props.readOnly) return;
     const side = active;
     const lines = linesOf(side);
     const before = selOf(side);
@@ -376,6 +382,7 @@ export function DiffView(props: DiffViewProps) {
 
   /** Deletes the selection, or the text between the caret and `target` when there is none. */
   const deleteTo = (target: (head: Pos, lines: readonly string[]) => Pos, group: string) => {
+    if (props.readOnly) return;
     const side = active;
     const lines = linesOf(side);
     const before = selOf(side);
@@ -390,6 +397,7 @@ export function DiffView(props: DiffViewProps) {
   };
 
   const undoRedo = (which: 'undo' | 'redo' | Side) => {
+    if (props.readOnly) return;
     const r = which === 'undo' ? props.onUndo() : which === 'redo' ? props.onRedo() : props.onUndoSide(which);
     const what = which === 'redo' ? 'Redo' : which === 'undo' ? 'Undo' : `Undo on the ${which === 'a' ? 'left' : 'right'}`;
     if (!r) return log.debug('edit', `${what}: nothing to ${which === 'redo' ? 'redo' : 'undo'}`);
@@ -479,6 +487,7 @@ export function DiffView(props: DiffViewProps) {
   };
 
   const merge = (block: number, from: Side) => {
+    if (props.readOnly) return;
     const to = other(from);
     const op = mergeOp(blocks[block], from, linesOf(from), linesOf(to));
     if (op.removed.length === 0 && op.inserted.length === 0) return;
@@ -891,6 +900,7 @@ export function DiffView(props: DiffViewProps) {
       trailingNewline={props.docs[side].trailingNewline}
       edited={props.isEdited(side)}
       differs={props.conventionsDiffer}
+      prettified={!!props.readOnly}
     />
   );
 
@@ -910,8 +920,8 @@ export function DiffView(props: DiffViewProps) {
         type="button"
         className="header-button header-icon"
         onClick={() => props.onSave(side)}
-        disabled={!props.isEdited(side)}
-        title={props.isEdited(side) ? `Save the ${side === 'a' ? 'left' : 'right'} file` : 'No unsaved changes'}
+        disabled={!props.isEdited(side) || !!props.readOnly}
+        title={props.readOnly ?? (props.isEdited(side) ? `Save the ${side === 'a' ? 'left' : 'right'} file` : 'No unsaved changes')}
         aria-label={`Save the ${side === 'a' ? 'left' : 'right'} file`}
       >
         <SaveIcon />
@@ -920,8 +930,8 @@ export function DiffView(props: DiffViewProps) {
         type="button"
         className="header-button header-icon"
         onClick={() => undoRedo(side)}
-        disabled={!props.canUndo(side)}
-        title={`Undo the last change to the ${side === 'a' ? 'left' : 'right'} side`}
+        disabled={!props.canUndo(side) || !!props.readOnly}
+        title={props.readOnly ?? `Undo the last change to the ${side === 'a' ? 'left' : 'right'} side`}
         aria-label={`Undo the last change to the ${side === 'a' ? 'left' : 'right'} side`}
       >
         <UndoIcon />
@@ -942,7 +952,8 @@ export function DiffView(props: DiffViewProps) {
         theme={theme}
         first={first}
         last={last}
-        mergeEnabled={fresh}
+        mergeEnabled={fresh && !props.readOnly}
+        mergeDisabledReason={props.readOnly}
         onMerge={merge}
         onMergePreview={setMergePreview}
         anchors={props.anchors}

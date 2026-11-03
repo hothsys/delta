@@ -133,6 +133,8 @@ export function createHttpApi(): DeltaApi {
     listDirectory: (path, showHidden) => post('/api/list-directory', { path, showHidden }),
     locations: () => post('/api/locations'),
     joinPath: (root, relPath) => joinPath(root, relPath),
+    // The in-page menu reads its check marks from the interface directly.
+    setMenuChecked: () => {},
     log: (entry) => {
       logQueue.push(entry);
       logTimer ??= window.setTimeout(flushLog, LOG_FLUSH_MS);

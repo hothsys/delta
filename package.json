@@ -11,8 +11,10 @@
     "node": ">=22.12"
   },
   "scripts": {
+    "predev": "node -e \"require('electron')\"",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "prestart": "node -e \"require('electron')\"",
     "start": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -41,6 +43,7 @@
     "electron": "^45.1.0",
     "electron-builder": "^26.18.0",
     "electron-vite": "^6.0.0",
+    "prettier": "3.9.10",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "typescript": "^7.0.2",

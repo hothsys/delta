@@ -12,10 +12,14 @@ files:
   - "!dist/app/server/**"
   - "!dist/app/.web-build"
   - package.json
-# Delta's own license and the bundled font's license must travel with the app.
+# Delta's own license and the bundled third-party licenses must travel with the app.
 extraResources:
   - LICENSE.md
   - THIRD_PARTY_NOTICES.md
+  # Prettier's builds include code from many other packages (Babel, TypeScript, PostCSS…);
+  # their notices, as Prettier publishes them.
+  - from: node_modules/prettier/THIRD-PARTY-NOTICES.md
+    to: PRETTIER-THIRD-PARTY-NOTICES.md
 asar: true
 mac:
   target:
