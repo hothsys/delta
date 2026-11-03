@@ -52,6 +52,11 @@ writeFileSync(join(R, 'tricky.txt'), 'bbbb\n');
 const stamp = new Date('2026-01-02T03:04:05Z');
 utimesSync(join(L, 'tricky.txt'), stamp, stamp);
 utimesSync(join(R, 'tricky.txt'), stamp, stamp);
+// Prettify: a minified JSON file against a formatted copy with one change, and an invalid one.
+const PADDING = 'x'.repeat(2100); // a line this long makes Delta suggest Prettify
+writeFileSync(join(F, 'min.json'), JSON.stringify({ name: 'delta', version: '1.0.0', padding: PADDING, scripts: { dev: 'electron-vite dev', test: 'vitest run' } }));
+writeFileSync(join(F, 'pretty.json'), JSON.stringify({ name: 'delta', version: '1.1.0', padding: PADDING, scripts: { dev: 'electron-vite dev', test: 'vitest run' } }, null, 4) + '\n');
+writeFileSync(join(F, 'broken.json'), '{"name":"delta","version":}');
 // A folder that disappears later, for the missing-path badge on the start screen.
 const GONE = join(T, 'gone');
 mkdirSync(GONE);
@@ -221,6 +226,51 @@ async function run() {
   check('identical text in different encodings and line endings says so', (await stats())?.startsWith('Identical text; encoding and line endings differ'), await stats());
   check('each side shows its own', (await fileStatus('a')) === 'ASCII LF 3 lines 14 B' && (await fileStatus('b')) === 'UTF-8 with BOM CRLF 3 lines 20 B', `${await fileStatus('a')} / ${await fileStatus('b')}`);
   check('and what differs is emphasised on both sides', (await js(`[...document.querySelectorAll('.fs-item.differs')].map((e) => e.innerText).join('|')`)) === 'ASCII|LF|UTF-8 with BOM|CRLF');
+
+  section('Prettify');
+  await open(launch(join(F, 'min.json'), join(F, 'pretty.json')).url);
+  check('a minified file suggests Prettify', await waitFor(`document.querySelector('.notice')?.innerText.includes('looks minified')`));
+  check('before: a one-line file against a formatted one, nearly every line differs', (await paneLines('a')).length === 1, JSON.stringify(await paneLines('a')));
+  await clickText('.notice button', 'Prettify');
+  check('Prettify formats both sides', await waitFor(`document.querySelector('.prettify-bar')?.innerText.includes('read-only') && document.querySelector('.file-status-a')?.innerText.includes('9 lines (prettified)')`));
+  check('leaving one real difference', (await stats())?.startsWith('1 difference 1 modified'), await stats());
+  check('the toolbar button shows it is on, and so does View > Prettify', (await js(`document.querySelector('.prettify-button').getAttribute('aria-pressed')`)) === 'true' && (await (async () => { await clickText('.menubar-title', 'View'); const c = await js(`document.querySelector('.menubar-panel [role=menuitemcheckbox]').getAttribute('aria-checked')`); await clickText('.menubar-title', 'View'); return c; })()) === 'true');
+  check('the status line counts prettified lines', (await fileStatus('a'))?.includes('lines (prettified)'), await fileStatus('a'));
+  const rightBefore = readFileSync(join(F, 'pretty.json'), 'utf8');
+  await clickEl('.pane-b .row', { dx: 120 });
+  await type('zz');
+  await key('Backspace');
+  await key('s', [MOD]);
+  await key('z', [MOD]);
+  await sleep(300);
+  check('typing, Backspace, Save and Undo do nothing', !(await js(`!!document.querySelector('.pane-header .edited')`)) && readFileSync(join(F, 'pretty.json'), 'utf8') === rightBefore && (await stats())?.startsWith('1 difference'));
+  check('the merge arrows are disabled, saying why', await js(`[...document.querySelectorAll('.merge')].every((b) => b.disabled && b.title.includes('read-only'))`));
+  check('so are Save and Undo in the menu', await (async () => { await clickText('.menubar-title', 'File'); const d = await js(`[...document.querySelectorAll('.menubar-panel [role=menuitem]')].filter((b) => /^Save/.test(b.innerText)).every((b) => b.disabled)`); await clickText('.menubar-title', 'File'); return d; })());
+  writeFileSync(join(F, 'pretty.json'), rightBefore.replace('"1.1.0"', '"2.0.0"'));
+  await key('F5');
+  check('Refresh re-reads and prettifies again', await waitFor(`[...document.querySelectorAll('.pane-b .txt')].some((t) => t.innerText.includes('"2.0.0"')) && !!document.querySelector('.prettify-bar') && !document.querySelector('.prettify-bar').innerText.includes('Prettifying')`));
+  await clickText('.prettify-bar button', 'Turn off');
+  check('turning it off restores the original texts and editing', await waitFor(`!document.querySelector('.prettify-bar') && [...document.querySelectorAll('.pane-a .row .txt')].filter((t) => t.innerText).length === 1`) && (await js(`document.querySelector('.prettify-button').getAttribute('aria-pressed')`)) === 'false');
+  await open(launch(join(F, 'broken.json'), join(F, 'pretty.json')).url);
+  await clickEl('.toolbar .prettify-button');
+  check("a side that doesn't parse is shown as it is, with the reason", await waitFor(`document.querySelector('.notice')?.innerText.includes(${JSON.stringify(`left file couldn't be prettified (Unexpected "}" at line 1, column 27)`)})`) && (await paneLines('a'))[0] === '{"name":"delta","version":}', await js(`document.querySelector('.notice')?.innerText`));
+  check('while the other side is still formatted', (await paneLines('b'))[0] === '{' && (await paneLines('b')).length > 3);
+  await clickEl('.toolbar .prettify-button');
+  await open(launch(join(F, 'min.json'), join(F, 'pretty.json')).url);
+  await clickEl('.pane-b .row', { dx: 60 });
+  await type('q');
+  await clickEl('.toolbar .prettify-button');
+  check('with unsaved edits, Prettify asks first', await waitFor(`document.querySelector('.confirm-dialog')?.innerText.includes('Discard your changes')`));
+  await clickText('.confirm-dialog button', 'Cancel');
+  await sleep(300);
+  check('and cancelling keeps the edits, not prettified', (await js(`!!document.querySelector('.pane-header .edited') && !document.querySelector('.prettify-bar')`)));
+  await clickEl('.toolbar .prettify-button');
+  await waitFor(`!!document.querySelector('.confirm-dialog')`);
+  await clickEl('.confirm-dialog button.primary');
+  check('discarding re-reads the file and prettifies it', await waitFor(`document.querySelector('.file-status-b')?.innerText.includes('lines (prettified)')`) && (await js(`!document.querySelector('.pane-header .edited')`)) && !(await paneLines('b')).some((l) => l.includes('q')));
+  win.webContents.once('will-prevent-unload', (e) => e.preventDefault());
+  await open(launch(join(F, 'left.txt'), join(F, 'right.txt')).url);
+  check('Prettify is unavailable for plain text, saying why', await js(`document.querySelector('.prettify-button').disabled && document.querySelector('.prettify-button').title.includes('Prettify works on')`));
 
   section('Comparing folders');
   await open(launch(L, R).url);

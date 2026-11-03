@@ -148,7 +148,7 @@ if (!stopOnly && (!existsSync(installed) || mtime(join(ROOT, 'package-lock.json'
   console.log('Installing dependencies (first run, or after an update). This can take a minute…');
   // The browser version doesn't need Electron's ~100MB app binary (only the desktop app does),
   // so skip downloading it: a faster first start, and one that works behind proxies the
-  // download doesn't support. `npm rebuild electron` fetches it later for the desktop app.
+  // download doesn't support. The desktop app fetches it on first run (npm start's prestart).
   await timed('Installing dependencies', () => npm(['install', '--no-audit', '--no-fund'], { show: true, env: { ...process.env, ELECTRON_SKIP_BINARY_DOWNLOAD: '1' } }));
 }
 

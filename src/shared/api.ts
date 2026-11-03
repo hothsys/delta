@@ -73,6 +73,7 @@ export type Command =
   | 'toggle-theme'
   | 'next-difference'
   | 'previous-difference'
+  | 'toggle-prettify'
   | 'toggle-debug-logging'
   | 'open-logs-folder'
   | 'copy-diagnostics';
@@ -285,6 +286,8 @@ export interface DeltaApi {
   locations(): Promise<Location[]>;
   /** Joins a root and a relative path from a `FolderNode` using the platform separator. */
   joinPath(root: string, relPath: string): string;
+  /** Shows a checkbox menu item (View > Prettify) as on or off in the native menu. */
+  setMenuChecked(command: Command, checked: boolean): void;
   /** Adds an entry to the log (sent in the background; never fails). */
   log(entry: LogEntry): void;
   logInfo(): Promise<LogInfo>;

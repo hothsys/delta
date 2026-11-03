@@ -102,8 +102,9 @@ First install the build tools (including Electron) into `node_modules/`; this ta
 
 ```sh
 npm install
-npm rebuild electron    # only if you've already used the browser version, which skips Electron's app download
 ```
+
+Electron's app itself (about 100MB) is downloaded the first time you run `npm start` or `npm run dev`.
 
 **Run it straight from the project:**
 
@@ -168,7 +169,7 @@ npm run dist     # new installer in dist/installers/
 - **macOS won't open start.command** ("cannot be opened because it is from an unidentified developer", typically after downloading the project as a ZIP): right-click it, choose **Open**, then **Open** again. Or run `./start.command` in Terminal. If it says "permission denied", run `chmod +x start.command` once.
 - **Ctrl+C doesn't stop it straight away while it's installing**: npm first undoes the half-finished install, which waits for downloads in progress. Delta says so; press Ctrl+C a second time to stop npm at once (the next start installs again).
 - **The browser version doesn't start**: the window it runs in shows what went wrong. The first start installs dependencies and builds, so it needs an internet connection; if `npm install` fails, fix the problem it reports and start again.
-- **The desktop app says Electron failed to install** after you first used the browser version: the browser version skips downloading Electron's app binary, which only the desktop app needs. Run `npm rebuild electron` once.
+- **`npm start` or `npm run dev` says "Electron uninstall" or "Electron failed to install"**: Electron's app wasn't downloaded (it's fetched on first run, and the browser version never needs it). Run `node node_modules/electron/install.js` once; if it fails, check your internet connection (or proxy settings), delete `node_modules/electron` and run `npm install` again.
 - **Nothing happens when the desktop app starts from a downloaded installer** (macOS): use right-click → Open the first time, as described above.
 - **Anything else:** look in Delta's log (below). To report a problem, choose **Help → Copy Diagnostic Info** and paste the result into your report: it has Delta's version, your system and the latest log entries.
 
@@ -205,6 +206,7 @@ Levels, from least to most detail: `error`, `warn`, `info` (the default) and `de
 - A **centre gutter** links each change on the left to its counterpart on the right, and an **overview map** on the right shows every change in the file at a glance. Click it to jump.
 - **Whitespace and case options:** compare everything, or ignore leading/trailing whitespace, whitespace changes, all whitespace, or letter case.
 - **Manual alignment:** right-click a line on each side to force them onto the same row.
+- **Prettify** minified files: JSON, JavaScript, TypeScript, CSS, SCSS, Less, XML, SVG and HTML are reformatted one statement, rule or element per line on both sides, so a bundle that's one enormous line becomes a readable diff. It's a read-only view (turn it off to edit, merge or save), offered automatically when a file looks minified, and runs in the background with a Cancel button.
 - Handles large files smoothly (tested up to 75MB and a million lines, and minified files with half-million-character lines); diffing runs off the UI thread.
 
 ![The same comparison in the dark theme](docs/images/files-dark.png)
@@ -306,7 +308,7 @@ dist/         everything generated (not in git): app/ (compiled app), installers
 
 ## Built with
 
-[Electron](https://www.electronjs.org/), [React](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Vite](https://vite.dev/) with [electron-vite](https://electron-vite.org/), [Vitest](https://vitest.dev/) and [electron-builder](https://www.electron.build/). The interface font is [Josefin Sans](https://github.com/ThomasJockin/JosefinSansFont-master) (SIL Open Font License).
+[Electron](https://www.electronjs.org/), [React](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Vite](https://vite.dev/) with [electron-vite](https://electron-vite.org/), [Vitest](https://vitest.dev/) and [electron-builder](https://www.electron.build/). Prettify uses [Prettier](https://prettier.io/) for JavaScript, TypeScript and CSS. The interface font is [Josefin Sans](https://github.com/ThomasJockin/JosefinSansFont-master) (SIL Open Font License).
 
 ## License
 

@@ -9,6 +9,8 @@ interface FileStatusProps {
   edited: boolean;
   /** Conventions that differ from the other side, emphasised. */
   differs: { encoding: boolean; eol: boolean; newline: boolean };
+  /** The pane shows formatted text: the line count is the formatted one; the rest is the file's. */
+  prettified?: boolean;
 }
 
 /**
@@ -16,7 +18,7 @@ interface FileStatusProps {
  * most editors show. What differs from the other side is emphasised, so a BOM or CRLF/LF
  * mismatch stands out even when every line matches.
  */
-export function FileStatus({ side, details, lines, trailingNewline, edited, differs }: FileStatusProps) {
+export function FileStatus({ side, details, lines, trailingNewline, edited, differs, prettified }: FileStatusProps) {
   const cls = (differ: boolean) => `fs-item${differ ? ' differs' : ''}`;
   const why = (differ: boolean, title: string) => (differ ? `${title} The other side differs.` : title);
   if (!details) {
@@ -37,10 +39,14 @@ export function FileStatus({ side, details, lines, trailingNewline, edited, diff
       <span className={cls(differs.eol)} title={why(differs.eol, eol.title)}>
         {eol.label}
       </span>
-      <span className="fs-item" title={`${lines.toLocaleString('en-US')} ${lines === 1 ? 'line' : 'lines'}${edited ? ', including unsaved edits' : ''}`}>
+      <span
+        className="fs-item"
+        title={prettified ? 'Lines in the prettified text; the file itself may have fewer.' : `${lines.toLocaleString('en-US')} ${lines === 1 ? 'line' : 'lines'}${edited ? ', including unsaved edits' : ''}`}
+      >
         {formatLines(lines)}
+        {prettified && ' (prettified)'}
       </span>
-      {lines > 0 && (!trailingNewline || differs.newline) && (
+      {!prettified && lines > 0 && (!trailingNewline || differs.newline) && (
         <span className={cls(differs.newline)} title={why(differs.newline, trailingNewline ? 'The last line ends with a line break.' : 'The last line has no line break after it.')}>
           {trailingNewline ? 'Newline at end' : 'No newline at end'}
         </span>

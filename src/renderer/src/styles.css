@@ -558,6 +558,31 @@ body {
   cursor: pointer;
 }
 
+.prettify-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--row-mod);
+}
+
+.prettify-bar button {
+  font: inherit;
+  color: var(--fg);
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.toolbar .prettify-button.on {
+  color: #fff;
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
 /* Manual alignment */
 
 .ln.anchored {

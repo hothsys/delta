@@ -56,7 +56,7 @@ describe('MENU', () => {
       [
         'compare-files', 'compare-folders', 'save', 'save-as', 'save-left', 'save-right',
         'refresh', 'undo', 'redo', 'select-all', 'toggle-theme', 'next-difference', 'previous-difference',
-        'toggle-debug-logging', 'open-logs-folder', 'copy-diagnostics',
+        'toggle-prettify', 'toggle-debug-logging', 'open-logs-folder', 'copy-diagnostics',
       ].sort(),
     );
   });

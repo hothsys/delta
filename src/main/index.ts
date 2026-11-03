@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell, type WebConten
 import { stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { ComparisonKind, ConfirmOptions, CopyRequest, FolderCompareMode, SaveRequest } from '../shared/api';
+import type { Command, ComparisonKind, ConfirmOptions, CopyRequest, FolderCompareMode, SaveRequest } from '../shared/api';
 import { readTextFile, writeTextFile } from '../node/files';
 import { compareFolders, copyEntry } from '../node/folders';
 import { listDirectory, locations } from '../node/browse';
@@ -19,6 +19,9 @@ const args = takeLogLevel(process.argv.slice(app.isPackaged ? 1 : 2));
 // Logged without changing what happens next (Electron's own error dialog, for one).
 process.on('uncaughtExceptionMonitor', (err, origin) => log.error('app', `Uncaught ${origin === 'unhandledRejection' ? 'rejection' : 'exception'}`, err));
 process.on('unhandledRejection', (reason) => log.error('app', 'Unhandled rejection', reason instanceof Error ? reason : { reason: String(reason) }));
+
+/** Checkbox menu items the interface has turned on (View > Prettify). */
+const menuChecks = new Map<Command, boolean>();
 
 /** Windows with edits that have not been saved, so closing them asks first. */
 const unsaved = new Set<number>();
@@ -181,6 +184,10 @@ function registerIpc(dataDir: string): void {
     else unsaved.delete(e.sender.id);
   });
 
+  ipcMain.on('menu:set-checked', (_e, command: Command, checked: boolean) => {
+    menuChecks.set(command, checked === true);
+    installMenu();
+  });
   ipcMain.on('log:write', (_e, entry: unknown) => writeFromInterface(entry));
   handle('log:info', () => logInfo());
   handle('log:set-debug', async (_e, on: boolean) => {
@@ -209,7 +216,7 @@ app.whenReady().then(() => {
     log: file,
   });
   if (args.level !== undefined && level !== args.level) log.warn('app', 'Unknown log level; use error, warn, info or debug', { given: args.level });
-  installMenu((command) => command === 'toggle-debug-logging' && logLevel() === 'debug');
+  installMenu((command) => (command === 'toggle-debug-logging' ? logLevel() === 'debug' : menuChecks.get(command) === true));
   registerIpc(dataDir);
   createWindow();
   app.on('activate', () => {

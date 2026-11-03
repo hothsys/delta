@@ -34,6 +34,7 @@ const api: DeltaApi = {
   listDirectory: (path, showHidden) => ipcRenderer.invoke('browse:list', path, showHidden),
   locations: () => ipcRenderer.invoke('browse:locations'),
   joinPath: (root, relPath) => (relPath ? root.replace(/[\\/]+$/, '') + sep + relPath.split('/').join(sep) : root),
+  setMenuChecked: (command, checked) => ipcRenderer.send('menu:set-checked', command, checked),
   log: (entry) => ipcRenderer.send('log:write', entry),
   logInfo: () => ipcRenderer.invoke('log:info'),
   setDebugLogging: (on) => ipcRenderer.invoke('log:set-debug', on),

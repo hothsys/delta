@@ -20,6 +20,10 @@ import { DiffView, type DiffViewHandle } from './components/DiffView';
 import { FolderView, type TreeSide } from './components/FolderView';
 import { MenuBar } from './components/MenuBar';
 import { Notice, type NoticeState } from './components/Notice';
+import { PrettifyBar } from './components/PrettifyBar';
+import { LONG_LINE } from './components/layout';
+import { prettifyAvailability } from './prettify/kinds';
+import { usePrettify } from './usePrettify';
 import { StartScreen } from './components/StartScreen';
 import { Toolbar, type Theme } from './components/Toolbar';
 import { log, setLogLevel } from './log';
@@ -117,7 +121,23 @@ export function App() {
   const toggleTheme = () => changeTheme((pendingTheme.current ?? theme) === 'dark' ? 'light' : 'dark');
 
   const options = useMemo(() => ({ whitespace, ignoreCase }), [whitespace, ignoreCase]);
-  const cmp = useComparison(sources.a, sources.b, options);
+
+  // Prettify: both sides formatted for a read-only comparison. The documents shown are swapped
+  // for formatted ones; the originals stay as they are, so turning it off returns to them.
+  const [prettyOn, setPrettyOn] = useState(false);
+  const availability = useMemo(
+    () =>
+      prettifyAvailability(
+        { path: sources.a.file?.path ?? sources.a.missingPath, text: sources.a.text },
+        { path: sources.b.file?.path ?? sources.b.missingPath, text: sources.b.text },
+      ),
+    [sources.a.id, sources.b.id],
+  );
+  const pretty = usePrettify(prettyOn, sources, availability.ok ? availability.kinds : null);
+  const shown = prettyOn && pretty.state.status === 'ready' && pretty.state.sources ? pretty.state.sources : sources;
+  const READ_ONLY = 'Prettified view: read-only. Turn off Prettify to edit, merge or save.';
+
+  const cmp = useComparison(shown.a, shown.b, options);
   const edited = cmp.isEdited;
 
   // Let the main process warn before the window closes with unsaved edits.
@@ -192,6 +212,7 @@ export function App() {
       // Files opened from inside a folder comparison are not listed separately.
       if (a.file && b.file) remember('files', a.file.path, b.file.path);
     }
+    setPrettyOn(false);
     log.info('files', 'Comparing files', {
       left: a.file?.path ?? a.missingPath,
       right: b.file?.path ?? b.missingPath,
@@ -216,7 +237,7 @@ export function App() {
 
   /** Saves one side to its file (creating it for a side that was missing), or asks where with `as`. */
   const save = async (side: Side, as = false) => {
-    if (mode !== 'files') return;
+    if (mode !== 'files' || prettyOn) return;
     const source = sources[side];
     const doc = cmp.docs[side];
     let path = source.file?.path ?? source.missingPath;
@@ -375,6 +396,7 @@ export function App() {
       remember('folders', r.left, r.right);
     }
     log.info('folders', fresh ? 'Opened a folder comparison' : 'Reopened the folder comparison', { left: r.left, right: r.right, mode: folderMode });
+    setPrettyOn(false);
     setResumeMode(null);
     setRoots(r);
     setMode('folders');
@@ -523,6 +545,7 @@ export function App() {
   const backToFolders = async () => {
     if (!roots || !(await leaveFiles())) return;
     log.info('folders', 'Back to the folder comparison', { rescan: folderStale.current || undefined });
+    setPrettyOn(false);
     if (!folderResult?.ok) return showFolders(roots, false);
     setResumeMode(null);
     setMode('folders');
@@ -649,6 +672,8 @@ export function App() {
         return view.current?.goToDifference(-1);
       case 'toggle-theme':
         return toggleTheme();
+      case 'toggle-prettify':
+        return void setPrettify(!prettyOn);
       case 'toggle-debug-logging':
         return void toggleDebugLogging();
       case 'open-logs-folder':
@@ -661,6 +686,46 @@ export function App() {
     }
   };
   useEffect(() => api.onCommand((c) => onCommand.current(c)), []);
+
+  // ---- Prettify --------------------------------------------------------------------------
+
+  /** Turns Prettify on or off. On asks about unsaved edits first: it formats the files as on disk. */
+  const setPrettify = async (on: boolean) => {
+    if (on === prettyOn) return;
+    if (on) {
+      if (!availability.ok) return;
+      if (!(await leaveFiles())) return;
+      log.info('prettify', 'Prettify on', { left: availability.kinds.a, right: availability.kinds.b });
+      setNotice((n) => (n?.text === MINIFIED_HINT ? null : n));
+    } else log.info('prettify', 'Prettify off');
+    setPrettyOn(on);
+  };
+  const cancelPrettify = () => {
+    pretty.cancel();
+    setPrettyOn(false);
+  };
+
+  // The native menu's check mark follows the toggle.
+  useEffect(() => api.setMenuChecked('toggle-prettify', prettyOn && mode === 'files'), [prettyOn, mode]);
+
+  // A side that couldn't be formatted is shown as it is, with the reason.
+  useEffect(() => {
+    const { status, errors } = pretty.state;
+    if (status !== 'ready' || (!errors.a && !errors.b)) return;
+    const parts = (['a', 'b'] as const).flatMap((s) => (errors[s] ? [`The ${sideName(s)} file couldn't be prettified (${errors[s]}), so it's shown as it is.`] : []));
+    setNotice({ kind: 'error', text: parts.join(' ') });
+  }, [pretty.state]);
+
+  // Suggest Prettify, once per comparison, when a file it handles looks minified.
+  const suggestedFor = useRef('');
+  useEffect(() => {
+    if (mode !== 'files' || prettyOn || !availability.ok) return;
+    const key = `${sources.a.file?.path ?? ''}\0${sources.b.file?.path ?? ''}`;
+    if (suggestedFor.current === key) return;
+    if (longestLine(sources.a.text) <= LONG_LINE && longestLine(sources.b.text) <= LONG_LINE) return;
+    suggestedFor.current = key;
+    setNotice((n) => n ?? { kind: 'info', text: MINIFIED_HINT, actions: [{ label: 'Prettify', run: () => void setPrettify(true) }] });
+  }, [mode, sources.a.id, sources.b.id]);
 
   // ---- Logging ---------------------------------------------------------------------------
 
@@ -734,6 +799,16 @@ export function App() {
         return true;
       case 'refresh':
         return mode === 'folders' ? !!roots && !folderBusy && !folderRefreshing : mode === 'files' && !!(sources.a.file || sources.b.file);
+      case 'toggle-prettify':
+        return mode === 'files' && (availability.ok || prettyOn);
+      case 'save':
+      case 'save-as':
+      case 'save-left':
+      case 'save-right':
+      case 'undo':
+      case 'redo':
+        // Greyed out (and their shortcuts swallowed) while the view is prettified.
+        return mode === 'files' && !prettyOn;
       default:
         return mode === 'files';
     }
@@ -785,7 +860,7 @@ export function App() {
   const differs = mode === 'files' ? conventionsDiffer(sideFacts('a'), sideFacts('b')) : { encoding: false, eol: false, newline: false };
 
   const noticeBar = notice && <Notice notice={notice} onDismiss={() => setNotice(null)} />;
-  const menuBar = !api.capabilities.nativeMenu && <MenuBar enabled={commandEnabled} checked={(c) => c === 'toggle-debug-logging' && logInfo?.level === 'debug'} onCommand={(c) => onCommand.current(c)} />;
+  const menuBar = !api.capabilities.nativeMenu && <MenuBar enabled={commandEnabled} checked={(c) => (c === 'toggle-debug-logging' ? logInfo?.level === 'debug' : c === 'toggle-prettify' && prettyOn && mode === 'files')} onCommand={(c) => onCommand.current(c)} />;
   if (mode === 'folders' && roots) {
     return (
       <div className="app">
@@ -880,11 +955,17 @@ export function App() {
         busy={cmp.busy}
         elapsedMs={cmp.elapsedMs}
         canRefresh={watched.length > 0}
+        prettify={{
+          on: prettyOn,
+          unavailable: availability.ok || prettyOn ? undefined : availability.reason,
+          onToggle: () => void setPrettify(!prettyOn),
+        }}
         onRefresh={() => {
           log.info('files', 'Refresh pressed');
           void reload();
         }}
       />
+      {prettyOn && <PrettifyBar working={pretty.state.status !== 'ready'} onTurnOff={() => void setPrettify(false)} onCancel={cancelPrettify} />}
       {noticeBar}
       {cmp.error && <div className="error">Comparison failed: {cmp.error}</div>}
       {cmp.view && (
@@ -918,10 +999,26 @@ export function App() {
           onAlign={cmp.align}
           onUnalign={cmp.unalign}
           onClearAlignments={cmp.clearAlignments}
+          readOnly={prettyOn ? READ_ONLY : undefined}
         />
       )}
     </div>
   );
+}
+
+const MINIFIED_HINT = 'This file looks minified. Prettify it for a readable comparison? (The view becomes read-only.)';
+
+/** Length of the longest line, without splitting the text. */
+function longestLine(text: string): number {
+  let longest = 0;
+  let start = 0;
+  for (;;) {
+    const end = text.indexOf('\n', start);
+    const len = (end < 0 ? text.length : end) - start;
+    if (len > longest) longest = len;
+    if (end < 0) return longest;
+    start = end + 1;
+  }
 }
 
 function baseName(path: string): string {
