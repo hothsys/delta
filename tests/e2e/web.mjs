@@ -31,6 +31,9 @@ writeFileSync(join(F, 'right.txt'), 'alpha\nBRAVO\ncharlie\necho\nfoxtrot\n');
 // Latin-1 with CRLF line endings: saving must keep both.
 writeFileSync(join(F, 'latin1.txt'), Buffer.from('caf\xe9\r\nna\xefve\r\n', 'latin1'));
 writeFileSync(join(F, 'other.txt'), 'cafe\r\nnaive\r\n');
+// The same text with different file conventions: UTF-8 and LF against UTF-8 with a BOM and CRLF.
+writeFileSync(join(F, 'plain.txt'), 'one\ntwo\nthree\n');
+writeFileSync(join(F, 'bom-crlf.txt'), Buffer.from('\ufeffone\r\ntwo\r\nthree\r\n', 'utf8'));
 
 const L = join(T, 'L');
 const R = join(T, 'R');
@@ -121,6 +124,7 @@ const fill = (selector, value) =>
   js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(value)}); el.dispatchEvent(new Event('input', { bubbles: true })); el.focus(); return true; })()`);
 const paneLines = (side) => js(`[...document.querySelectorAll('.pane-${side} .row')].map((r) => r.querySelector('.txt')?.innerText ?? '').filter(Boolean)`);
 const stats = () => js(`document.querySelector('.stats')?.innerText.replace(/\\s+/g, ' ').trim()`);
+const fileStatus = (side) => js(`document.querySelector('.file-status-${side}')?.innerText.replace(/\\s+/g, ' ').trim()`);
 async function open(url) {
   await win.loadURL(url);
   await waitFor(`!!document.querySelector('.menubar')`);
@@ -161,10 +165,12 @@ async function run() {
   await key('End');
   await type('!');
   check('typing marks the side edited', await waitFor(`!!document.querySelector('.pane-header .edited')`));
+  check('the status line shows the encoding, line endings, lines and size, marked edited', (await fileStatus('b')) === 'ASCII LF 5 lines 33 B (edited)', await fileStatus('b'));
   await key('s', [MOD]);
   await sleep(500);
   check('Cmd/Ctrl+S saves the active side to disk', readFileSync(join(F, 'right.txt'), 'utf8') === 'alpha\nBRAVO!\ncharlie\necho\nfoxtrot\n', JSON.stringify(readFileSync(join(F, 'right.txt'), 'utf8')));
   check('saving clears the edited mark', !(await js(`!!document.querySelector('.pane-header .edited')`)));
+  check('and the status line shows the saved size', (await fileStatus('b')) === 'ASCII LF 5 lines 34 B', await fileStatus('b'));
   await sleep(800); // let the re-diff settle so the merge arrows are live
   await clickEl('[aria-label="Copy to right"]');
   check('a merge arrow copies the change across', (await paneLines('b'))[1] === 'bravo', JSON.stringify(await paneLines('b')));
@@ -193,6 +199,13 @@ async function run() {
   await key('s', [MOD]);
   await sleep(500);
   check('Latin-1 and CRLF are preserved', readFileSync(join(F, 'latin1.txt')).equals(Buffer.from('caf\xe9s\r\nna\xefve\r\n', 'latin1')), readFileSync(join(F, 'latin1.txt')).toString('hex'));
+  check('the status line says Latin-1 and CRLF', (await fileStatus('a'))?.startsWith('Latin-1 CRLF 2 lines'), await fileStatus('a'));
+  await type('✓');
+  await key('s', [MOD]);
+  check('saving a character Latin-1 can’t hold asks to save as UTF-8', await waitFor(`document.querySelector('.confirm-dialog')?.innerText.includes('as UTF-8')`));
+  await clickEl('.confirm-dialog button.primary');
+  await sleep(500);
+  check('and afterwards the status line says UTF-8', (await fileStatus('a'))?.startsWith('UTF-8 CRLF 2 lines') && readFileSync(join(F, 'latin1.txt'), 'utf8') === 'cafés✓\r\nnaïve\r\n', await fileStatus('a'));
 
   section('Outside changes');
   appendFileSync(join(F, 'other.txt'), 'added elsewhere\r\n');
@@ -202,6 +215,12 @@ async function run() {
   writeFileSync(join(F, 'other.txt'), 'cafe\r\nnaive\r\nmore\r\n');
   await key('F5');
   check('F5 reloads too (and not the page)', await waitFor(`[...document.querySelectorAll('.pane-b .txt')].some((t) => t.innerText === 'more')`));
+
+  section('File details');
+  await open(launch(join(F, 'plain.txt'), join(F, 'bom-crlf.txt')).url);
+  check('identical text in different encodings and line endings says so', (await stats())?.startsWith('Identical text; encoding and line endings differ'), await stats());
+  check('each side shows its own', (await fileStatus('a')) === 'ASCII LF 3 lines 14 B' && (await fileStatus('b')) === 'UTF-8 with BOM CRLF 3 lines 20 B', `${await fileStatus('a')} / ${await fileStatus('b')}`);
+  check('and what differs is emphasised on both sides', (await js(`[...document.querySelectorAll('.fs-item.differs')].map((e) => e.innerText).join('|')`)) === 'ASCII|LF|UTF-8 with BOM|CRLF');
 
   section('Comparing folders');
   await open(launch(L, R).url);

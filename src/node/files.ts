@@ -1,6 +1,6 @@
 import { lstat, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
-import type { LineEnding, ReadResult, SaveRequest, SaveResult, TextEncoding } from '../shared/api';
+import type { EolCounts, LineEnding, ReadResult, SaveRequest, SaveResult, TextEncoding } from '../shared/api';
 import { log } from './log';
 
 /** A NUL byte in the first this-many bytes (outside UTF-16) marks a file as binary. */
@@ -16,6 +16,7 @@ export async function readTextFile(path: string): Promise<ReadResult> {
       return { ok: false, path, reason: 'binary', message: binaryMessage(path) };
     }
     log.debug('files', 'Read', { path, bytes: info.size, encoding: decoded.encoding, ms: Math.round(performance.now() - t0) });
+    const eolCounts = countEols(decoded.text);
     return {
       ok: true,
       file: {
@@ -23,7 +24,9 @@ export async function readTextFile(path: string): Promise<ReadResult> {
         name: basename(path),
         text: decoded.text,
         encoding: decoded.encoding,
-        eol: dominantEol(decoded.text),
+        eol: dominantEol(eolCounts),
+        eolCounts,
+        asciiOnly: decoded.encoding === 'utf8' && isAscii(buf),
         size: info.size,
         mtimeMs: info.mtimeMs,
       },
@@ -130,8 +133,8 @@ export function encode(text: string, encoding: TextEncoding): Buffer {
   }
 }
 
-/** The most frequent line ending in `text`; `\n` when there are none. Exported for tests. */
-export function dominantEol(text: string): LineEnding {
+/** Counts each kind of line break in `text` (a CR followed by LF is one CRLF). Exported for tests. */
+export function countEols(text: string): EolCounts {
   let lf = 0;
   let crlf = 0;
   let cr = 0;
@@ -145,9 +148,21 @@ export function dominantEol(text: string): LineEnding {
       } else cr++;
     }
   }
+  return { lf, crlf, cr };
+}
+
+/** The most frequent line ending (of `text`, or of counts already taken); `\n` when there are none. Exported for tests. */
+export function dominantEol(text: string | EolCounts): LineEnding {
+  const { lf, crlf, cr } = typeof text === 'string' ? countEols(text) : text;
   if (crlf > lf && crlf >= cr) return '\r\n';
   if (cr > lf && cr > crlf) return '\r';
   return '\n';
+}
+
+/** Every byte is 7-bit. Exported for tests. */
+export function isAscii(buf: Buffer): boolean {
+  for (let i = 0; i < buf.length; i++) if (buf[i] > 0x7f) return false;
+  return true;
 }
 
 function swapBytes(buf: Buffer): Buffer {

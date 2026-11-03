@@ -23,6 +23,7 @@ import { Notice, type NoticeState } from './components/Notice';
 import { StartScreen } from './components/StartScreen';
 import { Toolbar, type Theme } from './components/Toolbar';
 import { log, setLogLevel } from './log';
+import { conventionsDiffer, identicalNote, isAsciiText, savedEolCounts, type FileDetails } from './model/fileDetails';
 import type { Side } from './model/rowModel';
 import { api } from './platform';
 import { newSourceId, useComparison, type Source } from './useComparison';
@@ -44,7 +45,7 @@ const fromFile = (f: LoadedFile): Source => ({
   id: newSourceId(),
   label: f.name,
   text: f.text,
-  file: { path: f.path, encoding: f.encoding, eol: f.eol, mtimeMs: f.mtimeMs },
+  file: { path: f.path, encoding: f.encoding, eol: f.eol, mtimeMs: f.mtimeMs, size: f.size, eolCounts: f.eolCounts, asciiOnly: f.asciiOnly },
 });
 
 const sideName = (side: Side) => (side === 'a' ? 'left' : 'right');
@@ -253,6 +254,8 @@ export function App() {
     }
     // Only mark clean if nothing was typed while the write was in flight.
     if (doc.version === version) cmp.markSaved(side);
+    // A file just created took its counterpart's final newline; the status line shows what's on disk.
+    doc.trailingNewline = trailingNewline;
     if (roots) folderStale.current = true;
     setSources((s) => ({
       ...s,
@@ -260,7 +263,16 @@ export function App() {
         ...s[side],
         label: result.name,
         missingPath: undefined,
-        file: { path: result.path, encoding: result.encoding, eol, mtimeMs: result.mtimeMs },
+        file: {
+          path: result.path,
+          encoding: result.encoding,
+          eol,
+          mtimeMs: result.mtimeMs,
+          size: result.size,
+          // Saving writes every line with one ending, which settles mixed endings.
+          eolCounts: savedEolCounts(doc.lines.length, eol, trailingNewline),
+          asciiOnly: result.encoding === 'utf8' && isAsciiText(text),
+        },
       },
     }));
   };
@@ -767,6 +779,11 @@ export function App() {
 
   // ---- Rendering -------------------------------------------------------------------------
 
+  // The status lines under the panes, and what differs between the files beyond their text.
+  const fileDetails = (side: Side): FileDetails | null => sources[side].file ?? null;
+  const sideFacts = (side: Side) => ({ details: fileDetails(side), trailingNewline: cmp.docs[side].trailingNewline, lines: cmp.docs[side].lines.length });
+  const differs = mode === 'files' ? conventionsDiffer(sideFacts('a'), sideFacts('b')) : { encoding: false, eol: false, newline: false };
+
   const noticeBar = notice && <Notice notice={notice} onDismiss={() => setNotice(null)} />;
   const menuBar = !api.capabilities.nativeMenu && <MenuBar enabled={commandEnabled} checked={(c) => c === 'toggle-debug-logging' && logInfo?.level === 'debug'} onCommand={(c) => onCommand.current(c)} />;
   if (mode === 'folders' && roots) {
@@ -859,6 +876,7 @@ export function App() {
         theme={theme}
         onThemeChange={changeTheme}
         stats={cmp.stats}
+        identicalNote={identicalNote(differs)}
         busy={cmp.busy}
         elapsedMs={cmp.elapsedMs}
         canRefresh={watched.length > 0}
@@ -874,6 +892,8 @@ export function App() {
           handleRef={view}
           docs={cmp.docs}
           labels={{ a: sources.a.label, b: sources.b.label }}
+          fileDetails={{ a: fileDetails('a'), b: fileDetails('b') }}
+          conventionsDiffer={differs}
           paths={{ a: sources.a.file?.path ?? sources.a.missingPath, b: sources.b.file?.path ?? sources.b.missingPath }}
           homeDir={recents.homeDir}
           placeholders={{
