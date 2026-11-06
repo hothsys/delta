@@ -1,6 +1,6 @@
 import type { Dirent } from 'node:fs';
-import { cp, lstat, mkdir, open, readdir, readlink, realpath, rm, stat } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { cp, lstat, mkdir, open, readdir, readlink, realpath, rename, rm, stat } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import {
   TIMESTAMP_TOLERANCE_MS,
   type CopyRequest,
@@ -375,11 +375,14 @@ export async function filesEqual(a: string, b: string, sizeA: number, sizeB: num
 
 /**
  * Copies a file or folder from one tree to the same place in the other, replacing what is
- * there (a folder onto a folder merges: files only on the destination side are kept).
- * Symbolic links are copied as links, unchanged.
+ * there. A folder copied onto a folder replaces it: afterwards the destination matches the
+ * source exactly, so files and folders only on the destination side are gone (the renderer
+ * has confirmed that, naming them). Symbolic links are copied as links, unchanged.
  */
 export async function copyEntry(req: CopyRequest): Promise<CopyResult> {
   try {
+    // The roots themselves are never copied: replacing one would reach outside it.
+    if (req.relPath.split('/').filter(Boolean).length === 0) return { ok: false, message: 'Choose a file or folder inside the compared folders.' };
     const srcRoot = req.from === 'left' ? req.leftRoot : req.rightRoot;
     const dstRoot = req.from === 'left' ? req.rightRoot : req.leftRoot;
     const src = inside(srcRoot, req.relPath);
@@ -387,17 +390,49 @@ export async function copyEntry(req: CopyRequest): Promise<CopyResult> {
     await insideReally(dstRoot, dst);
     const [s, d] = await Promise.all([info(src), info(dst)]);
     if (!s) return { ok: false, message: `${req.relPath} no longer exists on the ${req.from}.` };
-    // A file cannot overwrite a folder (or the reverse), and a link at the destination is
-    // replaced, not written through. The renderer has confirmed the replacement.
-    if (d && (d.kind !== s.kind || d.link !== undefined)) await rm(dst, { recursive: true, force: true });
-    await mkdir(dirname(dst), { recursive: true });
-    await cp(src, dst, { recursive: true, force: true, preserveTimestamps: true, verbatimSymlinks: true });
+    const options = { recursive: true, force: true, preserveTimestamps: true, verbatimSymlinks: true } as const;
+    if (s.kind === 'dir' && d?.kind === 'dir' && d.link === undefined) {
+      await replaceFolder(src, dst, options);
+    } else {
+      // A file cannot overwrite a folder (or the reverse), and a link at the destination is
+      // replaced, not written through.
+      if (d && (d.kind !== s.kind || d.link !== undefined)) await rm(dst, { recursive: true, force: true });
+      await mkdir(dirname(dst), { recursive: true });
+      await cp(src, dst, options);
+    }
     log.info('folders', 'Copied', { from: src, to: dst, kind: s.kind, replaced: !!d });
     return { ok: true };
   } catch (err) {
     log.error('folders', 'Could not copy', { relPath: req.relPath, from: req.from, leftRoot: req.leftRoot, rightRoot: req.rightRoot, error: errorMessage(err) });
     return { ok: false, message: errorMessage(err) };
   }
+}
+
+/**
+ * Replaces the folder `dst` with a copy of `src`, without risking `dst` on the way: the copy
+ * is made beside it first, and only once it's complete does it take `dst`'s place. A copy
+ * that fails partway (a full disk, a file that can't be read) leaves `dst` as it was.
+ */
+async function replaceFolder(src: string, dst: string, options: Parameters<typeof cp>[2]): Promise<void> {
+  const stamp = `${process.pid}-${Date.now()}`;
+  const staging = join(dirname(dst), `.${basename(dst)}.delta-copy-${stamp}`);
+  const old = join(dirname(dst), `.${basename(dst)}.delta-old-${stamp}`);
+  try {
+    await cp(src, staging, options);
+  } catch (err) {
+    await rm(staging, { recursive: true, force: true });
+    throw err;
+  }
+  await rename(dst, old);
+  try {
+    await rename(staging, dst);
+  } catch (err) {
+    // Put the original back (Windows refuses to rename a folder something has open).
+    await rename(old, dst);
+    await rm(staging, { recursive: true, force: true });
+    throw err;
+  }
+  await rm(old, { recursive: true, force: true });
 }
 
 /** Resolves `relPath` under `root`, refusing anything that would escape it. */

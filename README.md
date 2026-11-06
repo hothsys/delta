@@ -219,7 +219,7 @@ Levels, from least to most detail: `error`, `warn`, `info` (the default) and `de
 **Comparing folders**
 - Two folder trees side by side, with each file marked same, different, left only or right only.
 - Compare by contents (exact), by size and modified date (fast), or by date alone (fastest). Large folders show progress and can be cancelled.
-- Copy files or whole folders across, binary files included. Double-click a file to open the pair in the text comparison; "← Folders" brings you straight back.
+- Copy files or whole folders across, binary files included. Replacing a folder makes it match the other side exactly; anything only on the side being replaced is deleted, and the confirmation names it first. Double-click a file to open the pair in the text comparison; "← Folders" brings you straight back.
 
 ![Comparing two folders (dark theme)](docs/images/folders.png)
 

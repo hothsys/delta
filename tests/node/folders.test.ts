@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -219,6 +219,38 @@ describe('copyEntry', () => {
   it('replaces a folder with a file when the kinds differ', async () => {
     expect(await copyEntry({ leftRoot: left, rightRoot: right, relPath: 'swap', from: 'left' })).toEqual({ ok: true });
     expect(readFileSync(join(right, 'swap'), 'utf8')).toBe('i am a file');
+  });
+
+  it('replaces a folder exactly: files only on the destination are removed', async () => {
+    tree(left, { 'pack/a.txt': 'A', 'pack/c.txt': 'C', 'pack/deep/x.txt': 'X' });
+    tree(right, { 'pack/a.txt': 'old A', 'pack/b.txt': 'B', 'pack/c.txt': 'C', 'pack/gone/y.txt': 'Y', 'pack/deep/z.txt': 'Z' });
+    expect(await copyEntry({ leftRoot: left, rightRoot: right, relPath: 'pack', from: 'left' })).toEqual({ ok: true });
+    expect(readdirSync(join(right, 'pack')).sort()).toEqual(['a.txt', 'c.txt', 'deep']);
+    expect(readdirSync(join(right, 'pack/deep'))).toEqual(['x.txt']);
+    expect(readFileSync(join(right, 'pack/a.txt'), 'utf8')).toBe('A');
+    // Nothing is left behind from the swap.
+    expect(readdirSync(right).filter((n) => n.includes('.delta-'))).toEqual([]);
+  });
+
+  it('leaves the destination folder untouched when the copy fails partway', async () => {
+    if (process.platform === 'win32') return; // chmod can't make a file unreadable there
+    tree(left, { 'broken/ok.txt': 'new', 'broken/locked.txt': 'secret' });
+    tree(right, { 'broken/ok.txt': 'old', 'broken/keep.txt': 'keep me' });
+    chmodSync(join(left, 'broken/locked.txt'), 0o000);
+    try {
+      const r = await copyEntry({ leftRoot: left, rightRoot: right, relPath: 'broken', from: 'left' });
+      expect(r.ok).toBe(false);
+    } finally {
+      chmodSync(join(left, 'broken/locked.txt'), 0o644);
+    }
+    expect(readFileSync(join(right, 'broken/ok.txt'), 'utf8')).toBe('old');
+    expect(readFileSync(join(right, 'broken/keep.txt'), 'utf8')).toBe('keep me');
+    expect(readdirSync(right).filter((n) => n.includes('.delta-'))).toEqual([]);
+  });
+
+  it('never copies a compared folder itself', async () => {
+    expect(await copyEntry({ leftRoot: left, rightRoot: right, relPath: '', from: 'left' })).toMatchObject({ ok: false });
+    expect(existsSync(right)).toBe(true);
   });
 
   it('refuses paths that escape the roots', async () => {

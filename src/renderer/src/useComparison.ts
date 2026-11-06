@@ -35,7 +35,14 @@ export interface Source {
   id: number;
   /** Shown in the pane header. */
   label: string;
+  /**
+   * The text as on disk: as opened, then as last saved. Edits happen in the document, not here;
+   * a save updates this (keeping `id`, so the document and its undo history stay) and bumps
+   * `saved`. Anything built from the file's text (Prettify) must use it, never the text as opened.
+   */
   text: string;
+  /** How many times this side has been saved since it was opened (0 or absent: never). */
+  saved?: number;
   /** Present when the text came from disk; needed to save it back the same way. */
   file?: {
     path: string;
