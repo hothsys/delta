@@ -319,11 +319,32 @@ async function run() {
   await sleep(600);
   check('and afterwards the folder matches exactly', !existsSync(join(R, 'sub', 'right-extra.txt')) && readFileSync(join(R, 'sub', 'nested.txt'), 'utf8') === 'one\n' && (await rowStatus('sub')) === 'same', await rowStatus('sub'));
 
+  section('Keeping the folder comparison current');
+  await sleep(1500); // the watch starts once the comparison is shown
+  writeFileSync(join(R, 'same.txt'), 'changed by another program\n');
+  check('a file changed elsewhere updates its row, without a rescan', await waitFor(`(() => { const r = [...document.querySelectorAll('.frow')].find((r) => r.innerText.includes('same.txt')); return r?.classList.contains('st-different'); })()`, 8000), await rowStatus('same.txt'));
+  writeFileSync(join(L, 'brand-new.txt'), 'new\n');
+  check('a new file appears, in order', await waitFor(`[...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('brand-new.txt') && r.classList.contains('st-left-only'))`, 8000));
+  rmSync(join(L, 'left-only.txt'));
+  rmSync(join(R, 'left-only.txt'));
+  check('a file deleted on both sides disappears', await waitFor(`![...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('left-only.txt'))`, 8000));
+  writeFileSync(join(R, 'sub', 'nested.txt'), 'changed again\n');
+  let subStatus = null;
+  for (let i = 0; i < 80 && subStatus !== 'different'; i++, await sleep(100)) subStatus = await rowStatus('sub');
+  check('a change inside a folder updates the folder', subStatus === 'different', subStatus);
+  check('by updating just those entries, not scanning again', /Updated after changes made elsewhere/.test(logText()) && !/scanning again/.test(logText()));
+  await clickEl('.toolbar .options-button');
+  check('"Update automatically" is in the Compare by menu, on', (await js(`document.querySelector('.options-menu [role=menuitemcheckbox]')?.getAttribute('aria-checked')`)) === 'true');
+  await clickEl('.toolbar .options-button');
+
   section('Opening a file from the folder comparison and going back');
   await js(`document.querySelector('.folder-list').scrollTop = 0; true`);
   await js(`[...document.querySelectorAll('.frow')].find((r) => r.innerText.includes('tricky.txt')).dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
   check('double-clicking a file compares it', await waitFor(`!!document.querySelector('.diff-view') && document.querySelector('.pane-a .txt')?.innerText === 'aaaa'`));
+  writeFileSync(join(R, 'brand-new.txt'), 'new\n'); // now on both sides, the same
+  await sleep(2000);
   await clickText('.toolbar button', '← Folders');
+  check('changes made while a file was open are already in the list', (await rowStatus('brand-new.txt')) === 'same', await rowStatus('brand-new.txt'));
   check('"← Folders" returns to the list without rescanning', (await js(`!document.querySelector('.diff-view') && document.querySelectorAll('.frow').length > 0 && !document.querySelector('.scan-progress')`)) === true);
 
   section('Recent comparisons');

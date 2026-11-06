@@ -219,6 +219,7 @@ Levels, from least to most detail: `error`, `warn`, `info` (the default) and `de
 **Comparing folders**
 - Two folder trees side by side, with each file marked same, different, left only or right only.
 - Compare by contents (exact), by size and modified date (fast), or by date alone (fastest). Large folders show progress and can be cancelled.
+- **Stays current:** when files change in either folder (saved in an editor, a `git checkout`, a build), just those entries are compared again and the list updates in place, keeping what's expanded, selected and scrolled to. It works while you're looking at a file from the comparison too. Turn it off with **Update automatically** in the Compare by menu.
 - Copy files or whole folders across, binary files included. Replacing a folder makes it match the other side exactly; anything only on the side being replaced is deleted, and the confirmation names it first. Double-click a file to open the pair in the text comparison; "← Folders" brings you straight back.
 
 ![Comparing two folders (dark theme)](docs/images/folders.png)

@@ -4,6 +4,7 @@ import { joinLines, type WhitespaceMode } from '../../engine';
 import type {
   Command,
   ComparisonKind,
+  FolderChange,
   FolderCompareMode,
   FolderCompareResult,
   FolderNode,
@@ -28,6 +29,7 @@ import { StartScreen } from './components/StartScreen';
 import { Toolbar, type Theme } from './components/Toolbar';
 import { log, setLogLevel } from './log';
 import { conventionsDiffer, identicalNote, isAsciiText, savedEolCounts, type FileDetails } from './model/fileDetails';
+import { entriesToRecompare, patchTree } from './model/folderTree';
 import type { Side } from './model/rowModel';
 import { api } from './platform';
 import { newSourceId, useComparison, type Source } from './useComparison';
@@ -36,6 +38,9 @@ const THEME_KEY = 'delta.theme';
 const SCAN_CANCELLED = 'The folder comparison was cancelled.';
 const isMac = navigator.platform.toUpperCase().includes('MAC');
 const FOLDER_MODE_KEY = 'delta.folderCompareBy';
+const FOLDER_AUTO_UPDATE_KEY = 'delta.folderAutoUpdate';
+/** Without watching, folders are rescanned at most this often (and less, for slow scans). */
+const FOLDER_POLL_MS = 30_000;
 
 function initialTheme(): Theme {
   const saved = localStorage.getItem(THEME_KEY);
@@ -551,8 +556,115 @@ export function App() {
     setResumeMode(null);
     setMode('folders');
     setNotice(null);
-    if (folderStale.current) void rescan(roots, folderMode, true);
+    if (folderStale.current && !watchingFolders.current) void rescan(roots, folderMode, true);
   };
+
+  // ---- Keeping the folder comparison current ------------------------------------------------
+  //
+  // While a folder comparison is open (also while a file from it is shown), both roots are
+  // watched; changed entries are re-compared and patched into the tree in place, keeping
+  // expansion, selection and scroll. Too many at once, or anything unplaceable, means one
+  // quiet full rescan. Where watching isn't possible, a quiet rescan runs on a timer instead.
+
+  const [autoUpdate, setAutoUpdate] = useState(() => localStorage.getItem(FOLDER_AUTO_UPDATE_KEY) !== 'off');
+  const changeAutoUpdate = (on: boolean) => {
+    log.info('folders', on ? 'Automatic updates on' : 'Automatic updates off');
+    localStorage.setItem(FOLDER_AUTO_UPDATE_KEY, on ? 'on' : 'off');
+    setAutoUpdate(on);
+  };
+  /** Why outside changes aren't being watched for (and are checked on a timer instead). */
+  const [watchNote, setWatchNote] = useState<string | null>(null);
+  const watchingFolders = useRef(false);
+  const pendingChanges = useRef<{ paths: Set<string>; overflow: boolean }>({ paths: new Set(), overflow: false });
+  const updatingFolders = useRef(false);
+  const latestFolderResult = useRef(folderResult);
+  latestFolderResult.current = folderResult;
+
+  const folderReady = !!folderResult?.ok;
+  useEffect(() => {
+    setWatchNote(null);
+    if (!roots || !autoUpdate || !folderReady) return;
+    let current = true;
+    void api
+      .watchFolders(roots)
+      .then((r) => {
+        if (!current) return;
+        watchingFolders.current = r.ok;
+        if (!r.ok) setWatchNote(`Not watching for changes made elsewhere (${r.message}), so the folders are rescanned periodically.`);
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+      watchingFolders.current = false;
+      void api.watchFolders(null).catch(() => {});
+    };
+  }, [roots?.left, roots?.right, autoUpdate, folderReady]);
+
+  /** Applies the outside changes collected so far, unless a scan or another update is running. */
+  const applyFolderChanges = async () => {
+    if (!roots || updatingFolders.current || folderBusy || folderRefreshing) return;
+    const { paths, overflow } = pendingChanges.current;
+    if (!overflow && paths.size === 0) return;
+    pendingChanges.current = { paths: new Set(), overflow: false };
+    const entries = overflow ? [''] : entriesToRecompare([...paths]);
+    const current = latestFolderResult.current;
+    if (!current?.ok || entries[0] === '') {
+      log.info('folders', 'Many changes made elsewhere: scanning again', { overflow });
+      return void rescan(roots, folderMode, true);
+    }
+    updatingFolders.current = true;
+    setFolderRefreshing(true);
+    const id = scanId.current;
+    let scanAgain = false;
+    try {
+      const r = await api.compareFolderEntries(roots.left, roots.right, entries, folderMode);
+      // A full scan started meanwhile covers these changes.
+      if (id !== scanId.current) return;
+      const base = latestFolderResult.current;
+      const root = r.ok && base?.ok ? patchTree(base.root, r.updates) : null;
+      if (!root || !base?.ok) scanAgain = true;
+      else {
+        setFolderResult({ ...base, root });
+        log.info('folders', 'Updated after changes made elsewhere', { entries: entries.length });
+      }
+    } catch {
+      scanAgain = true;
+    } finally {
+      updatingFolders.current = false;
+      setFolderRefreshing(false);
+    }
+    if (scanAgain) void rescan(roots, folderMode, true);
+  };
+
+  const onFolderChange = useRef<(change: FolderChange) => void>(() => {});
+  onFolderChange.current = (change: FolderChange) => {
+    if ('error' in change) {
+      watchingFolders.current = false;
+      setWatchNote(`Stopped watching for changes made elsewhere (${change.error}), so the folders are rescanned periodically.`);
+      return;
+    }
+    if ('overflow' in change) pendingChanges.current.overflow = true;
+    else for (const p of change.paths) pendingChanges.current.paths.add(p);
+    void applyFolderChanges();
+  };
+  useEffect(() => api.onFolderChanged((c) => onFolderChange.current(c)), []);
+  // Changes that arrived during a scan or an update are applied once it finishes.
+  useEffect(() => {
+    if (!folderBusy && !folderRefreshing) void applyFolderChanges();
+  }, [folderBusy, folderRefreshing]);
+
+  // Without watching: a quiet rescan on a timer while the folder list is showing, less often
+  // for folders that take long to scan.
+  const pollFolders = useRef(() => {});
+  pollFolders.current = () => {
+    if (roots && mode === 'folders' && !document.hidden && !folderBusy && !folderRefreshing) void rescan(roots, folderMode, true);
+  };
+  const lastScanMs = folderResult?.ok ? folderResult.elapsedMs : 0;
+  useEffect(() => {
+    if (!watchNote || !autoUpdate) return;
+    const timer = window.setInterval(() => pollFolders.current(), Math.max(FOLDER_POLL_MS, 10 * lastScanMs));
+    return () => window.clearInterval(timer);
+  }, [watchNote, autoUpdate, Math.round(lastScanMs / 1000)]);
 
   // ---- Home and recent comparisons -------------------------------------------------------
 
@@ -568,7 +680,7 @@ export function App() {
     log.info('app', 'Resumed the folder comparison');
     setResumeMode(null);
     setMode('folders');
-    if (folderStale.current) void rescan(roots, folderMode, true);
+    if (folderStale.current && !watchingFolders.current) void rescan(roots, folderMode, true);
   };
 
   /** Back to a file comparison left open from Home; says so if a file changed on disk meanwhile. */
@@ -872,6 +984,9 @@ export function App() {
           result={folderResult}
           busy={folderBusy}
           refreshing={folderRefreshing}
+          autoUpdate={autoUpdate}
+          onAutoUpdateChange={changeAutoUpdate}
+          watchNote={autoUpdate ? watchNote : null}
           expanded={expanded}
           onExpandedChange={setExpanded}
           hideSame={hideSame}

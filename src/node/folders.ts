@@ -9,6 +9,7 @@ import {
   type EntryStatus,
   type FolderCompareMode,
   type FolderCompareResult,
+  type FolderEntriesResult,
   type FolderNode,
   type FolderProgress,
 } from '../shared/api';
@@ -16,7 +17,7 @@ import { BINARY_SNIFF_BYTES, errorMessage, looksBinary } from './files';
 import { log } from './log';
 
 /** Never interesting in a comparison and often huge or noisy. */
-const IGNORED_NAMES = new Set(['.git', '.DS_Store']);
+export const IGNORED_NAMES = new Set(['.git', '.DS_Store']);
 const CHUNK_BYTES = 64 * 1024;
 /** File comparisons in flight at once. */
 const MAX_PARALLEL_COMPARES = 16;
@@ -99,6 +100,40 @@ export async function compareFolders(
 
 /** Unreadable entries logged one by one after a scan; past this, only how many more. */
 const MAX_LOGGED_ERRORS = 50;
+
+/**
+ * Re-compares only the given entries (relative paths, using `/`), for updating a comparison
+ * after outside changes instead of scanning everything again. A folder is compared with
+ * everything inside it. An entry gone from both sides comes back as `node: null`.
+ */
+export async function compareEntries(
+  leftRoot: string,
+  rightRoot: string,
+  relPaths: string[],
+  mode: FolderCompareMode = 'contents',
+): Promise<FolderEntriesResult> {
+  const t0 = performance.now();
+  const ctx: Context = { mode, progress: { entries: 0, filesCompared: 0, bytesRead: 0, current: '', elapsedMs: 0 }, report: () => {} };
+  try {
+    const updates = await Promise.all(
+      relPaths.map(async (relPath) => {
+        const parts = relPath.split('/').filter(Boolean);
+        if (parts.length === 0) throw new Error('A compared folder itself can only be scanned again in full.');
+        const clean = parts.join('/');
+        const lPath = inside(leftRoot, clean);
+        const rPath = inside(rightRoot, clean);
+        const [l, r] = await Promise.all([info(lPath), info(rPath)]);
+        if (!l && !r) return { relPath: clean, node: null };
+        return { relPath: clean, node: await compareEntry(ctx, parts[parts.length - 1], clean, l ? lPath : null, r ? rPath : null, l, r) };
+      }),
+    );
+    log.debug('folders', 'Re-compared changed entries', { entries: relPaths.length, mode, ms: Math.round(performance.now() - t0) });
+    return { ok: true, updates };
+  } catch (err) {
+    log.warn('folders', 'Could not re-compare changed entries', { entries: relPaths.length, error: errorMessage(err) });
+    return { ok: false, message: errorMessage(err) };
+  }
+}
 
 /** Entries that couldn't be read, anywhere in the tree. */
 function unreadableEntries(node: FolderNode, found: FolderNode[] = []): FolderNode[] {
