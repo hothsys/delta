@@ -47,7 +47,8 @@ export function usePrettify(on: boolean, sources: Record<Side, Source>, kinds: R
   };
 
   const format = (side: Side, source: Source, kind: PrettyKind): Promise<Formatted> => {
-    const key = `${source.id}:${kind}`;
+    // A save changes the text without changing the document's id.
+    const key = `${source.id}.${source.saved ?? 0}:${kind}`;
     const hit = cache.current.get(key);
     if (hit) return Promise.resolve(hit);
     const id = ++nextId.current;
@@ -57,7 +58,7 @@ export function usePrettify(on: boolean, sources: Record<Side, Source>, kinds: R
         if (result.ok) log.info('prettify', 'Prettified', fields);
         else log.warn('prettify', 'Could not prettify', { ...fields, error: result.message });
         const formatted: Formatted = {
-          source: { ...source, id: newSourceId(), text: result.ok ? result.text : source.text },
+          source: { ...source, id: newSourceId(), saved: undefined, text: result.ok ? result.text : source.text },
           error: result.ok ? undefined : result.message,
         };
         cache.current.set(key, formatted);
@@ -81,7 +82,7 @@ export function usePrettify(on: boolean, sources: Record<Side, Source>, kinds: R
       if (gen !== generation.current) return; // turned off, cancelled or superseded meanwhile
       setState({ status: 'ready', sources: { a: a.source, b: b.source }, errors: { a: a.error, b: b.error } });
     });
-  }, [on, sources.a.id, sources.b.id, kinds?.a, kinds?.b]);
+  }, [on, sources.a.id, sources.b.id, sources.a.saved, sources.b.saved, kinds?.a, kinds?.b]);
 
   useEffect(() => () => worker.current?.terminate(), []);
 

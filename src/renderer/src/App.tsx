@@ -131,7 +131,7 @@ export function App() {
         { path: sources.a.file?.path ?? sources.a.missingPath, text: sources.a.text },
         { path: sources.b.file?.path ?? sources.b.missingPath, text: sources.b.text },
       ),
-    [sources.a.id, sources.b.id],
+    [sources.a.id, sources.b.id, sources.a.saved, sources.b.saved],
   );
   const pretty = usePrettify(prettyOn, sources, availability.ok ? availability.kinds : null);
   const shown = prettyOn && pretty.state.status === 'ready' && pretty.state.sources ? pretty.state.sources : sources;
@@ -283,6 +283,9 @@ export function App() {
       [side]: {
         ...s[side],
         label: result.name,
+        // What's on disk now: turning Prettify on (or off) builds from this.
+        text,
+        saved: (s[side].saved ?? 0) + 1,
         missingPath: undefined,
         file: {
           path: result.path,
@@ -446,12 +449,10 @@ export function App() {
     const target = from === 'left' ? node.right : node.left;
     if (target) {
       const replacing = target.kind === 'dir' ? 'folder' : 'file';
+      const source = from === 'left' ? node.left : node.right;
       const ok = await api.confirm({
         message: `Replace the ${replacing} ${node.relPath} on the ${to} with the ${from} version?`,
-        detail:
-          target.kind === 'dir'
-            ? `Files inside are overwritten with the ${from} versions; files that are only on the ${to} are kept.`
-            : undefined,
+        detail: target.kind === 'dir' && source?.kind === 'dir' ? replaceFolderDetail(node, from) : undefined,
         confirmLabel: 'Replace',
       });
       log.info('folders', ok ? 'Replace confirmed' : 'Replace cancelled', { relPath: node.relPath, from });
@@ -1004,6 +1005,30 @@ export function App() {
       )}
     </div>
   );
+}
+
+/**
+ * What replacing a folder will do, for the confirmation: the destination will match the source,
+ * and anything only on the destination side is deleted, named so it's never a surprise.
+ */
+function replaceFolderDetail(node: FolderNode, from: TreeSide): string {
+  const to = from === 'left' ? 'right' : 'left';
+  const onlyOnTarget: string[] = [];
+  const walk = (n: FolderNode) => {
+    for (const c of n.children ?? []) {
+      const inSource = from === 'left' ? c.left : c.right;
+      const inTarget = from === 'left' ? c.right : c.left;
+      // A folder only on the target goes with everything in it; list the folder, not its contents.
+      if (inTarget && !inSource) onlyOnTarget.push(c.relPath.slice(node.relPath.length + 1) + (inTarget.kind === 'dir' ? '/' : ''));
+      else if (inSource && inTarget && c.children) walk(c);
+    }
+  };
+  walk(node);
+  const match = `Afterwards the ${to} folder matches the ${from} one exactly; changed files are overwritten.`;
+  if (onlyOnTarget.length === 0) return match;
+  const shown = onlyOnTarget.slice(0, 5).join(', ') + (onlyOnTarget.length > 5 ? ` and ${onlyOnTarget.length - 5} more` : '');
+  const items = onlyOnTarget.length === 1 ? 'This item is' : `These ${onlyOnTarget.length} items are`;
+  return `${match} ${items} only on the ${to} and will be deleted: ${shown}.`;
 }
 
 const MINIFIED_HINT = 'This file looks minified. Prettify it for a readable comparison? (The view becomes read-only.)';

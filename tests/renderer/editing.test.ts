@@ -216,6 +216,41 @@ describe('patchRows', () => {
     expectConsistent(patched, 2, 2);
   });
 
+  // A merge's interim layout must already be the one the re-diff produces, or the view shifts
+  // for a frame when the re-diff arrives (reported as a flicker when copying lines across).
+  const settled = (a: string[], b: string[]) => {
+    const r = buildRows(diffLines(a, b).blocks);
+    return { a: Array.from(r.a), b: Array.from(r.b) };
+  };
+
+  it('fills the gap when lines are copied into it, instead of adding rows', () => {
+    const left = ['one', 'three'];
+    const right = ['one', 'two', 'three'];
+    const rows = buildRows(diffLines(left, right).blocks);
+    expect(Array.from(rows.a)).toEqual([0, -1, 1]);
+    const patched = patchRows(rows, 'a', 1, 0, 1); // copy "two" to the left
+    expect(patched.count).toBe(3);
+    expect({ a: Array.from(patched.a), b: Array.from(patched.b) }).toEqual(settled(['one', 'two', 'three'], right));
+    expectConsistent(patched, 3, 3);
+  });
+
+  it('uses the fillers below when copying more lines over fewer', () => {
+    const left = ['s', 'x1', 'x2', 'x3', 'e'];
+    const right = ['s', 'q', 'e'];
+    const rows = buildRows(diffLines(left, right).blocks);
+    const patched = patchRows(rows, 'b', 1, 1, 3); // copy left lines 1 to 3 over right line 1
+    expect(patched.count).toBe(rows.count);
+    expect({ a: Array.from(patched.a), b: Array.from(patched.b) }).toEqual(settled(left, left));
+    expectConsistent(patched, 5, 5);
+  });
+
+  it('fills a gap at the end of the file', () => {
+    const rows = buildRows(diffLines(['a'], ['a', 'b', 'c']).blocks);
+    const patched = patchRows(rows, 'a', 1, 0, 2);
+    expect(patched.count).toBe(3);
+    expectConsistent(patched, 3, 3);
+  });
+
   it('stays consistent through many random edits on both sides', () => {
     let seed = 1;
     const rand = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);

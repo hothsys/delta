@@ -46,6 +46,7 @@ writeFileSync(join(L, 'left-only.txt'), 'only on the left\n');
 writeFileSync(join(R, 'right-only', 'x.txt'), 'x\n');
 writeFileSync(join(L, 'sub', 'nested.txt'), 'one\n');
 writeFileSync(join(R, 'sub', 'nested.txt'), 'two\n');
+writeFileSync(join(R, 'sub', 'right-extra.txt'), 'only on the right\n');
 // Same size and modified time, different content: only a contents comparison can tell.
 writeFileSync(join(L, 'tricky.txt'), 'aaaa\n');
 writeFileSync(join(R, 'tricky.txt'), 'bbbb\n');
@@ -268,6 +269,21 @@ async function run() {
   await waitFor(`!!document.querySelector('.confirm-dialog')`);
   await clickEl('.confirm-dialog button.primary');
   check('discarding re-reads the file and prettifies it', await waitFor(`document.querySelector('.file-status-b')?.innerText.includes('lines (prettified)')`) && (await js(`!document.querySelector('.pane-header .edited')`)) && !(await paneLines('b')).some((l) => l.includes('q')));
+  // Merging and saving, then Prettify: it must show what was saved, not the text as first opened.
+  writeFileSync(join(F, 'merge-a.json'), '{"name":"delta","version":"1.0.0"}');
+  writeFileSync(join(F, 'merge-b.json'), '{"name":"delta","version":"1.0.0","extra":true}');
+  await open(launch(join(F, 'merge-a.json'), join(F, 'merge-b.json')).url);
+  await clickEl('[aria-label="Copy to left"]');
+  await sleep(300);
+  await clickEl('.pane-a .row', { dx: 60 });
+  await key('s', [MOD]);
+  await sleep(500);
+  check('a merge saved to disk', readFileSync(join(F, 'merge-a.json'), 'utf8').includes('"extra":true'));
+  await clickEl('.toolbar .prettify-button');
+  check('Prettify after saving shows the saved text', await waitFor(`document.querySelector('.file-status-a')?.innerText.includes('(prettified)') && [...document.querySelectorAll('.pane-a .txt')].some((t) => t.innerText.includes('"extra": true')) && document.querySelector('.stats')?.innerText.startsWith('Identical')`), await stats());
+  await clickText('.prettify-bar button', 'Turn off');
+  check('and turning it off shows the saved text too', await waitFor(`!document.querySelector('.prettify-bar') && document.querySelector('.stats')?.innerText.startsWith('Identical') && document.querySelector('.pane-a .txt')?.innerText.includes('"extra":true')`), await stats());
+
   win.webContents.once('will-prevent-unload', (e) => e.preventDefault());
   await open(launch(join(F, 'left.txt'), join(F, 'right.txt')).url);
   check('Prettify is unavailable for plain text, saying why', await js(`document.querySelector('.prettify-button').disabled && document.querySelector('.prettify-button').title.includes('Prettify works on')`));
@@ -296,6 +312,12 @@ async function run() {
   await clickEl('.confirm-dialog button.primary');
   await sleep(600);
   check('and replaces it after confirming', readFileSync(join(R, 'diff.txt'), 'utf8') === 'left version\n');
+  await js(`document.querySelector('.folder-list').scrollTop = 0; true`);
+  await clickEl('[aria-label="Copy sub to the right"]');
+  check('replacing a folder names what only the other side has, and says it will be deleted', await waitFor(`document.querySelector('.confirm-dialog')?.innerText.includes('only on the right and will be deleted: right-extra.txt')`), await js(`document.querySelector('.confirm-dialog')?.innerText`));
+  await clickEl('.confirm-dialog button.primary');
+  await sleep(600);
+  check('and afterwards the folder matches exactly', !existsSync(join(R, 'sub', 'right-extra.txt')) && readFileSync(join(R, 'sub', 'nested.txt'), 'utf8') === 'one\n' && (await rowStatus('sub')) === 'same', await rowStatus('sub'));
 
   section('Opening a file from the folder comparison and going back');
   await js(`document.querySelector('.folder-list').scrollTop = 0; true`);

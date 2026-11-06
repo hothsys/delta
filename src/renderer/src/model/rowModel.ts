@@ -123,9 +123,12 @@ function inverse(side: Int32Array, lineCount: number): Int32Array {
  * Updates the row model for an edit on one side that replaced `removed` lines starting at
  * `start` with `inserted` lines, without re-diffing.
  *
- * Surviving lines keep their rows; surplus new lines get new rows (shown as inserted or
- * deleted, with a filler on the other side); surplus removed lines become fillers, and their
- * rows disappear if the other side has nothing there either. The result is a consistent
+ * New lines first take the filler rows waiting where they go (the gap above an insertion, or
+ * fillers just below the replaced lines), so copying lines into a gap fills it the way the
+ * re-diff will, instead of pushing everything below down a row until it arrives (a visible
+ * flicker). Only then do surplus new lines get new rows (shown as inserted or deleted, with a
+ * filler on the other side). Surplus removed lines become fillers, and their rows disappear
+ * if the other side has nothing there either. The result is a consistent
  * layout to render until the debounced re-diff replaces it. Block positions are shifted to
  * match, but block line ranges are not, so merges must wait for that re-diff.
  */
@@ -146,24 +149,28 @@ export function patchRows(rows: RowModel, side: Side, start: number, removed: nu
   } else {
     r0 = r1 = start < inv.length ? inv[start] : rows.count;
   }
+  // Take in the fillers new lines can fill: above an insertion point (the gap between the line
+  // before and the line after), or right after the replaced lines.
+  if (inserted > removed) {
+    if (removed === 0) while (r0 > 0 && mine[r0 - 1] < 0) r0--;
+    else while (r1 < rows.count && mine[r1] < 0) r1++;
+  }
 
+  // New lines go into the rows in order, fillers included; rows left over keep the other
+  // side's line (with a filler here) or disappear if neither side has one.
   const segMine: number[] = [];
   const segOther: number[] = [];
   const segKind: number[] = [];
   let next = 0;
   for (let r = r0; r < r1; r++) {
-    if (mine[r] < 0) {
-      segMine.push(-1);
-      segOther.push(other[r]);
-      segKind.push(rows.kind[r]);
-    } else if (next < inserted) {
+    if (next < inserted) {
       segMine.push(start + next++);
       segOther.push(other[r]);
       segKind.push(rows.kind[r]);
     } else if (other[r] >= 0) {
       segMine.push(-1);
       segOther.push(other[r]);
-      segKind.push(onlyOther);
+      segKind.push(mine[r] < 0 ? rows.kind[r] : onlyOther);
     }
   }
   while (next < inserted) {
