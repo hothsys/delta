@@ -1,4 +1,4 @@
-import type { DeltaApi, FolderProgress, LogEntry, ReadResult } from '../../../shared/api';
+import type { DeltaApi, FolderChange, FolderProgress, LogEntry, ReadResult } from '../../../shared/api';
 import { confirmInPage, pick } from './dialogs';
 
 /** Matches the server's TOKEN_HEADER. */
@@ -29,6 +29,9 @@ export function createHttpApi(): DeltaApi {
   // One event stream per tab, opened on first use; watch requests wait until it is connected.
   const changeListeners = new Set<(path: string) => void>();
   const progressListeners = new Set<(progress: FolderProgress) => void>();
+  const folderListeners = new Set<(change: FolderChange) => void>();
+  /** The folders last asked to be watched, re-sent when the stream reconnects. */
+  let watchedFolders: { left: string; right: string } | null = null;
   let stream: Promise<void> | null = null;
   /** The paths last asked to be watched, re-sent when the stream reconnects. */
   let watched: string[] = [];
@@ -40,12 +43,17 @@ export function createHttpApi(): DeltaApi {
         // The browser reconnects by itself (after sleep, say), and the server starts the new
         // stream with nothing watched; ask again.
         if (connected && watched.length) void post('/api/watch', { client, paths: watched }).catch(() => {});
+        if (connected && watchedFolders) void post('/api/watch-folders', { client, roots: watchedFolders }).catch(() => {});
         connected = true;
         resolve();
       });
       source.addEventListener('file-changed', (e) => {
         const path = JSON.parse((e as MessageEvent<string>).data) as string;
         for (const l of changeListeners) l(path);
+      });
+      source.addEventListener('folder-changed', (e) => {
+        const change = JSON.parse((e as MessageEvent<string>).data) as FolderChange;
+        for (const l of folderListeners) l(change);
       });
       source.addEventListener('folder-progress', (e) => {
         const progress = JSON.parse((e as MessageEvent<string>).data) as FolderProgress;
@@ -123,6 +131,17 @@ export function createHttpApi(): DeltaApi {
       await post('/api/compare-folders/cancel', { client });
     },
     copyEntry: (request) => post('/api/copy', request),
+    watchFolders: async (roots) => {
+      watchedFolders = roots;
+      await openStream();
+      return post('/api/watch-folders', { client, roots });
+    },
+    onFolderChanged: (listener) => {
+      void openStream();
+      folderListeners.add(listener);
+      return () => folderListeners.delete(listener);
+    },
+    compareFolderEntries: (left, right, paths, mode) => post('/api/compare-entries', { left, right, paths, mode }),
     recentComparisons: () => post('/api/recents/list'),
     rememberComparison: async (kind, left, right) => {
       await post('/api/recents/remember', { kind, left, right });

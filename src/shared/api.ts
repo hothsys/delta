@@ -184,6 +184,21 @@ export interface CopyRequest {
 
 export type CopyResult = { ok: true } | { ok: false; message: string };
 
+/**
+ * Outside changes in a compared folder, batched: the paths (relative to the roots, using `/`)
+ * that changed on either side; `overflow` when there were too many (or the system couldn't say
+ * which) to update one by one; `error` when watching stopped working.
+ */
+export type FolderChange = { paths: string[] } | { overflow: true } | { error: string };
+
+/** One re-compared entry; `node` is null when it no longer exists on either side. */
+export interface FolderEntryUpdate {
+  relPath: string;
+  node: FolderNode | null;
+}
+
+export type FolderEntriesResult = { ok: true; updates: FolderEntryUpdate[] } | { ok: false; message: string };
+
 // ---- Recent comparisons ----------------------------------------------------------------
 
 export type ComparisonKind = 'files' | 'folders';
@@ -275,6 +290,11 @@ export interface DeltaApi {
   /** Stops the running comparison; its promise resolves with `cancelled: true`. */
   cancelFolderCompare(): Promise<void>;
   copyEntry(request: CopyRequest): Promise<CopyResult>;
+  /** Watches both roots for outside changes (replacing any earlier watch); null stops watching. */
+  watchFolders(roots: { left: string; right: string } | null): Promise<{ ok: true } | { ok: false; message: string }>;
+  onFolderChanged(listener: (change: FolderChange) => void): () => void;
+  /** Re-compares just these entries (after outside changes), for patching the shown tree. */
+  compareFolderEntries(left: string, right: string, relPaths: string[], mode: FolderCompareMode): Promise<FolderEntriesResult>;
   /** The most recent comparisons, newest first, with each path's current availability. */
   recentComparisons(): Promise<RecentList>;
   /** Records a comparison as just used (moving it to the top if it was already listed). */

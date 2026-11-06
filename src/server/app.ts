@@ -6,7 +6,8 @@ import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import type { ComparisonKind, CopyRequest, FolderCompareMode, LaunchRequest, SaveRequest } from '../shared/api';
 import { listDirectory, locations } from '../node/browse';
 import { readTextFile, writeTextFile } from '../node/files';
-import { compareFolders, copyEntry } from '../node/folders';
+import { compareEntries, compareFolders, copyEntry } from '../node/folders';
+import { watchFolders, type FolderChangeSubscriber } from '../node/folderWatch';
 import { launchRequest } from '../node/launch';
 import { log, writeFromInterface } from '../node/log';
 import { diagnostics, logInfo, logsFolder, setDebugLogging } from '../node/logging';
@@ -68,6 +69,8 @@ export function createDeltaServer(options: ServerOptions): DeltaServer {
   const openFolder = options.openFolder ?? openExternally;
   /** Event streams by client id: file watching and folder-comparison progress go through them. */
   const streams = new Map<string, ChangeSubscriber & { emit(event: string, data: unknown): void }>();
+  /** Each tab's folder-change subscriber, made from its event stream (one per stream). */
+  const folderSubscribers = new WeakMap<object, FolderChangeSubscriber>();
   /** One folder comparison per client: starting another (or Cancel) aborts the one running. */
   const comparisons = new Map<string, AbortController>();
   /** Comparisons to open, by launch id (oldest dropped first). */
@@ -152,6 +155,23 @@ export function createDeltaServer(options: ServerOptions): DeltaServer {
       const paths = Array.isArray(b.paths) ? b.paths.map((p, i) => str(p, `paths[${i}]`)) : [];
       setWatched(client, paths);
       return { ok: true };
+    },
+    '/api/watch-folders': async (b) => {
+      const stream = streams.get(str(b.client, 'client'));
+      if (!stream) return { ok: false, message: 'No event stream open for this client.' };
+      let subscriber = folderSubscribers.get(stream);
+      if (!subscriber) {
+        subscriber = { send: (change) => stream.emit('folder-changed', change), closed: stream.closed, onClose: stream.onClose };
+        folderSubscribers.set(stream, subscriber);
+      }
+      const roots = b.roots === null ? null : (b.roots as Record<string, unknown> | undefined);
+      const failed = watchFolders(subscriber, roots ? [str(roots.left, 'roots.left'), str(roots.right, 'roots.right')] : null);
+      return failed ? { ok: false, message: failed } : { ok: true };
+    },
+    '/api/compare-entries': (b) => {
+      if (!Array.isArray(b.paths)) throw new BadRequest('"paths" must be a list of strings.');
+      const paths = b.paths.map((p, i) => str(p, `paths[${i}]`));
+      return compareEntries(str(b.left, 'left'), str(b.right, 'right'), paths, oneOf<FolderCompareMode>(b.mode, 'mode', ['contents', 'size-date', 'date']));
     },
     // The page's log entries, sent in batches.
     '/api/log': async (b) => {

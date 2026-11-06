@@ -11,10 +11,13 @@ const MODES: { mode: FolderCompareMode; label: string; detail: string }[] = [
 interface FolderCompareOptionsProps {
   mode: FolderCompareMode;
   onChange: (mode: FolderCompareMode) => void;
+  /** Keep the comparison current when files change elsewhere. */
+  autoUpdate: boolean;
+  onAutoUpdateChange: (on: boolean) => void;
 }
 
 /** The folder view's "Compare by" dropdown: how files present on both sides are judged equal. */
-export function FolderCompareOptions({ mode, onChange }: FolderCompareOptionsProps) {
+export function FolderCompareOptions({ mode, onChange, autoUpdate, onAutoUpdateChange }: FolderCompareOptionsProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -92,6 +95,25 @@ export function FolderCompareOptions({ mode, onChange }: FolderCompareOptionsPro
               </span>
             </button>
           ))}
+          <div className="menu-separator" role="separator" />
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={autoUpdate}
+            onClick={() => {
+              setOpen(false);
+              buttonRef.current?.focus();
+              onAutoUpdateChange(!autoUpdate);
+            }}
+          >
+            <span className="options-tick" aria-hidden="true">
+              {autoUpdate ? '✓' : ''}
+            </span>
+            <span className="options-item">
+              Update automatically
+              <span className="options-detail">Follow changes made by other programs, without rescanning.</span>
+            </span>
+          </button>
         </div>
       )}
     </div>

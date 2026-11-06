@@ -4,7 +4,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { Command, ComparisonKind, ConfirmOptions, CopyRequest, FolderCompareMode, SaveRequest } from '../shared/api';
 import { readTextFile, writeTextFile } from '../node/files';
-import { compareFolders, copyEntry } from '../node/folders';
+import { compareEntries, compareFolders, copyEntry } from '../node/folders';
+import { watchFolders, type FolderChangeSubscriber } from '../node/folderWatch';
 import { listDirectory, locations } from '../node/browse';
 import { installMenu } from './menu';
 import { RecentStore } from '../node/recents';
@@ -114,6 +115,21 @@ function handle<A extends unknown[]>(channel: string, fn: (e: Electron.IpcMainIn
   });
 }
 
+/** One folder-change subscriber per window, like `subscriberFor` for files. */
+const folderSubscribers = new WeakMap<WebContents, FolderChangeSubscriber>();
+function folderSubscriberFor(wc: WebContents): FolderChangeSubscriber {
+  let s = folderSubscribers.get(wc);
+  if (!s) {
+    s = {
+      send: (change) => wc.send('folder:changed', change),
+      closed: () => wc.isDestroyed(),
+      onClose: (listener) => wc.once('destroyed', listener),
+    };
+    folderSubscribers.set(wc, s);
+  }
+  return s;
+}
+
 function registerIpc(dataDir: string): void {
   const recents = new RecentStore(join(dataDir, 'recent-comparisons.json'));
   handle('recents:list', async () => ({ items: await recents.list(), homeDir: homedir() }));
@@ -177,6 +193,11 @@ function registerIpc(dataDir: string): void {
   });
   handle('folder:cancel', (e) => running.get(e.sender.id)?.abort());
   handle('folder:copy', (_e, req: CopyRequest) => copyEntry(req));
+  handle('folder:watch', (e, roots: { left: string; right: string } | null) => {
+    const failed = watchFolders(folderSubscriberFor(e.sender), roots && [roots.left, roots.right]);
+    return failed ? { ok: false, message: failed } : { ok: true };
+  });
+  handle('folder:compare-entries', (_e, left: string, right: string, relPaths: string[], mode: FolderCompareMode) => compareEntries(left, right, relPaths, mode));
   handle('browse:list', (_e, path: string, showHidden: boolean) => listDirectory(path, showHidden));
   handle('browse:locations', () => locations());
   ipcMain.on('app:unsaved-changes', (e, value: boolean) => {

@@ -32,8 +32,13 @@ interface FolderViewProps {
   rightRoot: string;
   result: FolderCompareResult | null;
   busy: boolean;
-  /** A rescan running behind the current list (after saving a file), which stays usable meanwhile. */
+  /** A rescan or an update running behind the current list, which stays usable meanwhile. */
   refreshing?: boolean;
+  /** Update automatically when files change elsewhere (the Compare by menu's checkbox). */
+  autoUpdate: boolean;
+  onAutoUpdateChange: (on: boolean) => void;
+  /** Shown in the toolbar when outside changes can't be watched for (and are checked periodically). */
+  watchNote?: string | null;
   expanded: ReadonlySet<string>;
   onExpandedChange: (next: Set<string>) => void;
   hideSame: boolean;
@@ -211,7 +216,7 @@ export function FolderView(props: FolderViewProps) {
       <div className="toolbar">
         <HomeButton onClick={props.onHome} />
         <span className="toolbar-sep" />
-        <FolderCompareOptions mode={props.compareMode} onChange={props.onCompareModeChange} />
+        <FolderCompareOptions mode={props.compareMode} onChange={props.onCompareModeChange} autoUpdate={props.autoUpdate} onAutoUpdateChange={props.onAutoUpdateChange} />
         <button
           type="button"
           className="icon-button"
@@ -236,6 +241,11 @@ export function FolderView(props: FolderViewProps) {
         <span className="stats">
           {props.busy && <span className="elapsed">Comparing…</span>}
           {props.refreshing && <span className="elapsed">Updating…</span>}
+          {props.watchNote && !props.refreshing && (
+            <span className="elapsed watch-note" title={props.watchNote}>
+              Checking for changes periodically
+            </span>
+          )}
           {!props.busy && counts && (
             <>
               <strong>
