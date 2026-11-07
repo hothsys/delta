@@ -15,7 +15,7 @@ import type {
   RecentComparison,
   RecentList,
 } from '../../shared/api';
-import { commandForKey } from '../../shared/menu';
+import { commandForKey, isShortcutOnly } from '../../shared/menu';
 import { ContextMenu, type MenuItem } from './components/ContextMenu';
 import { DiffView, type DiffViewHandle } from './components/DiffView';
 import { FolderView, type TreeSide } from './components/FolderView';
@@ -77,6 +77,8 @@ export function App() {
   const [resumeMode, setResumeMode] = useState<'files' | 'folders' | null>(null);
   const [recents, setRecents] = useState<RecentList>({ items: [], homeDir: '' });
   const [logInfo, setLogInfo] = useState<LogInfo | null>(null);
+  /** The difference F7 or the toolbar arrows moved to ("2 of 5"), while the caret is still there. */
+  const [diffPosition, setDiffPosition] = useState<{ index: number; total: number } | null>(null);
 
   // Folder comparison. File comparisons opened from it can return to it.
   const [roots, setRoots] = useState<{ left: string; right: string } | null>(null);
@@ -929,17 +931,19 @@ export function App() {
   const isCommandEnabled = useRef(commandEnabled);
   isCommandEnabled.current = commandEnabled;
 
-  // The browser version's keyboard shortcuts (the desktop app's come from its native menu).
-  // Keys the editor already handled, and editing keys in other text fields, are left alone.
+  // Keyboard shortcuts: all of them in the browser version; in the desktop app only those with
+  // no menu item (its native menu handles the rest). Keys the editor already handled, and editing keys in other text fields, are left alone.
   // A shortcut that doesn't apply right now (or while a dialog is open) does nothing, like a
   // greyed-out menu item, rather than falling through to the browser: Cmd+S would otherwise
   // offer to save the web page, and F5 would reload it.
   useEffect(() => {
-    if (api.capabilities.nativeMenu) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing) return;
       const command = commandForKey(e, isMac);
       if (!command) return;
+      // The desktop app's native menu handles its own shortcuts; the page only handles the
+      // commands that have no menu item (F7, Shift+F7).
+      if (api.capabilities.nativeMenu && !isShortcutOnly(command)) return;
       const target = e.target as HTMLElement;
       const inField = (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && !target.classList.contains('input-proxy');
       if (inField && (command === 'undo' || command === 'redo' || command === 'select-all')) return;
@@ -1068,6 +1072,8 @@ export function App() {
         onThemeChange={changeTheme}
         stats={cmp.stats}
         identicalNote={identicalNote(differs)}
+        onDifference={(direction) => view.current?.goToDifference(direction)}
+        position={diffPosition}
         busy={cmp.busy}
         elapsedMs={cmp.elapsedMs}
         canRefresh={watched.length > 0}
@@ -1116,6 +1122,7 @@ export function App() {
           onUnalign={cmp.unalign}
           onClearAlignments={cmp.clearAlignments}
           readOnly={prettyOn ? READ_ONLY : undefined}
+          onLandedChange={setDiffPosition}
         />
       )}
     </div>

@@ -57,9 +57,6 @@ export const MENU: MenuSection[] = [
   {
     label: 'View',
     items: [
-      { command: 'next-difference', label: 'Next Difference', accelerator: 'F7' },
-      { command: 'previous-difference', label: 'Previous Difference', accelerator: 'Shift+F7' },
-      'separator',
       { command: 'toggle-prettify', label: 'Prettify', checkbox: true },
       { command: 'toggle-theme', label: 'Toggle Dark Mode' },
       'separator',
@@ -78,6 +75,18 @@ export const MENU: MenuSection[] = [
     ],
   },
 ];
+
+/**
+ * Commands with a keyboard shortcut but no menu item: the file comparison's toolbar arrows do
+ * them. The page handles these keys itself in both versions (no native menu item carries them).
+ */
+export const SHORTCUTS: { command: Command; accelerator: string }[] = [
+  { command: 'next-difference', accelerator: 'F7' },
+  { command: 'previous-difference', accelerator: 'Shift+F7' },
+];
+
+/** Whether a command is only a shortcut (no menu item), so the page must handle its key. */
+export const isShortcutOnly = (command: Command) => SHORTCUTS.some((s) => s.command === command);
 
 /** The accelerator an entry uses on this platform, if any. */
 export function acceleratorFor(entry: { accelerator?: string; macAccelerator?: string }, isMac: boolean): string | undefined {
@@ -122,6 +131,7 @@ export function commandForKey(e: KeyLike, isMac: boolean): Command | null {
       if (acc && matchesAccelerator(acc, e, isMac)) return entry.command;
     }
   }
+  for (const s of SHORTCUTS) if (matchesAccelerator(s.accelerator, e, isMac)) return s.command;
   return null;
 }
 

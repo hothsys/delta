@@ -40,9 +40,33 @@ export function useDiff(input: DiffInput, options: Omit<LineDiffOptions, 'anchor
     error: null,
   });
 
+  /**
+   * One request at a time: while the worker is busy, only the newest request waits, replacing
+   * any older one. Holding Cmd+Z (or a run of quick merges) asks for a diff on every step; on a
+   * large file each takes a while, and the worker would otherwise work through every stale one.
+   */
+  const busy = useRef(false);
+  const waiting = useRef<DiffRequest | null>(null);
+  const send = (request: DiffRequest) => {
+    if (busy.current) {
+      waiting.current = request;
+      return;
+    }
+    busy.current = !!workerRef.current;
+    workerRef.current?.postMessage(request);
+  };
+  const sendWaiting = () => {
+    busy.current = false;
+    const next = waiting.current;
+    waiting.current = null;
+    if (next) send(next);
+  };
+
   useEffect(() => {
     const worker = new Worker(new URL('./diff.worker.ts', import.meta.url), { type: 'module' });
+    worker.onerror = () => sendWaiting();
     worker.onmessage = (e: MessageEvent<DiffResponse>) => {
+      sendWaiting();
       const msg = e.data;
       if (msg.id !== latest.current.id) return;
       if (msg.ok) {
@@ -60,6 +84,8 @@ export function useDiff(input: DiffInput, options: Omit<LineDiffOptions, 'anchor
     return () => {
       worker.terminate();
       workerRef.current = null;
+      busy.current = false;
+      waiting.current = null;
     };
   }, []);
 
@@ -74,7 +100,7 @@ export function useDiff(input: DiffInput, options: Omit<LineDiffOptions, 'anchor
       right: input.right,
       options: { whitespace, ignoreCase, anchors: input.anchors, minimal },
     };
-    workerRef.current?.postMessage(request);
+    send(request);
   }, [input, whitespace, ignoreCase, minimal]);
 
   return state;

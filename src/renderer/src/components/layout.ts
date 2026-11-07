@@ -19,7 +19,7 @@ export const BAND_WIDTH = 4000;
 /** Horizontal padding around line numbers and around text, in CSS pixels. */
 export const CELL_PADDING = 8;
 /** Width of the centre column that links changes across the panes. */
-export const GUTTER_WIDTH = 56;
+export const GUTTER_WIDTH = 72;
 /** Width of the overview map on the far right. */
 export const OVERVIEW_WIDTH = 22;
 

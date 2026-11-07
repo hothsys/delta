@@ -12,6 +12,26 @@ const base = {
   'aria-hidden': true,
 };
 
+/** An arrow pointing up (previous difference). */
+export function ArrowUpIcon() {
+  return (
+    <svg {...base}>
+      <path d="M12 19V5" />
+      <path d="m5 12 7-7 7 7" />
+    </svg>
+  );
+}
+
+/** An arrow pointing down (next difference). */
+export function ArrowDownIcon() {
+  return (
+    <svg {...base}>
+      <path d="M12 5v14" />
+      <path d="m19 12-7 7-7-7" />
+    </svg>
+  );
+}
+
 /** A floppy disk. */
 export function SaveIcon() {
   return (

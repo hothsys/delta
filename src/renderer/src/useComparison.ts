@@ -187,7 +187,9 @@ export function useComparison(left: Source, right: Source, options: LineDiffOpti
     if (!e) return null;
     const op = invertOp(e.op);
     apply(e.side, op);
-    scheduleDiff(false);
+    // Undo and redo are single actions, not typing: compare again at once (as after a merge)
+    // rather than after the typing pause, so the view is whole again straight away.
+    scheduleDiff(true);
     return { side: e.side, selection: e.before, op };
   }, [apply, history, scheduleDiff]);
 
@@ -198,7 +200,7 @@ export function useComparison(left: Source, right: Source, options: LineDiffOpti
       if (!e) return null;
       const op = invertOp(e.op);
       apply(e.side, op);
-      scheduleDiff(false);
+      scheduleDiff(true);
       return { side: e.side, selection: e.before, op };
     },
     [apply, history, scheduleDiff],
@@ -208,7 +210,7 @@ export function useComparison(left: Source, right: Source, options: LineDiffOpti
     const e = history.redo();
     if (!e) return null;
     apply(e.side, e.op);
-    scheduleDiff(false);
+    scheduleDiff(true);
     return { side: e.side, selection: e.after, op: e.op };
   }, [apply, history, scheduleDiff]);
 

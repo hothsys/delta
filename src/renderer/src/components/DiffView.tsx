@@ -102,6 +102,11 @@ interface DiffViewProps {
    * copying and alignment still work; typing, merging, saving and undo do nothing.
    */
   readOnly?: string;
+  /**
+   * Which difference the caret was last moved to by F7 or the toolbar arrows, as "2 of 5",
+   * while it's still there (null once it moves away, or the text changes).
+   */
+  onLandedChange?: (position: { index: number; total: number } | null) => void;
 }
 
 /** What undo and redo did: the side and edit they applied, and the selection they remembered. */
@@ -447,6 +452,7 @@ export function DiffView(props: DiffViewProps) {
     const line = r < rows.count ? index[r] : Math.max(0, linesOf(side).length - 1);
     select(side, caretAt({ line, col: 0 }));
     lastJump.current = { side, line, row: startRow };
+    setLanded((prev) => ({ block: target, side, line, flash: (prev?.flash ?? 0) + 1 }));
     const el = refs[side].current;
     if (el) scrollTo(scrollTopForRow(startRow, ROW_HEIGHT, el.clientHeight, rows.count, 1 / 3));
     scrollLeftTo(0);
@@ -472,6 +478,25 @@ export function DiffView(props: DiffViewProps) {
   }, []);
 
   /** The merge button being hovered or focused, previewed in both panes. */
+  /**
+   * The difference F7 or the toolbar arrows moved to, outlined in both panes (with a flash on
+   * arrival) so it's obvious where it is. It stays while the caret is where the jump put it;
+   * clicking elsewhere, typing or a re-diff clears it. `flash` restarts the animation.
+   */
+  const [landed, setLanded] = useState<{ block: number; side: Side; line: number; flash: number } | null>(null);
+  useEffect(() => setLanded(null), [blocks]);
+  const landedHere = landed && blocks[landed.block] && selOf(landed.side).head.line === landed.line && isCaret(selOf(landed.side)) ? landed : null;
+  const landedRows = landedHere && {
+    first: rows.blockStart[landedHere.block],
+    last: landedHere.block + 1 < blocks.length ? rows.blockStart[landedHere.block + 1] : rows.count,
+    flash: landedHere.flash,
+  };
+  const landedIndex = landedHere ? blocks.slice(0, landedHere.block + 1).filter((b) => b.kind !== 'equal' && b.kind !== 'unimportant').length : 0;
+  const changeCount = useMemo(() => blocks.filter((b) => b.kind !== 'equal' && b.kind !== 'unimportant').length, [blocks]);
+  const { onLandedChange } = props;
+  useEffect(() => onLandedChange?.(landedHere ? { index: landedIndex, total: changeCount } : null), [landedIndex, changeCount, !!landedHere, onLandedChange]);
+  useEffect(() => () => onLandedChange?.(null), [onLandedChange]);
+
   const [mergePreview, setMergePreview] = useState<{ block: number; from: Side } | null>(null);
   useEffect(() => setMergePreview(null), [blocks]);
   /** This pane's part in the previewed merge: the change's rows, and whether it's copied from or changed. */
@@ -859,6 +884,7 @@ export function DiffView(props: DiffViewProps) {
         onContextMenu={onContextMenu(side)}
         anchoredLines={anchoredLines[side]}
         mergePreview={previewFor(side)}
+        landed={landedRows || null}
         pendingLine={pendingAlign?.side === side ? pendingAlign.line : -1}
         inputHandlers={{
           onKeyDown: onKeyDown(side),

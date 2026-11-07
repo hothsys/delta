@@ -44,6 +44,8 @@ interface PaneProps {
    * is the side copied from (`source`) or the side that would change (`target`).
    */
   mergePreview: { first: number; last: number; role: 'source' | 'target' } | null;
+  /** The difference just moved to: outlined, flashing on arrival (`flash` changes each jump). */
+  landed: { first: number; last: number; flash: number } | null;
   inputHandlers: TextareaHTMLAttributes<HTMLTextAreaElement>;
 }
 
@@ -135,6 +137,13 @@ export function Pane(props: PaneProps) {
               height: (props.mergePreview.last - props.mergePreview.first) * ROW_HEIGHT,
               left: lineNumberWidth,
             }}
+          />
+        )}
+        {props.landed && (
+          <div
+            key={props.landed.flash}
+            className="diff-landed"
+            style={{ top: props.landed.first * ROW_HEIGHT, height: Math.max(1, props.landed.last - props.landed.first) * ROW_HEIGHT, left: lineNumberWidth }}
           />
         )}
         {props.placeholder && <div className="placeholder">{props.placeholder}</div>}

@@ -12,10 +12,12 @@ import type { Theme } from './Toolbar';
 import { FolderCompareOptions } from './FolderCompareOptions';
 import { HomeButton } from './HomeButton';
 import { MergeIcon, RefreshIcon } from './icons';
+import { GUTTER_WIDTH } from './layout';
 import { ThemeButton } from './ThemeButton';
 
 /** Width of the centre column holding the copy arrows; it doubles as the divider. */
-const DIVIDER_WIDTH = 56;
+/** The middle column with the copy arrows: as wide as the text view's gutter. */
+const DIVIDER_WIDTH = GUTTER_WIDTH;
 /** Height of one folder row (matches `.frow` in styles.css). */
 const FROW_HEIGHT = 24;
 /** Rows are rendered in bands of this many, like the text panes, so huge trees stay fast. */
