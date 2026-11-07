@@ -71,6 +71,8 @@ export function createDeltaServer(options: ServerOptions): DeltaServer {
   const streams = new Map<string, ChangeSubscriber & { emit(event: string, data: unknown): void }>();
   /** Each tab's folder-change subscriber, made from its event stream (one per stream). */
   const folderSubscribers = new WeakMap<object, FolderChangeSubscriber>();
+  /** One copy per client, cancellable. */
+  const copies = new Map<string, AbortController>();
   /** One folder comparison per client: starting another (or Cancel) aborts the one running. */
   const comparisons = new Map<string, AbortController>();
   /** Comparisons to open, by launch id (oldest dropped first). */
@@ -120,14 +122,26 @@ export function createDeltaServer(options: ServerOptions): DeltaServer {
       comparisons.get(str(b.client, 'client'))?.abort();
       return { ok: true };
     },
-    '/api/copy': (b) => {
+    '/api/copy': async (b) => {
       const req: CopyRequest = {
         leftRoot: str(b.leftRoot, 'leftRoot'),
         rightRoot: str(b.rightRoot, 'rightRoot'),
         relPath: str(b.relPath, 'relPath'),
         from: oneOf(b.from, 'from', ['left', 'right']),
       };
-      return copyEntry(req);
+      const client = typeof b.client === 'string' ? b.client : '';
+      copies.get(client)?.abort();
+      const controller = new AbortController();
+      copies.set(client, controller);
+      try {
+        return await copyEntry(req, { signal: controller.signal, onProgress: (p) => streams.get(client)?.emit('copy-progress', p) });
+      } finally {
+        if (copies.get(client) === controller) copies.delete(client);
+      }
+    },
+    '/api/copy/cancel': async (b) => {
+      copies.get(str(b.client, 'client'))?.abort();
+      return { ok: true };
     },
     '/api/recents/list': async () => ({ items: await recents.list(), homeDir: homedir() }),
     '/api/recents/remember': async (b) => {
@@ -255,6 +269,7 @@ export function createDeltaServer(options: ServerOptions): DeltaServer {
       // tab reconnecting isn't the tab going away.
       if (streams.get(id) === subscriber) {
         comparisons.get(id)?.abort();
+        copies.get(id)?.abort();
         streams.delete(id);
         log.debug('server', 'Page disconnected', { client: id.slice(0, 8), pages: streams.size });
       }

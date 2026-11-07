@@ -6,7 +6,7 @@
 // Everything runs against temporary files and a temporary settings folder, on a spare port.
 import electron from 'electron';
 import { spawn, spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -326,6 +326,7 @@ async function run() {
   await sleep(600);
   check('copying a file across writes it', readFileSync(join(R, 'left-only.txt'), 'utf8') === 'only on the left\n');
   check('and it now shows as the same', (await rowStatus('left-only.txt')) === 'same');
+  check('by re-comparing just that entry, not rescanning both folders', /Updated after changes made elsewhere  entries=1/.test(logText().split('INFO  folders  Copied').pop()) && !/Comparing folders/.test(logText().split('INFO  folders  Copied').pop()));
   await clickEl('[aria-label="Copy diff.txt to the right"]');
   check('replacing a file asks first', await waitFor(`!!document.querySelector('.confirm-dialog')`));
   await clickEl('.confirm-dialog button.primary');
@@ -355,6 +356,25 @@ async function run() {
   await clickEl('.toolbar .options-button');
   check('"Update automatically" is in the Compare by menu, on', (await js(`document.querySelector('.options-menu [role=menuitemcheckbox]')?.getAttribute('aria-checked')`)) === 'true');
   await clickEl('.toolbar .options-button');
+
+  section('Copying a large folder');
+  for (let i = 0; i < 6000; i++) {
+    const d = join(L, 'many', `d${i % 60}`);
+    if (i < 60) mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, `f${i}.txt`), `file ${i}\n`);
+  }
+  await clickEl('[aria-label="Rescan"]');
+  await waitFor(`[...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('many'))`, 15000);
+  await js(`document.querySelector('[aria-label="Copy many to the right"]').click(); true`);
+  check('a long copy shows its progress, with Cancel', await waitFor(`/of 6,000 files/.test(document.querySelector('.copy-bar')?.innerText ?? '')`, 5000), await js(`document.querySelector('.copy-bar')?.innerText`));
+  check('meanwhile Rescan and the other copy arrows wait', await js(`document.querySelector('[aria-label="Rescan"]').disabled && [...document.querySelectorAll('.factions .merge')].every((b) => b.disabled)`));
+  await clickText('.copy-bar button', 'Cancel');
+  check('Cancel stops it and changes nothing', await waitFor(`document.querySelector('.notice')?.innerText.includes('nothing was changed')`, 8000) && !existsSync(join(R, 'many')) && !readdirSync(R).some((n) => n.includes('.delta-')));
+  await clickText('.notice button', 'Dismiss');
+  await js(`document.querySelector('[aria-label="Copy many to the right"]').click(); true`);
+  let manyStatus = null;
+  for (let i = 0; i < 300 && manyStatus !== 'same'; i++, await sleep(100)) manyStatus = await rowStatus('many');
+  check('copied in full, it shows as the same', manyStatus === 'same' && readdirSync(join(R, 'many')).length === 60, manyStatus);
 
   section('Opening a file from the folder comparison and going back');
   await js(`document.querySelector('.folder-list').scrollTop = 0; true`);

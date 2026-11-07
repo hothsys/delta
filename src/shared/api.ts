@@ -182,7 +182,19 @@ export interface CopyRequest {
   from: 'left' | 'right';
 }
 
-export type CopyResult = { ok: true } | { ok: false; message: string };
+export type CopyResult = { ok: true } | { ok: false; message: string; cancelled?: boolean };
+
+/** Live counters while a copy runs. */
+export interface CopyProgress {
+  /** Files (and links) copied so far, of the total. */
+  files: number;
+  totalFiles: number;
+  bytes: number;
+  totalBytes: number;
+  /** The last file copied, relative to the roots. */
+  current: string;
+  elapsedMs: number;
+}
 
 /**
  * Outside changes in a compared folder, batched: the paths (relative to the roots, using `/`)
@@ -289,7 +301,11 @@ export interface DeltaApi {
   onFolderProgress(listener: (progress: FolderProgress) => void): () => void;
   /** Stops the running comparison; its promise resolves with `cancelled: true`. */
   cancelFolderCompare(): Promise<void>;
+  /** Copies across (one copy at a time per window or tab); progress arrives through `onCopyProgress`. */
   copyEntry(request: CopyRequest): Promise<CopyResult>;
+  onCopyProgress(listener: (progress: CopyProgress) => void): () => void;
+  /** Stops the running copy; its promise resolves with `cancelled: true` and nothing changed. */
+  cancelCopy(): Promise<void>;
   /** Watches both roots for outside changes (replacing any earlier watch); null stops watching. */
   watchFolders(roots: { left: string; right: string } | null): Promise<{ ok: true } | { ok: false; message: string }>;
   onFolderChanged(listener: (change: FolderChange) => void): () => void;

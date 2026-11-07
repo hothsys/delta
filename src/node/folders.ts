@@ -1,8 +1,9 @@
-import type { Dirent } from 'node:fs';
-import { cp, lstat, mkdir, open, readdir, readlink, realpath, rename, rm, stat } from 'node:fs/promises';
+import { constants as fsConstants, type Dirent, type Stats } from 'node:fs';
+import { chmod, copyFile, lstat, mkdir, open, readdir, readlink, realpath, rename, rm, stat, symlink, utimes } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import {
   TIMESTAMP_TOLERANCE_MS,
+  type CopyProgress,
   type CopyRequest,
   type CopyResult,
   type EntryInfo,
@@ -408,13 +409,31 @@ export async function filesEqual(a: string, b: string, sizeA: number, sizeB: num
   return (await contentsEqual(ctx, a, b, sizeA)).equal;
 }
 
+/** File copies in flight at once: enough to keep the I/O threads and the disk busy with many small files. */
+const COPY_PARALLEL = 16;
+
+export interface CopyOptions {
+  /** Aborting stops the copy and removes what was copied so far; the destination is left as it was. */
+  signal?: AbortSignal;
+  /** Called with live counters, at most every PROGRESS_INTERVAL_MS. */
+  onProgress?: (progress: CopyProgress) => void;
+}
+
 /**
  * Copies a file or folder from one tree to the same place in the other, replacing what is
  * there. A folder copied onto a folder replaces it: afterwards the destination matches the
  * source exactly, so files and folders only on the destination side are gone (the renderer
  * has confirmed that, naming them). Symbolic links are copied as links, unchanged.
+ *
+ * Nothing at the destination is touched until the copy is complete: everything is copied to a
+ * hidden name beside it first, then swapped in. Cancelling, a failure partway or a full disk
+ * leave the destination exactly as it was. Files are copied up to COPY_PARALLEL at a time, as
+ * copy-on-write clones where the filesystem supports them (APFS, Btrfs, XFS).
  */
-export async function copyEntry(req: CopyRequest): Promise<CopyResult> {
+export async function copyEntry(req: CopyRequest, options: CopyOptions = {}): Promise<CopyResult> {
+  const t0 = performance.now();
+  let staging: string | undefined;
+  let plan: CopyPlan | undefined;
   try {
     // The roots themselves are never copied: replacing one would reach outside it.
     if (req.relPath.split('/').filter(Boolean).length === 0) return { ok: false, message: 'Choose a file or folder inside the compared folders.' };
@@ -423,51 +442,143 @@ export async function copyEntry(req: CopyRequest): Promise<CopyResult> {
     const src = inside(srcRoot, req.relPath);
     const dst = inside(dstRoot, req.relPath);
     await insideReally(dstRoot, dst);
-    const [s, d] = await Promise.all([info(src), info(dst)]);
+    const [s, d] = await Promise.all([lstat(src).catch(() => null), lstat(dst).catch(() => null)]);
     if (!s) return { ok: false, message: `${req.relPath} no longer exists on the ${req.from}.` };
-    const options = { recursive: true, force: true, preserveTimestamps: true, verbatimSymlinks: true } as const;
-    if (s.kind === 'dir' && d?.kind === 'dir' && d.link === undefined) {
-      await replaceFolder(src, dst, options);
-    } else {
-      // A file cannot overwrite a folder (or the reverse), and a link at the destination is
-      // replaced, not written through.
-      if (d && (d.kind !== s.kind || d.link !== undefined)) await rm(dst, { recursive: true, force: true });
-      await mkdir(dirname(dst), { recursive: true });
-      await cp(src, dst, options);
-    }
-    log.info('folders', 'Copied', { from: src, to: dst, kind: s.kind, replaced: !!d });
+    plan = await planCopy(src, s, options.signal);
+    await mkdir(dirname(dst), { recursive: true });
+    staging = join(dirname(dst), `.${basename(dst)}.delta-copy-${process.pid}-${Date.now()}`);
+    await runCopy(plan, staging, req.relPath, t0, options);
+    await swapIn(staging, dst, d);
+    staging = undefined;
+    log.info('folders', 'Copied', { from: src, to: dst, kind: s.isDirectory() ? 'dir' : 'file', replaced: !!d, files: plan.files.length, bytes: plan.bytes, ms: Math.round(performance.now() - t0) });
     return { ok: true };
   } catch (err) {
+    if (staging) await rm(staging, { recursive: true, force: true }).catch(() => {});
+    if (err instanceof Cancelled) {
+      log.info('folders', 'Copy cancelled', { relPath: req.relPath, from: req.from, ms: Math.round(performance.now() - t0) });
+      return { ok: false, cancelled: true, message: 'The copy was cancelled; nothing was changed.' };
+    }
+    const code = (err as NodeJS.ErrnoException).code;
+    const message =
+      code === 'ENOSPC'
+        ? `There isn't enough free space on the ${req.from === 'left' ? 'right' : 'left'} drive for the copy${plan ? ` (it needs about ${formatBytes(plan.bytes)})` : ''}. Nothing was changed.`
+        : errorMessage(err);
     log.error('folders', 'Could not copy', { relPath: req.relPath, from: req.from, leftRoot: req.leftRoot, rightRoot: req.rightRoot, error: errorMessage(err) });
-    return { ok: false, message: errorMessage(err) };
+    return { ok: false, message };
   }
 }
 
-/**
- * Replaces the folder `dst` with a copy of `src`, without risking `dst` on the way: the copy
- * is made beside it first, and only once it's complete does it take `dst`'s place. A copy
- * that fails partway (a full disk, a file that can't be read) leaves `dst` as it was.
- */
-async function replaceFolder(src: string, dst: string, options: Parameters<typeof cp>[2]): Promise<void> {
-  const stamp = `${process.pid}-${Date.now()}`;
-  const staging = join(dirname(dst), `.${basename(dst)}.delta-copy-${stamp}`);
-  const old = join(dirname(dst), `.${basename(dst)}.delta-old-${stamp}`);
-  try {
-    await cp(src, staging, options);
-  } catch (err) {
-    await rm(staging, { recursive: true, force: true });
-    throw err;
+interface CopyPlan {
+  /** Folders to create, relative to the copy's root ('' is the root), parents first. */
+  dirs: { rel: string; mode: number; atime: Date; mtime: Date }[];
+  /** Files and symbolic links to copy, relative to the copy's root ('' when copying one file). */
+  files: { rel: string; size: number; link: boolean; atime: Date; mtime: Date }[];
+  bytes: number;
+  src: string;
+}
+
+/** Everything a copy will make, found before it starts, so progress can be shown as "x of y". */
+async function planCopy(src: string, top: Stats, signal?: AbortSignal): Promise<CopyPlan> {
+  const plan: CopyPlan = { dirs: [], files: [], bytes: 0, src };
+  const visit = async (abs: string, rel: string, st: Stats): Promise<void> => {
+    if (signal?.aborted) throw new Cancelled();
+    if (st.isSymbolicLink()) plan.files.push({ rel, size: 0, link: true, atime: st.atime, mtime: st.mtime });
+    else if (st.isFile()) {
+      plan.files.push({ rel, size: st.size, link: false, atime: st.atime, mtime: st.mtime });
+      plan.bytes += st.size;
+    } else if (st.isDirectory()) {
+      plan.dirs.push({ rel, mode: st.mode & 0o7777, atime: st.atime, mtime: st.mtime });
+      const names = await readdir(abs);
+      const stats = await Promise.all(names.map((n) => lstat(join(abs, n))));
+      for (let i = 0; i < names.length; i++) await visit(join(abs, names[i]), rel ? `${rel}/${names[i]}` : names[i], stats[i]);
+    } else throw new Error(`${abs} can't be copied: it's a device, socket or pipe, not a file or folder.`);
+  };
+  await visit(src, '', top);
+  return plan;
+}
+
+/** Makes the copy at `dest` (which must not exist): folders, then files in parallel, then folder times. */
+async function runCopy(plan: CopyPlan, dest: string, relPath: string, t0: number, options: CopyOptions): Promise<void> {
+  const { signal, onProgress } = options;
+  const at = (rel: string) => (rel ? join(dest, ...rel.split('/')) : dest);
+  const progress: CopyProgress = { files: 0, totalFiles: plan.files.length, bytes: 0, totalBytes: plan.bytes, current: relPath, elapsedMs: 0 };
+  let lastReport = 0;
+  const report = (force = false) => {
+    const now = performance.now();
+    if (!onProgress || (!force && now - lastReport < PROGRESS_INTERVAL_MS)) return;
+    lastReport = now;
+    onProgress({ ...progress, elapsedMs: now - t0 });
+  };
+  const check = () => {
+    if (signal?.aborted) throw new Cancelled();
+  };
+
+  // Folders first, parents before children (the plan lists them that way).
+  for (const d of plan.dirs) {
+    check();
+    await mkdir(at(d.rel));
   }
+
+  // Files and links, several at a time. The first failure stops new copies from starting.
+  let failure: unknown;
+  let next = 0;
+  const worker = async () => {
+    while (next < plan.files.length && failure === undefined) {
+      const f = plan.files[next++];
+      try {
+        check();
+        const from = f.rel ? join(plan.src, ...f.rel.split('/')) : plan.src;
+        const to = at(f.rel);
+        if (f.link) await symlink(await readlink(from), to);
+        else {
+          await copyFile(from, to, fsConstants.COPYFILE_FICLONE);
+          await utimes(to, f.atime, f.mtime);
+        }
+        progress.files++;
+        progress.bytes += f.size;
+        progress.current = f.rel ? `${relPath}/${f.rel}` : relPath;
+        report();
+      } catch (err) {
+        failure ??= err;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(COPY_PARALLEL, plan.files.length) }, worker));
+  if (failure !== undefined) throw failure;
+
+  // Folder times and permissions last: adding entries changes a folder's time, and a read-only
+  // folder must stay writable until its contents are in.
+  for (let i = plan.dirs.length - 1; i >= 0; i--) {
+    check();
+    const d = plan.dirs[i];
+    await chmod(at(d.rel), d.mode);
+    await utimes(at(d.rel), d.atime, d.mtime);
+  }
+  report(true);
+}
+
+/** Puts the finished copy in place of `dst`, putting the original back if that fails. */
+async function swapIn(staging: string, dst: string, existing: Stats | null): Promise<void> {
+  if (!existing) return rename(staging, dst);
+  // A file (or link) replacing a file (or link): one step, so there's no moment without it.
+  const stagedIsDir = (await lstat(staging)).isDirectory();
+  if (!stagedIsDir && !existing.isDirectory()) return rename(staging, dst);
+  const old = join(dirname(dst), `.${basename(dst)}.delta-old-${process.pid}-${Date.now()}`);
   await rename(dst, old);
   try {
     await rename(staging, dst);
   } catch (err) {
     // Put the original back (Windows refuses to rename a folder something has open).
     await rename(old, dst);
-    await rm(staging, { recursive: true, force: true });
     throw err;
   }
   await rm(old, { recursive: true, force: true });
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
+  if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(n < 10 * 1024 ** 2 ? 1 : 0)} MB`;
+  return `${(n / 1024 ** 3).toFixed(1)} GB`;
 }
 
 /** Resolves `relPath` under `root`, refusing anything that would escape it. */

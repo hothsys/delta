@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import {
   TIMESTAMP_TOLERANCE_MS,
+  type CopyProgress,
   type FolderCompareMode,
   type FolderCompareResult,
   type FolderNode,
@@ -57,6 +58,8 @@ interface FolderViewProps {
   /** Opens a file (present on either side) in the text comparison. */
   onOpen: (node: FolderNode) => void;
   onCopy: (node: FolderNode, from: TreeSide) => void;
+  /** A copy in progress: other copies and Rescan wait; a strip shows progress with Cancel. */
+  copying?: { relPath: string; progress: CopyProgress | null; onCancel: () => void } | null;
   /** Right-click on a row; `side` is the column that was clicked. */
   onEntryContextMenu: (node: FolderNode, side: TreeSide, x: number, y: number) => void;
   /** The file chosen with "Select for comparison", as `side:relPath`, to outline it. */
@@ -223,7 +226,7 @@ export function FolderView(props: FolderViewProps) {
           type="button"
           className="icon-button"
           onClick={props.onRescan}
-          disabled={props.busy || props.refreshing}
+          disabled={props.busy || props.refreshing || !!props.copying}
           title="Rescan: compare both folders again (F5)"
           aria-label="Rescan"
         >
@@ -264,6 +267,7 @@ export function FolderView(props: FolderViewProps) {
         <ThemeButton theme={props.theme} onToggle={() => props.onThemeChange(props.theme === 'dark' ? 'light' : 'dark')} />
       </div>
 
+      {props.copying && <CopyBar {...props.copying} />}
       {props.notice}
 
       <div className="folder-roots">
@@ -311,7 +315,7 @@ export function FolderView(props: FolderViewProps) {
             <div
               key={node.relPath}
               style={{ top: (firstRow + k) * FROW_HEIGHT }}
-              className={`frow st-${node.status}${node.relPath === selected ? ' selected' : ''}`}
+              className={`frow st-${node.status}${node.relPath === selected ? ' selected' : ''}${props.copying?.relPath === node.relPath ? ' copying' : ''}`}
               onClick={() => props.onSelect(node.relPath)}
               onDoubleClick={() => activate(node)}
               onContextMenu={(e) => {
@@ -327,7 +331,7 @@ export function FolderView(props: FolderViewProps) {
                 <button
                   type="button"
                   className="merge merge-from-a"
-                  disabled={!node.left || node.status === 'same'}
+                  disabled={!node.left || node.status === 'same' || !!props.copying}
                   title="Copy to the right"
                   aria-label={`Copy ${node.relPath} to the right`}
                   onClick={(e) => {
@@ -340,7 +344,7 @@ export function FolderView(props: FolderViewProps) {
                 <button
                   type="button"
                   className="merge merge-from-b"
-                  disabled={!node.right || node.status === 'same'}
+                  disabled={!node.right || node.status === 'same' || !!props.copying}
                   title="Copy to the left"
                   aria-label={`Copy ${node.relPath} to the left`}
                   onClick={(e) => {
@@ -378,7 +382,8 @@ function newerSide(node: FolderNode): TreeSide | null {
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 ** 3) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
 }
 
 /** Shown in place of the list while a comparison runs. */
@@ -420,4 +425,47 @@ function ScanProgress(props: {
 function formatElapsed(ms: number): string {
   const s = Math.floor(ms / 1000);
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
+}
+
+/** A file's fixed cost in a copy, as if it were this many bytes larger (for the progress bar). */
+const FILE_COST_BYTES = 128 * 1024;
+
+/** Shown only for a copy that takes more than a moment, so small copies don't flash it. */
+const COPY_BAR_DELAY_MS = 400;
+
+/** Progress of a copy across: files and bytes, a bar, and Cancel. */
+function CopyBar({ relPath, progress, onCancel }: { relPath: string; progress: CopyProgress | null; onCancel: () => void }) {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShown(true), COPY_BAR_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  if (!shown) return null;
+  const p = progress;
+  // Each file costs a fixed amount (creating it, setting its times) besides its bytes, and on
+  // the same drive big files are cloned almost for free: weighing bytes alone fills the bar
+  // early when large files happen to come first.
+  const fraction = p && p.totalFiles + p.totalBytes > 0 ? (p.files * FILE_COST_BYTES + p.bytes) / (p.totalFiles * FILE_COST_BYTES + p.totalBytes) : 0;
+  // One file (or no count yet): there's no progress within a file to show, so the bar moves instead.
+  const indeterminate = !p || p.totalFiles <= 1;
+  return (
+    <div className="copy-bar" role="status">
+      <span className="notice-text">
+        Copying <strong>{relPath}</strong>
+        {p && p.totalFiles > 1 && (
+          <>
+            {': '}
+            {p.files.toLocaleString('en-US')} of {p.totalFiles.toLocaleString('en-US')} files ({formatSize(p.bytes)} of {formatSize(p.totalBytes)})
+          </>
+        )}
+        …
+      </span>
+      <div className={`copy-progress${indeterminate ? ' indeterminate' : ''}`} aria-hidden="true">
+        <div style={indeterminate ? undefined : { width: `${Math.round(fraction * 100)}%` }} />
+      </div>
+      <button type="button" onClick={onCancel}>
+        Cancel
+      </button>
+    </div>
+  );
 }

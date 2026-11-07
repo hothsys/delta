@@ -61,7 +61,7 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
     if (filename === null) overflow = true; // the system couldn't say what changed
     else {
       const parts = filename.split(/[\\/]/).filter(Boolean);
-      if (parts.length === 0 || parts.some((p) => IGNORED_NAMES.has(p))) return;
+      if (parts.length === 0 || parts.some((p) => IGNORED_NAMES.has(p) || isDeltaScratch(p))) return;
       pending.add(parts.join('/'));
       if (pending.size > MAX_BATCH_PATHS) overflow = true;
     }
@@ -98,6 +98,13 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
   log.info('watch', 'Watching folders for outside changes', { roots: roots.join(' | ') });
   return null;
 }
+
+/**
+ * Delta's own short-lived names: a copy being staged or the folder it replaces
+ * (`.name.delta-copy-…`, `.name.delta-old-…`), and a file being saved (`.name.….delta-tmp`).
+ * They come and go in the middle of Delta's own work and are never worth an update.
+ */
+export const isDeltaScratch = (name: string) => name.startsWith('.') && (/\.delta-(copy|old)-\d+-\d+$/.test(name) || name.endsWith('.delta-tmp'));
 
 /** How many owners are watching folders (tests). */
 export const folderWatchCount = () => active.size;

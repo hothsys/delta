@@ -192,7 +192,19 @@ function registerIpc(dataDir: string): void {
     }
   });
   handle('folder:cancel', (e) => running.get(e.sender.id)?.abort());
-  handle('folder:copy', (_e, req: CopyRequest) => copyEntry(req));
+  // One copy per window, cancellable, with progress.
+  const copying = new Map<number, AbortController>();
+  handle('folder:copy', async (e, req: CopyRequest) => {
+    copying.get(e.sender.id)?.abort();
+    const controller = new AbortController();
+    copying.set(e.sender.id, controller);
+    try {
+      return await copyEntry(req, { signal: controller.signal, onProgress: (p) => !e.sender.isDestroyed() && e.sender.send('folder:copy-progress', p) });
+    } finally {
+      if (copying.get(e.sender.id) === controller) copying.delete(e.sender.id);
+    }
+  });
+  handle('folder:copy-cancel', (e) => copying.get(e.sender.id)?.abort());
   handle('folder:watch', (e, roots: { left: string; right: string } | null) => {
     const failed = watchFolders(folderSubscriberFor(e.sender), roots && [roots.left, roots.right]);
     return failed ? { ok: false, message: failed } : { ok: true };

@@ -4,6 +4,7 @@ import { joinLines, type WhitespaceMode } from '../../engine';
 import type {
   Command,
   ComparisonKind,
+  CopyProgress,
   FolderChange,
   FolderCompareMode,
   FolderCompareResult,
@@ -450,8 +451,18 @@ export function App() {
     if (a && b) await showFiles(a, b, true);
   };
 
+  /** The entry being copied (one copy at a time), and its progress. */
+  const [copying, setCopying] = useState<string | null>(null);
+  const [copyProgress, setCopyProgress] = useState<CopyProgress | null>(null);
+  useEffect(() => api.onCopyProgress(setCopyProgress), []);
+  /**
+   * The entry Delta itself is copying (and until when), so the folder watcher doesn't react to
+   * the copy's own thousands of changes: the quiet rescan after it covers them.
+   */
+  const ownCopy = useRef<{ relPath: string; until: number } | null>(null);
+
   const copyInFolders = async (node: FolderNode, from: TreeSide) => {
-    if (!roots) return;
+    if (!roots || copying !== null) return;
     const to = from === 'left' ? 'right' : 'left';
     const target = from === 'left' ? node.right : node.left;
     if (target) {
@@ -465,10 +476,24 @@ export function App() {
       log.info('folders', ok ? 'Replace confirmed' : 'Replace cancelled', { relPath: node.relPath, from });
       if (!ok) return;
     }
-    const r = await api.copyEntry({ leftRoot: roots.left, rightRoot: roots.right, relPath: node.relPath, from });
-    if (!r.ok) setNotice({ kind: 'error', text: `Could not copy ${node.relPath}: ${r.message}` });
-    // Behind the list, so it keeps its place.
-    await rescan(roots, folderMode, true);
+    setCopyProgress(null);
+    setCopying(node.relPath);
+    ownCopy.current = { relPath: node.relPath, until: Infinity };
+    let r: Awaited<ReturnType<typeof api.copyEntry>>;
+    try {
+      r = await api.copyEntry({ leftRoot: roots.left, rightRoot: roots.right, relPath: node.relPath, from });
+    } finally {
+      setCopying(null);
+      // Its last changes reach the watcher a moment after it finishes.
+      ownCopy.current = { relPath: node.relPath, until: Date.now() + 3000 };
+    }
+    if (!r.ok && r.cancelled) setNotice({ kind: 'info', text: `The copy of ${node.relPath} was cancelled; nothing was changed.` });
+    else if (!r.ok) setNotice({ kind: 'error', text: `Could not copy ${node.relPath}: ${r.message}` });
+    // Re-compare just what was copied and patch it into the list (milliseconds), instead of
+    // rescanning both folders, which on a large tree takes seconds and showed nothing meanwhile.
+    // If a scan is running, it waits and runs once that finishes.
+    pendingChanges.current.paths.add(node.relPath);
+    void applyChanges.current();
   };
 
   /** Compares any two files, keeping the way back to the folder comparison. */
@@ -492,8 +517,8 @@ export function App() {
     const path = api.joinPath(side === 'left' ? roots.left : roots.right, node.relPath);
     const items: MenuItem[] = [];
     const copyItems: MenuItem[] = [
-      { label: 'Copy to the right ▶', run: () => void copyInFolders(node, 'left'), disabled: !node.left || node.status === 'same' },
-      { label: 'Copy to the left ◀', run: () => void copyInFolders(node, 'right'), disabled: !node.right || node.status === 'same' },
+      { label: 'Copy to the right ▶', run: () => void copyInFolders(node, 'left'), disabled: !node.left || node.status === 'same' || copying !== null },
+      { label: 'Copy to the left ◀', run: () => void copyInFolders(node, 'right'), disabled: !node.right || node.status === 'same' || copying !== null },
     ];
     if (entry.kind === 'dir') {
       setFolderMenu({ x, y, items: copyItems });
@@ -638,6 +663,10 @@ export function App() {
     if (scanAgain) void rescan(roots, folderMode, true);
   };
 
+  /** This render's `applyFolderChanges`, for callers that started in an earlier render (a copy). */
+  const applyChanges = useRef(applyFolderChanges);
+  applyChanges.current = applyFolderChanges;
+
   const onFolderChange = useRef<(change: FolderChange) => void>(() => {});
   onFolderChange.current = (change: FolderChange) => {
     if ('error' in change) {
@@ -645,8 +674,12 @@ export function App() {
       setWatchNote(`Stopped watching for changes made elsewhere (${change.error}), so the folders are rescanned periodically.`);
       return;
     }
-    if ('overflow' in change) pendingChanges.current.overflow = true;
-    else for (const p of change.paths) pendingChanges.current.paths.add(p);
+    // Changes from Delta's own copy are covered by the rescan that follows it.
+    const own = ownCopy.current && Date.now() < ownCopy.current.until ? ownCopy.current.relPath : null;
+    const ours = (p: string) => own !== null && (p === own || p.startsWith(own + '/'));
+    if ('overflow' in change) {
+      if (own === null) pendingChanges.current.overflow = true;
+    } else for (const p of change.paths) if (!ours(p)) pendingChanges.current.paths.add(p);
     void applyFolderChanges();
   };
   useEffect(() => api.onFolderChanged((c) => onFolderChange.current(c)), []);
@@ -1014,6 +1047,7 @@ export function App() {
           }}
           onOpen={(node) => void openFromFolders(node)}
           onCopy={(node, from) => void copyInFolders(node, from)}
+          copying={copying !== null ? { relPath: copying, progress: copyProgress, onCancel: () => void api.cancelCopy() } : null}
           onEntryContextMenu={onEntryContextMenu}
           pickedKey={picked ? `${picked.side}:${picked.relPath}` : null}
           onHome={goHome}

@@ -1,4 +1,4 @@
-import type { DeltaApi, FolderChange, FolderProgress, LogEntry, ReadResult } from '../../../shared/api';
+import type { CopyProgress, DeltaApi, FolderChange, FolderProgress, LogEntry, ReadResult } from '../../../shared/api';
 import { confirmInPage, pick } from './dialogs';
 
 /** Matches the server's TOKEN_HEADER. */
@@ -30,6 +30,7 @@ export function createHttpApi(): DeltaApi {
   const changeListeners = new Set<(path: string) => void>();
   const progressListeners = new Set<(progress: FolderProgress) => void>();
   const folderListeners = new Set<(change: FolderChange) => void>();
+  const copyListeners = new Set<(progress: CopyProgress) => void>();
   /** The folders last asked to be watched, re-sent when the stream reconnects. */
   let watchedFolders: { left: string; right: string } | null = null;
   let stream: Promise<void> | null = null;
@@ -50,6 +51,10 @@ export function createHttpApi(): DeltaApi {
       source.addEventListener('file-changed', (e) => {
         const path = JSON.parse((e as MessageEvent<string>).data) as string;
         for (const l of changeListeners) l(path);
+      });
+      source.addEventListener('copy-progress', (e) => {
+        const progress = JSON.parse((e as MessageEvent<string>).data) as CopyProgress;
+        for (const l of copyListeners) l(progress);
       });
       source.addEventListener('folder-changed', (e) => {
         const change = JSON.parse((e as MessageEvent<string>).data) as FolderChange;
@@ -130,7 +135,19 @@ export function createHttpApi(): DeltaApi {
     cancelFolderCompare: async () => {
       await post('/api/compare-folders/cancel', { client });
     },
-    copyEntry: (request) => post('/api/copy', request),
+    copyEntry: async (request) => {
+      // Progress arrives over the event stream, so make sure it is connected first.
+      await openStream();
+      return post('/api/copy', { ...request, client });
+    },
+    onCopyProgress: (listener) => {
+      void openStream();
+      copyListeners.add(listener);
+      return () => copyListeners.delete(listener);
+    },
+    cancelCopy: async () => {
+      await post('/api/copy/cancel', { client });
+    },
     watchFolders: async (roots) => {
       watchedFolders = roots;
       await openStream();
