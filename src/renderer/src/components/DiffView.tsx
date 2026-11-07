@@ -905,7 +905,9 @@ export function DiffView(props: DiffViewProps) {
   };
 
   // The line pair at the caret, shown in full in the details strip at the bottom.
-  const detailRow = rows.count ? Math.min(rows.count - 1, rowOfLine(active, selOf(active).head.line)) : -1;
+  // Right after a jump, the difference itself: when it has no lines on the caret's side (an
+  // insertion or deletion), the caret waits on the next line below it, which is not the change.
+  const detailRow = !rows.count ? -1 : landedRows ? landedRows.first : Math.min(rows.count - 1, rowOfLine(active, selOf(active).head.line));
   const detail = (side: Side) => {
     const line = detailRow < 0 ? -1 : (side === 'a' ? rows.a : rows.b)[detailRow];
     const kind = detailRow < 0 ? RowKind.Equal : (rows.kind[detailRow] as RowKind);
