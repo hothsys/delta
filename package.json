@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build:web && electron tests/e2e/web.mjs",
+    "screenshots": "npm run build:web && electron docs/screenshots/capture.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "pack": "electron-vite build && electron-builder --config desktop/electron-builder.yml --dir",
     "dist": "electron-vite build && electron-builder --config desktop/electron-builder.yml",

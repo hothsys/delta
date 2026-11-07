@@ -29,8 +29,14 @@ export interface Anchor {
 export interface LineDiffOptions extends CompareOptions {
   /** Manual alignments. Out-of-range or crossing anchors are dropped; see `LineDiffResult.anchors`. */
   anchors?: readonly Anchor[];
-  /** Always find a minimal diff, even when that is very expensive. Default `false`. */
+  /** Always find a minimal diff, even when that is very expensive. Default `false`. Implies Myers. */
   minimal?: boolean;
+  /**
+   * How lines are matched: `histogram` (the default) anchors on rare lines, as `git diff
+   * --histogram` does, for more readable diffs of code; `myers` finds the smallest diff.
+   * Not a user setting; kept for comparison and tests.
+   */
+  algorithm?: 'histogram' | 'myers';
 }
 
 /**
