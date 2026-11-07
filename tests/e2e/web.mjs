@@ -166,7 +166,8 @@ async function run() {
   await clickEl('.pane-b .row', { dx: 120 });
   await key('F7');
   check('F7 goes to the first difference', (await js(`document.querySelector('.detail-b .detail-ln')?.innerText`)) === '2');
-  const detailLine = () => js(`document.querySelector('.detail-b .detail-ln')?.innerText ?? document.querySelector('.detail-a .detail-ln')?.innerText`);
+  // The line number shown in the strip, from whichever side has a line on that row.
+  const detailLine = () => js(`document.querySelector('.detail-b .detail-ln')?.innerText || document.querySelector('.detail-a .detail-ln')?.innerText`);
   await clickEl('[aria-label="Next difference"]');
   const afterNext = await detailLine();
   check('the toolbar ↓ arrow goes to the next difference', afterNext !== '2' && Number(afterNext) > 2, afterNext);
@@ -240,6 +241,19 @@ async function run() {
   writeFileSync(join(F, 'other.txt'), 'cafe\r\nnaive\r\nmore\r\n');
   await key('F5');
   check('F5 reloads too (and not the page)', await waitFor(`[...document.querySelectorAll('.pane-b .txt')].some((t) => t.innerText === 'more')`));
+
+  section('The line details strip after a jump');
+  writeFileSync(join(F, 'det-a.txt'), 'one\ntwo\nthree\nfour\n');
+  writeFileSync(join(F, 'det-b.txt'), 'one\nTWO\nthree\nadded on the right\nfour\n');
+  await open(launch(join(F, 'det-a.txt'), join(F, 'det-b.txt')).url);
+  await clickEl('.pane-a .row', { dx: 120 }); // the caret on the left, line 1
+  const strip = async () => (await js(`[...document.querySelectorAll('.line-details .detail-line')].map((l) => l.innerText)`)).map((t) => t.replace(/[·¶]/g, ' ').replace(/\s+/g, ' ').trim());
+  await key('F7');
+  check('on a changed line, the strip shows that line on both sides', JSON.stringify(await strip()) === JSON.stringify(['2 two', '2 TWO']), JSON.stringify(await strip()));
+  await key('F7');
+  check('on lines only the other side has, it shows them, not the line below', JSON.stringify(await strip()) === JSON.stringify(['(no line on this side)', '4 added on the right']), JSON.stringify(await strip()));
+  await clickEl('.pane-a .row', { dx: 120 });
+  check('and after clicking, it follows the caret again', (await strip())[0] === '1 one', JSON.stringify(await strip()));
 
   section('File details');
   await open(launch(join(F, 'plain.txt'), join(F, 'bom-crlf.txt')).url);
