@@ -1,4 +1,5 @@
 import { Interner, internAll } from './intern';
+import { histogramDiff } from './histogram';
 import { diffSequences, marksToHunks, type Hunk } from './myers';
 import { lineKeyFn, type KeyFn } from './normalize';
 import { pairLines } from './pairing';
@@ -8,8 +9,9 @@ import type { Anchor, BlockKind, DiffBlock, DiffStats, LineDiffOptions, LineDiff
  * Line-by-line diff of two texts (already split into lines).
  *
  * Manual anchors split both texts into independent segments, each diffed on its own; the
- * anchored lines themselves always share a row. Within a segment, Myers finds the changed
- * hunks, which are then slid to more readable positions and classified into blocks.
+ * anchored lines themselves always share a row. Within a segment, histogram diff (anchoring on
+ * rare lines, falling back to Myers) finds the changed hunks, which are then slid to more
+ * readable positions and classified into blocks.
  */
 export function diffLines(a: readonly string[], b: readonly string[], options: LineDiffOptions = {}): LineDiffResult {
   const keyFn = lineKeyFn(options);
@@ -22,7 +24,8 @@ export function diffLines(a: readonly string[], b: readonly string[], options: L
   const segment = (aStart: number, aEnd: number, bStart: number, bEnd: number) => {
     const sa = aKeys.subarray(aStart, aEnd);
     const sb = bKeys.subarray(bStart, bEnd);
-    const { changedA, changedB } = diffSequences(sa, sb, { minimal: options.minimal });
+    const { changedA, changedB } =
+      options.minimal || options.algorithm === 'myers' ? diffSequences(sa, sb, { minimal: options.minimal }) : histogramDiff(sa, sb);
     const hunks = slideHunks(
       marksToHunks(changedA, changedB),
       sa,
