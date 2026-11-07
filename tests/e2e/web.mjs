@@ -166,11 +166,27 @@ async function run() {
   await clickEl('.pane-b .row', { dx: 120 });
   await key('F7');
   check('F7 goes to the first difference', (await js(`document.querySelector('.detail-b .detail-ln')?.innerText`)) === '2');
+  const detailLine = () => js(`document.querySelector('.detail-b .detail-ln')?.innerText ?? document.querySelector('.detail-a .detail-ln')?.innerText`);
+  await clickEl('[aria-label="Next difference"]');
+  const afterNext = await detailLine();
+  check('the toolbar ↓ arrow goes to the next difference', afterNext !== '2' && Number(afterNext) > 2, afterNext);
+  await clickEl('[aria-label="Previous difference"]');
+  check('and ↑ goes back to the previous one', (await detailLine()) === '2', await detailLine());
+  check('the difference landed on is outlined in both panes, and counted', (await js(`document.querySelectorAll('.diff-landed').length`)) === 2 && (await stats())?.startsWith('1 of 3 differences'), await stats());
+  await clickEl('.pane-b .row', { dx: 120 }); // line 1, outside the difference
+  check('clicking elsewhere clears the outline and the count', (await js(`document.querySelectorAll('.diff-landed').length`)) === 0 && (await stats())?.startsWith('3 differences'), await stats());
+  await key('F7'); // back to the first difference, on the right, for the steps below
+  check('the arrows sit in the middle of the toolbar', await js(`(() => { const t = document.querySelector('.toolbar').getBoundingClientRect(); const n = document.querySelector('.diff-nav').getBoundingClientRect(); return Math.abs((t.left + t.width / 2) - (n.left + n.width / 2)) <= 2; })()`));
+  await clickText('.menubar-title', 'View');
+  check('Next and Previous Difference are no longer menu items', !(await js(`[...document.querySelectorAll('.menubar-panel [role^=menuitem]')].some((b) => /Difference/.test(b.innerText))`)));
+  await clickText('.menubar-title', 'View');
+  // The arrows leave the editor focused, with the caret at the difference: typing carries on there.
 
   section('Editing, saving, merging, undo');
   await key('End');
   await type('!');
   check('typing marks the side edited', await waitFor(`!!document.querySelector('.pane-header .edited')`));
+  check('editing clears the outline once the comparison updates', await waitFor(`document.querySelectorAll('.diff-landed').length === 0 && !document.querySelector('.stats strong')?.innerText.includes(' of ')`));
   check('the status line shows the encoding, line endings, lines and size, marked edited', (await fileStatus('b')) === 'ASCII LF 5 lines 33 B (edited)', await fileStatus('b'));
   await key('s', [MOD]);
   await sleep(500);
@@ -184,8 +200,11 @@ async function run() {
   await clickText('.menubar-panel [role=menuitem]', 'Save Right');
   await sleep(500);
   check('File > Save Right writes it', readFileSync(join(F, 'right.txt'), 'utf8').startsWith('alpha\nbravo\n'));
+  const undoAt = Date.now();
   await key('z', [MOD]);
   check('undo brings the change back', (await paneLines('b'))[1] === 'BRAVO!', JSON.stringify(await paneLines('b')));
+  // It compares again at once (no waiting for a typing pause), so the view is whole straight away.
+  check('and the comparison is complete again promptly', await waitFor(`!document.querySelector('.stats')?.innerText.includes('Comparing')`, 250), `${Date.now() - undoAt} ms`);
 
   section('Launching again while running, and the unsaved-changes guard');
   const l1 = launch(join(F, 'latin1.txt'), join(F, 'other.txt'));
