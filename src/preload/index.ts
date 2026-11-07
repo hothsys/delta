@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
-import type { Command, DeltaApi, FolderChange, FolderProgress } from '../shared/api';
+import type { Command, CopyProgress, DeltaApi, FolderChange, FolderProgress } from '../shared/api';
 
 /** Subscribes to a main-process event and returns an unsubscribe function. */
 function on<T>(channel: string, listener: (value: T) => void): () => void {
@@ -28,6 +28,8 @@ const api: DeltaApi = {
   onFolderProgress: (listener) => on<FolderProgress>('folder:progress', listener),
   cancelFolderCompare: () => ipcRenderer.invoke('folder:cancel'),
   copyEntry: (request) => ipcRenderer.invoke('folder:copy', request),
+  onCopyProgress: (listener) => on<CopyProgress>('folder:copy-progress', listener),
+  cancelCopy: () => ipcRenderer.invoke('folder:copy-cancel'),
   watchFolders: (roots) => ipcRenderer.invoke('folder:watch', roots),
   onFolderChanged: (listener) => on<FolderChange>('folder:changed', listener),
   compareFolderEntries: (left, right, relPaths, mode) => ipcRenderer.invoke('folder:compare-entries', left, right, relPaths, mode),

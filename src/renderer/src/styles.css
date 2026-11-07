@@ -605,6 +605,66 @@ body {
   cursor: pointer;
 }
 
+.copy-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--row-minor);
+}
+
+.copy-bar button {
+  font: inherit;
+  color: var(--fg);
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.copy-progress {
+  flex: 0 0 180px;
+  height: 6px;
+  overflow: hidden;
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.copy-progress > div {
+  height: 100%;
+  background: var(--accent-strong);
+  transition: width 150ms linear;
+}
+
+.copy-progress.indeterminate > div {
+  width: 35%;
+  animation: copy-sweep 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes copy-sweep {
+  from { transform: translateX(-10%); }
+  to { transform: translateX(195%); }
+}
+
+/* The row being copied, so a click is acknowledged at once. */
+.frow.copying .fcell:not(.missing) {
+  animation: copy-pulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes copy-pulse {
+  to { box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--accent-strong) 22%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy-progress.indeterminate > div,
+  .frow.copying .fcell:not(.missing) {
+    animation: none;
+  }
+}
+
 .prettify-bar {
   display: flex;
   align-items: center;
