@@ -8,9 +8,6 @@ updates:
     
     assignees:
       - "hgosalia"
-    reviewers:
-      - "hgosalia"
-
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
