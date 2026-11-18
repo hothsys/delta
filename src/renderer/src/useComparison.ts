@@ -1,11 +1,17 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { splitLines, type Anchor, type DiffBlock, type LineDiffOptions, type SplitText } from '../../engine';
-import { addAnchor, removeAnchor, transformAnchors } from './model/anchors';
-import { patchRows, type RowModel, type Side } from './model/rowModel';
-import { applyOp, invertOp, type EditOp, type Selection } from './model/textEdit';
-import { UndoHistory, type UndoEntry } from './model/undo';
-import { useDiff, type DiffInput } from './useDiff';
-import type { EolCounts, LineEnding, TextEncoding } from '../../shared/api';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  splitLines,
+  type Anchor,
+  type DiffBlock,
+  type LineDiffOptions,
+  type SplitText,
+} from "../../engine";
+import { addAnchor, removeAnchor, transformAnchors } from "./model/anchors";
+import { patchRows, type RowModel, type Side } from "./model/rowModel";
+import { applyOp, invertOp, type EditOp, type Selection } from "./model/textEdit";
+import { UndoHistory, type UndoEntry } from "./model/undo";
+import { useDiff, type DiffInput } from "./useDiff";
+import type { EolCounts, LineEnding, TextEncoding } from "../../shared/api";
 
 /**
  * An open text. `lines` is edited in place for speed on large files; `version` changes on
@@ -13,7 +19,7 @@ import type { EolCounts, LineEnding, TextEncoding } from '../../shared/api';
  */
 export interface Doc {
   lines: string[];
-  eol: SplitText['eol'];
+  eol: SplitText["eol"];
   trailingNewline: boolean;
   version: number;
 }
@@ -73,10 +79,10 @@ function makeDoc(text: string): Doc {
 }
 
 const tagOf = (docs: Docs, anchors: Anchor[]) =>
-  `${docs.a.version}:${docs.b.version}:${anchors.map((x) => `${x.a}-${x.b}`).join(',')}`;
+  `${docs.a.version}:${docs.b.version}:${anchors.map((x) => `${x.a}-${x.b}`).join(",")}`;
 
 /** Terminates every line, so the worker splits back exactly the same lines (even a trailing empty one). */
-const toDiffText = (lines: readonly string[]) => (lines.length ? lines.join('\n') + '\n' : '');
+const toDiffText = (lines: readonly string[]) => (lines.length ? lines.join("\n") + "\n" : "");
 
 const toInput = (docs: Docs, anchors: Anchor[]): DiffInput => ({
   left: toDiffText(docs.a.lines),
@@ -119,12 +125,12 @@ export function useComparison(left: Source, right: Source, options: LineDiffOpti
 
   // A newly opened document invalidates that side's undo history and every alignment.
   useEffect(() => {
-    history.dropSide('a');
+    history.dropSide("a");
     savedAt.current.a = null;
     setAnchors([]);
   }, [docA, history]);
   useEffect(() => {
-    history.dropSide('b');
+    history.dropSide("b");
     savedAt.current.b = null;
     setAnchors([]);
   }, [docB, history]);
@@ -151,7 +157,10 @@ export function useComparison(left: Source, right: Source, options: LineDiffOpti
   const scheduleDiff = useCallback(
     (immediate: boolean) => {
       window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(() => setInput(toInput(docs, anchorsRef.current)), immediate ? 0 : REDIFF_DELAY_MS);
+      timer.current = window.setTimeout(
+        () => setInput(toInput(docs, anchorsRef.current)),
+        immediate ? 0 : REDIFF_DELAY_MS,
+      );
     },
     [docs],
   );
@@ -164,7 +173,11 @@ export function useComparison(left: Source, right: Source, options: LineDiffOpti
       if (moved !== anchorsRef.current) setAnchors(moved);
       setView((v) =>
         v && v.docs === docs
-          ? { ...v, rows: patchRows(v.rows, side, op.start, op.removed.length, op.inserted.length), fresh: false }
+          ? {
+              ...v,
+              rows: patchRows(v.rows, side, op.start, op.removed.length, op.inserted.length),
+              fresh: false,
+            }
           : v,
       );
       rerender();
@@ -175,7 +188,14 @@ export function useComparison(left: Source, right: Source, options: LineDiffOpti
   const edit = useCallback(
     (side: Side, op: EditOp, meta: EditMeta) => {
       apply(side, op);
-      history.push({ side, op, before: meta.before, after: meta.after, group: meta.group, time: Date.now() });
+      history.push({
+        side,
+        op,
+        before: meta.before,
+        after: meta.after,
+        group: meta.group,
+        time: Date.now(),
+      });
       scheduleDiff(meta.immediate ?? false);
     },
     [apply, history, scheduleDiff],
@@ -262,7 +282,8 @@ export function useComparison(left: Source, right: Source, options: LineDiffOpti
     // Unsaved when the history moved from where it was saved, or when trimming (past the undo
     // limit) took away the way back to the opened state.
     isEdited: (side: Side) =>
-      history.lastEntry(side) !== savedAt.current[side] || (savedAt.current[side] === null && history.lostStart(side)),
+      history.lastEntry(side) !== savedAt.current[side] ||
+      (savedAt.current[side] === null && history.lostStart(side)),
     redo,
     sealHistory,
     markSaved,

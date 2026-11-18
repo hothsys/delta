@@ -1,8 +1,8 @@
-import type { RecentComparison, RecentSide } from '../../../shared/api';
-import logoUrl from '../assets/logo.svg';
-import { tildePath } from '../model/paths';
-import type { Theme } from './Toolbar';
-import { ThemeButton } from './ThemeButton';
+import type { RecentComparison, RecentSide } from "../../../shared/api";
+import logoUrl from "../assets/logo.svg";
+import { tildePath } from "../model/paths";
+import type { Theme } from "./Toolbar";
+import { ThemeButton } from "./ThemeButton";
 
 interface StartScreenProps {
   onCompareFiles: () => void;
@@ -18,8 +18,8 @@ interface StartScreenProps {
   onToggleTheme: () => void;
 }
 
-const isMac = navigator.platform.toUpperCase().includes('MAC');
-const mod = isMac ? '⌘' : 'Ctrl+';
+const isMac = navigator.platform.toUpperCase().includes("MAC");
+const mod = isMac ? "⌘" : "Ctrl+";
 
 /** The first screen: compare two files or two folders, or reopen a recent comparison. */
 export function StartScreen(props: StartScreenProps) {
@@ -29,15 +29,23 @@ export function StartScreen(props: StartScreenProps) {
       <span className="recent-text" title={s.path}>
         {shorten(s.path, props.homeDir)}
       </span>
-      {s.state === 'unmounted' && <span className="flag warn">Drive “{s.volume}” is not connected</span>}
-      {s.state === 'missing' && <span className="flag warn">Not found</span>}
-      {s.state === 'available' && s.volume && <span className="flag">External drive “{s.volume}”</span>}
+      {s.state === "unmounted" && (
+        <span className="flag warn">Drive “{s.volume}” is not connected</span>
+      )}
+      {s.state === "missing" && <span className="flag warn">Not found</span>}
+      {s.state === "available" && s.volume && (
+        <span className="flag">External drive “{s.volume}”</span>
+      )}
     </span>
   );
 
   return (
     <div className="start">
-      <ThemeButton theme={props.theme} onToggle={props.onToggleTheme} className="icon-button start-theme" />
+      <ThemeButton
+        theme={props.theme}
+        onToggle={props.onToggleTheme}
+        className="icon-button start-theme"
+      />
       <div className="start-body">
         {/* Decorative: the heading below names the app. */}
         <img className="start-logo" src={logoUrl} alt="" draggable={false} />
@@ -72,20 +80,33 @@ export function StartScreen(props: StartScreenProps) {
             <h2>Recent comparisons</h2>
             <ul>
               {props.recents.map((item) => {
-                const unavailable = item.left.state !== 'available' || item.right.state !== 'available';
+                const unavailable =
+                  item.left.state !== "available" || item.right.state !== "available";
                 return (
                   <li
                     key={`${item.kind}\0${item.left.path}\0${item.right.path}`}
-                    className={unavailable ? 'unavailable' : undefined}
-                    title={unavailable ? 'Not available: connect the drive or restore the missing path to open this comparison.' : undefined}
+                    className={unavailable ? "unavailable" : undefined}
+                    title={
+                      unavailable
+                        ? "Not available: connect the drive or restore the missing path to open this comparison."
+                        : undefined
+                    }
                   >
-                    <button type="button" className="recent" disabled={unavailable} onClick={() => props.onOpenRecent(item)}>
-                      <span className="recent-icon" aria-label={item.kind === 'folders' ? 'Folders' : 'Files'}>
-                        {item.kind === 'folders' ? '▦' : '▤'}
+                    <button
+                      type="button"
+                      className="recent"
+                      disabled={unavailable}
+                      onClick={() => props.onOpenRecent(item)}
+                    >
+                      <span
+                        className="recent-icon"
+                        aria-label={item.kind === "folders" ? "Folders" : "Files"}
+                      >
+                        {item.kind === "folders" ? "▦" : "▤"}
                       </span>
                       <span className="recent-paths">
-                        {side('Left', item.left)}
-                        {side('Right', item.right)}
+                        {side("Left", item.left)}
+                        {side("Right", item.right)}
                       </span>
                       <span className="recent-time">{ago(item.at)}</span>
                     </button>
@@ -112,19 +133,19 @@ export function StartScreen(props: StartScreenProps) {
 /** Replaces the home folder with ~ and elides the middle of very long paths, keeping the end. */
 function shorten(path: string, home: string): string {
   let p = tildePath(path, home);
-  if (p.length > 80) p = p.slice(0, 28) + '…' + p.slice(-50);
+  if (p.length > 80) p = p.slice(0, 28) + "…" + p.slice(-50);
   return p;
 }
 
-const relative = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 
 function ago(at: number): string {
   const minutes = Math.round((at - Date.now()) / 60000);
-  if (minutes > -1) return 'just now';
-  if (minutes > -60) return relative.format(minutes, 'minute');
+  if (minutes > -1) return "just now";
+  if (minutes > -60) return relative.format(minutes, "minute");
   const hours = Math.round(minutes / 60);
-  if (hours > -24) return relative.format(hours, 'hour');
+  if (hours > -24) return relative.format(hours, "hour");
   const days = Math.round(hours / 24);
-  if (days > -7) return relative.format(days, 'day');
+  if (days > -7) return relative.format(days, "day");
   return new Date(at).toLocaleDateString();
 }

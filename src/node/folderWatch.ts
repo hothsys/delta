@@ -1,8 +1,8 @@
-import { watch, type FSWatcher } from 'node:fs';
-import type { FolderChange } from '../shared/api';
-import { errorMessage } from './files';
-import { IGNORED_NAMES } from './folders';
-import { log } from './log';
+import { watch, type FSWatcher } from "node:fs";
+import type { FolderChange } from "../shared/api";
+import { errorMessage } from "./files";
+import { IGNORED_NAMES } from "./folders";
+import { log } from "./log";
 
 /**
  * Whoever wants to hear about outside changes in a folder comparison: an Electron window, or
@@ -51,18 +51,20 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
     firstAt = 0;
     if (owner.closed()) return;
     const change: FolderChange = overflow ? { overflow: true } : { paths: [...pending] };
-    log.debug('watch', 'Folder changes', overflow ? { overflow: true } : { paths: pending.size });
+    log.debug("watch", "Folder changes", overflow ? { overflow: true } : { paths: pending.size });
     pending.clear();
     overflow = false;
     owner.send(change);
   };
 
   const noted = (filename: string | null) => {
-    if (filename === null) overflow = true; // the system couldn't say what changed
+    if (filename === null)
+      overflow = true; // the system couldn't say what changed
     else {
       const parts = filename.split(/[\\/]/).filter(Boolean);
-      if (parts.length === 0 || parts.some((p) => IGNORED_NAMES.has(p) || isDeltaScratch(p))) return;
-      pending.add(parts.join('/'));
+      if (parts.length === 0 || parts.some((p) => IGNORED_NAMES.has(p) || isDeltaScratch(p)))
+        return;
+      pending.add(parts.join("/"));
       if (pending.size > MAX_BATCH_PATHS) overflow = true;
     }
     const now = Date.now();
@@ -73,18 +75,23 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
 
   try {
     for (const root of new Set(roots)) {
-      const w = watch(root, { recursive: true, persistent: false }, (_event, filename) => noted(filename === null ? null : String(filename)));
-      w.on('error', (err) => {
+      const w = watch(root, { recursive: true, persistent: false }, (_event, filename) =>
+        noted(filename === null ? null : String(filename)),
+      );
+      w.on("error", (err) => {
         stop();
         if (active.get(owner) === stop) active.delete(owner);
-        log.warn('watch', 'Folder watching stopped', { root, error: errorMessage(err) });
+        log.warn("watch", "Folder watching stopped", { root, error: errorMessage(err) });
         if (!owner.closed()) owner.send({ error: errorMessage(err) });
       });
       watchers.push(w);
     }
   } catch (err) {
     stop();
-    log.warn('watch', 'Could not watch folders', { roots: roots.join(' | '), error: errorMessage(err) });
+    log.warn("watch", "Could not watch folders", {
+      roots: roots.join(" | "),
+      error: errorMessage(err),
+    });
     return errorMessage(err);
   }
   active.set(owner, stop);
@@ -95,7 +102,7 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
       active.delete(owner);
     });
   }
-  log.info('watch', 'Watching folders for outside changes', { roots: roots.join(' | ') });
+  log.info("watch", "Watching folders for outside changes", { roots: roots.join(" | ") });
   return null;
 }
 
@@ -104,7 +111,8 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
  * (`.name.delta-copy-…`, `.name.delta-old-…`), and a file being saved (`.name.….delta-tmp`).
  * They come and go in the middle of Delta's own work and are never worth an update.
  */
-export const isDeltaScratch = (name: string) => name.startsWith('.') && (/\.delta-(copy|old)-\d+-\d+$/.test(name) || name.endsWith('.delta-tmp'));
+export const isDeltaScratch = (name: string) =>
+  name.startsWith(".") && (/\.delta-(copy|old)-\d+-\d+$/.test(name) || name.endsWith(".delta-tmp"));
 
 /** How many owners are watching folders (tests). */
 export const folderWatchCount = () => active.size;

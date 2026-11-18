@@ -1,6 +1,22 @@
-import { appendFileSync, chmodSync, closeSync, mkdirSync, openSync, readSync, renameSync, rmSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-import { LOG_LEVELS, type LogEntry, type LogFields, type LogLevel, type LogLevelSource } from '../shared/api';
+import {
+  appendFileSync,
+  chmodSync,
+  closeSync,
+  mkdirSync,
+  openSync,
+  readSync,
+  renameSync,
+  rmSync,
+  statSync,
+} from "node:fs";
+import { join } from "node:path";
+import {
+  LOG_LEVELS,
+  type LogEntry,
+  type LogFields,
+  type LogLevel,
+  type LogLevelSource,
+} from "../shared/api";
 
 /**
  * Delta's log: one file per host (`desktop.log` or `web.log`) in a logs folder, readable only
@@ -69,18 +85,25 @@ export function closeLog(): void {
 }
 
 export const logFile = (): string | null => state?.file ?? null;
-export const logLevel = (): LogLevel => state?.level ?? 'info';
+export const logLevel = (): LogLevel => state?.level ?? "info";
 
 export function setLogLevel(level: LogLevel): void {
   if (state) state.level = level;
 }
 
-export const isLogLevel = (v: unknown): v is LogLevel => typeof v === 'string' && (LOG_LEVELS as readonly string[]).includes(v);
+export const isLogLevel = (v: unknown): v is LogLevel =>
+  typeof v === "string" && (LOG_LEVELS as readonly string[]).includes(v);
 
 /** Whether an entry at `level` would be written. */
 export const logs = (level: LogLevel): boolean => !!state && RANK[level] <= RANK[state.level];
 
-export function write(level: LogLevel, area: string, message: string, fields?: LogFields | Error, err?: unknown): void {
+export function write(
+  level: LogLevel,
+  area: string,
+  message: string,
+  fields?: LogFields | Error,
+  err?: unknown,
+): void {
   if (!state || !logs(level)) return;
   if (fields instanceof Error) [fields, err] = [undefined, fields];
   const line = formatEntry(new Date(), level, area, message, fields, err);
@@ -96,25 +119,38 @@ export function write(level: LogLevel, area: string, message: string, fields?: L
 }
 
 export const log = {
-  error: (area: string, message: string, fields?: LogFields | Error, err?: unknown) => write('error', area, message, fields, err),
-  warn: (area: string, message: string, fields?: LogFields | Error, err?: unknown) => write('warn', area, message, fields, err),
-  info: (area: string, message: string, fields?: LogFields) => write('info', area, message, fields),
-  debug: (area: string, message: string, fields?: LogFields) => write('debug', area, message, fields),
+  error: (area: string, message: string, fields?: LogFields | Error, err?: unknown) =>
+    write("error", area, message, fields, err),
+  warn: (area: string, message: string, fields?: LogFields | Error, err?: unknown) =>
+    write("warn", area, message, fields, err),
+  info: (area: string, message: string, fields?: LogFields) => write("info", area, message, fields),
+  debug: (area: string, message: string, fields?: LogFields) =>
+    write("debug", area, message, fields),
 };
 
 /** Writes an entry sent by the interface, checked and trimmed: it arrives over IPC or HTTP. */
 export function writeFromInterface(entry: unknown): void {
-  if (!entry || typeof entry !== 'object') return;
+  if (!entry || typeof entry !== "object") return;
   const e = entry as Partial<LogEntry>;
-  if (!isLogLevel(e.level) || typeof e.message !== 'string') return;
-  const area = typeof e.area === 'string' && /^[\w.-]{1,20}$/.test(e.area) ? e.area : 'ui';
+  if (!isLogLevel(e.level) || typeof e.message !== "string") return;
+  const area = typeof e.area === "string" && /^[\w.-]{1,20}$/.test(e.area) ? e.area : "ui";
   const fields: LogFields = {};
-  if (e.fields && typeof e.fields === 'object') {
+  if (e.fields && typeof e.fields === "object") {
     for (const [k, v] of Object.entries(e.fields).slice(0, 20)) {
-      if (/^\w{1,40}$/.test(k) && (v === null || ['string', 'number', 'boolean'].includes(typeof v))) fields[k] = v;
+      if (
+        /^\w{1,40}$/.test(k) &&
+        (v === null || ["string", "number", "boolean"].includes(typeof v))
+      )
+        fields[k] = v;
     }
   }
-  write(e.level, `ui.${area}`, e.message, fields, typeof e.stack === 'string' ? { stack: e.stack } : undefined);
+  write(
+    e.level,
+    `ui.${area}`,
+    e.message,
+    fields,
+    typeof e.stack === "string" ? { stack: e.stack } : undefined,
+  );
 }
 
 function rotate(s: State): void {
@@ -131,16 +167,29 @@ function rotate(s: State): void {
 }
 
 /** One entry as written: a line, plus indented stack lines for errors. Exported for tests. */
-export function formatEntry(at: Date, level: LogLevel, area: string, message: string, fields?: LogFields, err?: unknown): string {
+export function formatEntry(
+  at: Date,
+  level: LogLevel,
+  area: string,
+  message: string,
+  fields?: LogFields,
+  err?: unknown,
+): string {
   let line = `${timestamp(at)} ${level.toUpperCase().padEnd(5)} ${area.padEnd(8)} ${oneLine(message)}`;
   const parts = Object.entries(fields ?? {})
     .filter(([, v]) => v !== undefined)
     .map(([k, v]) => `${k}=${formatValue(v)}`);
   const error = describeError(err);
   if (error.message) parts.push(`error=${formatValue(error.message)}`);
-  if (parts.length) line += `  ${parts.join(' ')}`;
-  line += '\n';
-  if (error.stack) line += error.stack.slice(0, MAX_TEXT * 4).split('\n').filter(Boolean).map((l) => `    ${l.trim()}\n`).join('');
+  if (parts.length) line += `  ${parts.join(" ")}`;
+  line += "\n";
+  if (error.stack)
+    line += error.stack
+      .slice(0, MAX_TEXT * 4)
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => `    ${l.trim()}\n`)
+      .join("");
   return line;
 }
 
@@ -148,31 +197,35 @@ function describeError(err: unknown): { message?: string; stack?: string } {
   if (err === undefined || err === null) return {};
   if (err instanceof Error) {
     // The stack starts with the message already (except in Safari, which sends stacks only).
-    const stack = err.stack?.split('\n').slice(err.stack.startsWith(`${err.name}`) ? 1 : 0).join('\n');
-    return { message: `${err.name === 'Error' ? '' : `${err.name}: `}${err.message}`, stack };
+    const stack = err.stack
+      ?.split("\n")
+      .slice(err.stack.startsWith(`${err.name}`) ? 1 : 0)
+      .join("\n");
+    return { message: `${err.name === "Error" ? "" : `${err.name}: `}${err.message}`, stack };
   }
-  if (typeof err === 'object' && 'stack' in err && typeof err.stack === 'string') return { stack: err.stack };
+  if (typeof err === "object" && "stack" in err && typeof err.stack === "string")
+    return { stack: err.stack };
   return { message: String(err) };
 }
 
 function formatValue(v: string | number | boolean | null | undefined): string {
-  if (typeof v !== 'string') return String(v);
+  if (typeof v !== "string") return String(v);
   const s = oneLine(v);
   return /^[\w./\\:@+-]+$/.test(s) ? s : JSON.stringify(s);
 }
 
 function oneLine(s: string): string {
   const cut = s.length > MAX_TEXT ? `${s.slice(0, MAX_TEXT)}…` : s;
-  return cut.replace(/\r\n|\r|\n/g, '⏎');
+  return cut.replace(/\r\n|\r|\n/g, "⏎");
 }
 
 /** Local time with its offset, so entries match the clock the user remembers. */
 function timestamp(d: Date): string {
-  const pad = (n: number, w = 2) => String(Math.abs(n)).padStart(w, '0');
+  const pad = (n: number, w = 2) => String(Math.abs(n)).padStart(w, "0");
   const off = -d.getTimezoneOffset();
   return (
     `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}` +
-    `${off >= 0 ? '+' : '-'}${pad(Math.trunc(off / 60))}:${pad(off % 60)}`
+    `${off >= 0 ? "+" : "-"}${pad(Math.trunc(off / 60))}:${pad(off % 60)}`
   );
 }
 
@@ -182,12 +235,12 @@ export function recentLines(count: number): string[] {
   const want = 64 * 1024;
   let fd: number | undefined;
   try {
-    fd = openSync(state.file, 'r');
+    fd = openSync(state.file, "r");
     const size = statSync(state.file).size;
     const start = Math.max(0, size - want);
     const buf = Buffer.alloc(size - start);
     readSync(fd, buf, 0, buf.length, start);
-    const lines = buf.toString('utf8').split('\n').filter(Boolean);
+    const lines = buf.toString("utf8").split("\n").filter(Boolean);
     if (start > 0) lines.shift(); // probably cut mid-line
     return lines.slice(-count);
   } catch {
@@ -198,12 +251,15 @@ export function recentLines(count: number): string[] {
 }
 
 /** Where the log level comes from, strongest first: the command line, the environment, the saved setting. */
-export function resolveLogLevel(sources: { cli?: string; env?: string; saved?: unknown }): { level: LogLevel; from: LogLevelSource } {
-  if (isLogLevel(sources.cli)) return { level: sources.cli, from: 'command line' };
+export function resolveLogLevel(sources: { cli?: string; env?: string; saved?: unknown }): {
+  level: LogLevel;
+  from: LogLevelSource;
+} {
+  if (isLogLevel(sources.cli)) return { level: sources.cli, from: "command line" };
   const env = sources.env?.toLowerCase();
-  if (isLogLevel(env)) return { level: env, from: 'DELTA_LOG_LEVEL' };
-  if (isLogLevel(sources.saved)) return { level: sources.saved, from: 'setting' };
-  return { level: 'info', from: 'default' };
+  if (isLogLevel(env)) return { level: env, from: "DELTA_LOG_LEVEL" };
+  if (isLogLevel(sources.saved)) return { level: sources.saved, from: "setting" };
+  return { level: "info", from: "default" };
 }
 
 /**
@@ -215,12 +271,12 @@ export function takeLogLevel(args: readonly string[]): { level?: string; rest: s
   const rest: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a === '--') {
+    if (a === "--") {
       rest.push(...args.slice(i));
       break;
     }
-    if (a === '--log-level') level = args[++i];
-    else if (a.startsWith('--log-level=')) level = a.slice('--log-level='.length);
+    if (a === "--log-level") level = args[++i];
+    else if (a.startsWith("--log-level=")) level = a.slice("--log-level=".length);
     else rest.push(a);
   }
   return { level, rest };

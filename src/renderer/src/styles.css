@@ -1,6 +1,6 @@
 :root {
   /* Interface text (toolbars, headers, buttons, menus). */
-  --ui-font: 'Josefin Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ui-font: "Josefin Sans Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
   /* Pane contents in both views. Matches FONT in components/layout.ts, which the file panes use. */
   --code-font: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -36,7 +36,7 @@
   color-scheme: light;
 }
 
-:root[data-theme='dark'] {
+:root[data-theme="dark"] {
   --bg: #1e1e1e;
   --fg: #d4d4d4;
   --muted: #8b949e;
@@ -176,10 +176,18 @@ body {
   color: var(--fg);
 }
 
-.stat.del { color: var(--stat-del); }
-.stat.ins { color: var(--stat-ins); }
-.stat.mod { color: var(--stat-mod); }
-.stat.minor { color: var(--stat-minor); }
+.stat.del {
+  color: var(--stat-del);
+}
+.stat.ins {
+  color: var(--stat-ins);
+}
+.stat.mod {
+  color: var(--stat-mod);
+}
+.stat.minor {
+  color: var(--stat-minor);
+}
 
 .error {
   padding: 6px 10px;
@@ -317,15 +325,29 @@ body {
   tab-size: var(--tab-size);
 }
 
-.row.del { background: var(--row-del); }
-.row.ins { background: var(--row-ins); }
-.row.mod { background: var(--row-mod); }
-.row.minor { background: var(--row-minor); }
+.row.del {
+  background: var(--row-del);
+}
+.row.ins {
+  background: var(--row-ins);
+}
+.row.mod {
+  background: var(--row-mod);
+}
+.row.minor {
+  background: var(--row-minor);
+}
 .row.filler {
   /* Diagonal hatching drawn as square tiles whose size divides the row height, so each row
      continues the stripes of the one above and a run of filler rows reads as one block
      (a repeating gradient restarts in every row, leaving a jagged sawtooth at the seams). */
-  background-image: linear-gradient(-45deg, var(--filler-stripe) 25%, transparent 25% 50%, var(--filler-stripe) 50% 75%, transparent 75%);
+  background-image: linear-gradient(
+    -45deg,
+    var(--filler-stripe) 25%,
+    transparent 25% 50%,
+    var(--filler-stripe) 50% 75%,
+    transparent 75%
+  );
   background-size: calc(var(--row-height) / 2) calc(var(--row-height) / 2);
 }
 
@@ -387,11 +409,21 @@ body {
   pointer-events: auto;
 }
 
-.merge-from-a { left: 3px; }
-.merge-from-b { right: 3px; }
-.merge-insert { --merge-fg: var(--stat-ins); }
-.merge-delete { --merge-fg: var(--stat-del); }
-.merge-modify { --merge-fg: var(--stat-mod); }
+.merge-from-a {
+  left: 3px;
+}
+.merge-from-b {
+  right: 3px;
+}
+.merge-insert {
+  --merge-fg: var(--stat-ins);
+}
+.merge-delete {
+  --merge-fg: var(--stat-del);
+}
+.merge-modify {
+  --merge-fg: var(--stat-mod);
+}
 
 .merge:hover:not(:disabled),
 .merge:focus-visible:not(:disabled) {
@@ -484,7 +516,9 @@ body {
 }
 
 @keyframes caret-blink {
-  50% { opacity: 0; }
+  50% {
+    opacity: 0;
+  }
 }
 
 .input-proxy.composing {
@@ -553,7 +587,6 @@ body {
   text-overflow: ellipsis;
   color: var(--fg);
 }
-
 
 .header-button {
   flex: none;
@@ -645,8 +678,12 @@ body {
 }
 
 @keyframes copy-sweep {
-  from { transform: translateX(-10%); }
-  to { transform: translateX(195%); }
+  from {
+    transform: translateX(-10%);
+  }
+  to {
+    transform: translateX(195%);
+  }
 }
 
 /* The row being copied, so a click is acknowledged at once. */
@@ -655,7 +692,9 @@ body {
 }
 
 @keyframes copy-pulse {
-  to { box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--accent-strong) 22%, transparent); }
+  to {
+    box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--accent-strong) 22%, transparent);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -825,7 +864,13 @@ body {
 
 .fcell.missing {
   /* Same hatching as filler rows in the file view; 12px tiles fit the 24px folder rows. */
-  background-image: linear-gradient(-45deg, var(--filler-stripe) 25%, transparent 25% 50%, var(--filler-stripe) 50% 75%, transparent 75%);
+  background-image: linear-gradient(
+    -45deg,
+    var(--filler-stripe) 25%,
+    transparent 25% 50%,
+    var(--filler-stripe) 50% 75%,
+    transparent 75%
+  );
   background-size: 12px 12px;
 }
 
@@ -1490,7 +1535,7 @@ body {
 }
 
 .modal .fb-crumbs button + button::before {
-  content: '›';
+  content: "›";
   margin-right: 6px;
   color: var(--muted);
 }
@@ -1732,7 +1777,7 @@ body {
 .startup-error pre {
   padding: 12px;
   overflow: auto;
-  font: 12px/1.5 var(--code-font);
+  font: 12px / 1.5 var(--code-font);
   white-space: pre-wrap;
   background: var(--chrome-bg);
   border-radius: 6px;

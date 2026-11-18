@@ -1,8 +1,8 @@
-import type { ConfirmOptions } from '../../../shared/api';
+import type { ConfirmOptions } from "../../../shared/api";
 
 /** What the in-app file browser is asked to choose. */
 export interface PickRequest {
-  mode: 'file' | 'folder' | 'save';
+  mode: "file" | "folder" | "save";
   title: string;
   /** Save mode: the suggested file name (or a full path to start from). */
   defaultName?: string;

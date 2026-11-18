@@ -1,11 +1,11 @@
-import type { MouseEvent } from 'react';
-import type { DiffStats, WhitespaceMode } from '../../../engine';
-import { CompareOptions } from './CompareOptions';
-import { HomeButton } from './HomeButton';
-import { ArrowDownIcon, ArrowUpIcon, RefreshIcon } from './icons';
-import { ThemeButton } from './ThemeButton';
+import type { MouseEvent } from "react";
+import type { DiffStats, WhitespaceMode } from "../../../engine";
+import { CompareOptions } from "./CompareOptions";
+import { HomeButton } from "./HomeButton";
+import { ArrowDownIcon, ArrowUpIcon, RefreshIcon } from "./icons";
+import { ThemeButton } from "./ThemeButton";
 
-export type Theme = 'light' | 'dark';
+export type Theme = "light" | "dark";
 
 interface ToolbarProps {
   whitespace: WhitespaceMode;
@@ -47,7 +47,11 @@ export function Toolbar(props: ToolbarProps) {
       <div className="toolbar-side">
         <HomeButton onClick={props.onHome} />
         {props.onBackToFolders && (
-          <button type="button" onClick={props.onBackToFolders} title="Back to the folder comparison">
+          <button
+            type="button"
+            onClick={props.onBackToFolders}
+            title="Back to the folder comparison"
+          >
             ← Folders
           </button>
         )}
@@ -60,16 +64,18 @@ export function Toolbar(props: ToolbarProps) {
         />
         <button
           type="button"
-          className={`prettify-button${props.prettify.on ? ' on' : ''}`}
+          className={`prettify-button${props.prettify.on ? " on" : ""}`}
           aria-pressed={props.prettify.on}
           onClick={props.prettify.onToggle}
           disabled={!!props.prettify.unavailable}
           title={
             props.prettify.unavailable ??
-            (props.prettify.on ? 'Turn off Prettify and edit the files again' : 'Format both files one statement, rule or element per line, for a readable comparison (read-only)')
+            (props.prettify.on
+              ? "Turn off Prettify and edit the files again"
+              : "Format both files one statement, rule or element per line, for a readable comparison (read-only)")
           }
         >
-          {'{ }'} Prettify
+          {"{ }"} Prettify
         </button>
       </div>
 
@@ -104,13 +110,15 @@ export function Toolbar(props: ToolbarProps) {
             <>
               <strong>
                 {stats.changeBlocks === 0
-                  ? (props.identicalNote ?? 'Identical')
-                  : `${props.position ? `${props.position.index} of ` : ''}${stats.changeBlocks} ${stats.changeBlocks === 1 ? 'difference' : 'differences'}`}
+                  ? (props.identicalNote ?? "Identical")
+                  : `${props.position ? `${props.position.index} of ` : ""}${stats.changeBlocks} ${stats.changeBlocks === 1 ? "difference" : "differences"}`}
               </strong>
               <span className="stat mod">{stats.modifiedPairs} modified</span>
               <span className="stat ins">{stats.insertedLines} inserted</span>
               <span className="stat del">{stats.deletedLines} deleted</span>
-              {stats.unimportantLines > 0 && <span className="stat minor">{stats.unimportantLines} unimportant</span>}
+              {stats.unimportantLines > 0 && (
+                <span className="stat minor">{stats.unimportantLines} unimportant</span>
+              )}
               {!props.busy && <span className="elapsed">{Math.round(props.elapsedMs)} ms</span>}
             </>
           )}
@@ -128,7 +136,10 @@ export function Toolbar(props: ToolbarProps) {
           <RefreshIcon />
         </button>
 
-        <ThemeButton theme={props.theme} onToggle={() => props.onThemeChange(props.theme === 'dark' ? 'light' : 'dark')} />
+        <ThemeButton
+          theme={props.theme}
+          onToggle={() => props.onThemeChange(props.theme === "dark" ? "light" : "dark")}
+        />
       </div>
     </div>
   );

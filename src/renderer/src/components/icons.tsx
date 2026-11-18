@@ -3,13 +3,13 @@
 const base = {
   width: 17,
   height: 17,
-  viewBox: '0 0 24 24',
-  fill: 'none',
-  stroke: 'currentColor',
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
   strokeWidth: 2,
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
-  'aria-hidden': true,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
 };
 
 /** An arrow pointing up (previous difference). */
@@ -67,9 +67,21 @@ export function RefreshIcon() {
  * A merge action pointing at the side it changes: an arrow (copy this change across), or a
  * delete key (remove the lines there, because this side has none to copy).
  */
-export function MergeIcon({ toward, remove = false }: { toward: 'left' | 'right'; remove?: boolean }) {
+export function MergeIcon({
+  toward,
+  remove = false,
+}: {
+  toward: "left" | "right";
+  remove?: boolean;
+}) {
   return (
-    <svg {...base} width={14} height={14} strokeWidth={2.2} style={toward === 'left' ? { transform: 'scaleX(-1)' } : undefined}>
+    <svg
+      {...base}
+      width={14}
+      height={14}
+      strokeWidth={2.2}
+      style={toward === "left" ? { transform: "scaleX(-1)" } : undefined}
+    >
       {remove ? (
         <>
           <path d="M3 5h12l6 7-6 7H3z" />

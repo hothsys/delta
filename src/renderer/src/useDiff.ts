@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import type { Anchor, LineDiffOptions, LineDiffResult } from '../../engine';
-import type { DiffRequest, DiffResponse } from './diff.worker';
-import { log } from './log';
-import type { RowModel } from './model/rowModel';
+import { useEffect, useRef, useState } from "react";
+import type { Anchor, LineDiffOptions, LineDiffResult } from "../../engine";
+import type { DiffRequest, DiffResponse } from "./diff.worker";
+import { log } from "./log";
+import type { RowModel } from "./model/rowModel";
 
 export interface DiffInput {
   left: string;
@@ -28,9 +28,9 @@ export interface DiffState {
 const SLOW_DIFF_MS = 1000;
 
 /** Diffs two texts in a Web Worker. Only the latest request's answer is kept. */
-export function useDiff(input: DiffInput, options: Omit<LineDiffOptions, 'anchors'>): DiffState {
+export function useDiff(input: DiffInput, options: Omit<LineDiffOptions, "anchors">): DiffState {
   const workerRef = useRef<Worker | null>(null);
-  const latest = useRef({ id: 0, tag: '' });
+  const latest = useRef({ id: 0, tag: "" });
   const [state, setState] = useState<DiffState>({
     result: null,
     rows: null,
@@ -63,7 +63,7 @@ export function useDiff(input: DiffInput, options: Omit<LineDiffOptions, 'anchor
   };
 
   useEffect(() => {
-    const worker = new Worker(new URL('./diff.worker.ts', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL("./diff.worker.ts", import.meta.url), { type: "module" });
     worker.onerror = () => sendWaiting();
     worker.onmessage = (e: MessageEvent<DiffResponse>) => {
       sendWaiting();
@@ -71,12 +71,23 @@ export function useDiff(input: DiffInput, options: Omit<LineDiffOptions, 'anchor
       if (msg.id !== latest.current.id) return;
       if (msg.ok) {
         // Every diff in the debug log; one slow enough to notice in the normal log too.
-        const fields = { ms: Math.round(msg.elapsedMs), rows: msg.rows.count, blocks: msg.result.blocks.length };
-        if (msg.elapsedMs >= SLOW_DIFF_MS) log.info('diff', 'Slow comparison', fields);
-        else log.debug('diff', 'Compared', fields);
-        setState({ result: msg.result, rows: msg.rows, tag: latest.current.tag, busy: false, elapsedMs: msg.elapsedMs, error: null });
+        const fields = {
+          ms: Math.round(msg.elapsedMs),
+          rows: msg.rows.count,
+          blocks: msg.result.blocks.length,
+        };
+        if (msg.elapsedMs >= SLOW_DIFF_MS) log.info("diff", "Slow comparison", fields);
+        else log.debug("diff", "Compared", fields);
+        setState({
+          result: msg.result,
+          rows: msg.rows,
+          tag: latest.current.tag,
+          busy: false,
+          elapsedMs: msg.elapsedMs,
+          error: null,
+        });
       } else {
-        log.error('diff', 'The comparison failed', { error: msg.error });
+        log.error("diff", "The comparison failed", { error: msg.error });
         setState((s) => ({ ...s, busy: false, error: msg.error }));
       }
     };

@@ -1,4 +1,4 @@
-import type { DiffBlock } from '../../../engine';
+import type { DiffBlock } from "../../../engine";
 
 /** What a display row shows. Stored as a byte per row. */
 export const RowKind = {
@@ -13,7 +13,7 @@ export const RowKind = {
 export type RowKind = (typeof RowKind)[keyof typeof RowKind];
 
 /** `a` is the left text, `b` the right. */
-export type Side = 'a' | 'b';
+export type Side = "a" | "b";
 
 /**
  * The aligned display rows shared by both panes. Both panes always have exactly `count`
@@ -46,7 +46,9 @@ export interface RowModel {
 export function buildRows(blocks: readonly DiffBlock[]): RowModel {
   let count = 0;
   for (const blk of blocks) {
-    count += blk.pairs ? blk.pairs.length : Math.max(blk.a.end - blk.a.start, blk.b.end - blk.b.start);
+    count += blk.pairs
+      ? blk.pairs.length
+      : Math.max(blk.a.end - blk.a.start, blk.b.end - blk.b.start);
   }
 
   const a = new Int32Array(count);
@@ -61,9 +63,9 @@ export function buildRows(blocks: readonly DiffBlock[]): RowModel {
   blocks.forEach((blk, i) => {
     blockStart[i] = r;
     switch (blk.kind) {
-      case 'equal':
-      case 'unimportant': {
-        const k = blk.kind === 'equal' ? RowKind.Equal : RowKind.Unimportant;
+      case "equal":
+      case "unimportant": {
+        const k = blk.kind === "equal" ? RowKind.Equal : RowKind.Unimportant;
         for (let x = blk.a.start, y = blk.b.start; x < blk.a.end; x++, y++, r++) {
           a[r] = x;
           b[r] = y;
@@ -71,25 +73,32 @@ export function buildRows(blocks: readonly DiffBlock[]): RowModel {
         }
         break;
       }
-      case 'insert':
+      case "insert":
         for (let y = blk.b.start; y < blk.b.end; y++, r++) {
           a[r] = -1;
           b[r] = y;
           kind[r] = RowKind.Inserted;
         }
         break;
-      case 'delete':
+      case "delete":
         for (let x = blk.a.start; x < blk.a.end; x++, r++) {
           a[r] = x;
           b[r] = -1;
           kind[r] = RowKind.Deleted;
         }
         break;
-      case 'modify':
+      case "modify":
         for (const p of blk.pairs!) {
           a[r] = p.a ?? -1;
           b[r] = p.b ?? -1;
-          kind[r] = p.a === null ? RowKind.Inserted : p.b === null ? RowKind.Deleted : p.similar ? RowKind.Modified : RowKind.Replaced;
+          kind[r] =
+            p.a === null
+              ? RowKind.Inserted
+              : p.b === null
+                ? RowKind.Deleted
+                : p.similar
+                  ? RowKind.Modified
+                  : RowKind.Replaced;
           r++;
         }
         break;
@@ -132,13 +141,19 @@ function inverse(side: Int32Array, lineCount: number): Int32Array {
  * layout to render until the debounced re-diff replaces it. Block positions are shifted to
  * match, but block line ranges are not, so merges must wait for that re-diff.
  */
-export function patchRows(rows: RowModel, side: Side, start: number, removed: number, inserted: number): RowModel {
+export function patchRows(
+  rows: RowModel,
+  side: Side,
+  start: number,
+  removed: number,
+  inserted: number,
+): RowModel {
   if (removed === inserted) return rows;
-  const mine = side === 'a' ? rows.a : rows.b;
-  const other = side === 'a' ? rows.b : rows.a;
-  const inv = side === 'a' ? rows.aRow : rows.bRow;
-  const onlyMine = side === 'a' ? RowKind.Deleted : RowKind.Inserted;
-  const onlyOther = side === 'a' ? RowKind.Inserted : RowKind.Deleted;
+  const mine = side === "a" ? rows.a : rows.b;
+  const other = side === "a" ? rows.b : rows.a;
+  const inv = side === "a" ? rows.aRow : rows.bRow;
+  const onlyMine = side === "a" ? RowKind.Deleted : RowKind.Inserted;
+  const onlyOther = side === "a" ? RowKind.Inserted : RowKind.Deleted;
 
   // Rows covering the replaced lines; for a pure insertion, the row it goes before.
   let r0: number;
@@ -194,15 +209,16 @@ export function patchRows(rows: RowModel, side: Side, start: number, removed: nu
   const tail = r0 + segMine.length;
   newOther.set(other.subarray(r1), tail);
   kind.set(rows.kind.subarray(r1), tail);
-  for (let r = r1, t = tail; r < rows.count; r++, t++) newMine[t] = mine[r] < 0 ? -1 : mine[r] + lineShift;
+  for (let r = r1, t = tail; r < rows.count; r++, t++)
+    newMine[t] = mine[r] < 0 ? -1 : mine[r] + lineShift;
 
   // Rows inserted at the very top belong to the first block, so position 0 never moves.
   const shift = (positions: Int32Array) =>
     positions.map((p) => (p >= r1 && p > 0 ? p + growth : p > r0 ? Math.min(p, tail) : p));
-  const a = side === 'a' ? newMine : newOther;
-  const b = side === 'a' ? newOther : newMine;
-  const aLines = rows.aRow.length + (side === 'a' ? lineShift : 0);
-  const bLines = rows.bRow.length + (side === 'b' ? lineShift : 0);
+  const a = side === "a" ? newMine : newOther;
+  const b = side === "a" ? newOther : newMine;
+  const aLines = rows.aRow.length + (side === "a" ? lineShift : 0);
+  const bLines = rows.bRow.length + (side === "b" ? lineShift : 0);
   return {
     count,
     a,
@@ -218,7 +234,14 @@ export function patchRows(rows: RowModel, side: Side, start: number, removed: nu
   };
 }
 
-function setExtent(side: Int32Array, start: number, end: number, outStart: Int32Array, outEnd: Int32Array, i: number) {
+function setExtent(
+  side: Int32Array,
+  start: number,
+  end: number,
+  outStart: Int32Array,
+  outEnd: Int32Array,
+  i: number,
+) {
   let lo = start;
   while (lo < end && side[lo] < 0) lo++;
   if (lo === end) {
@@ -237,7 +260,7 @@ export function maxColumns(lines: readonly string[], tabSize: number): number {
   for (const line of lines) {
     // Tabs only ever widen a line, so a line already no wider than `max` in raw length can be
     // skipped unless it contains tabs.
-    const hasTab = line.includes('\t');
+    const hasTab = line.includes("\t");
     if (line.length <= max && !hasTab) continue;
     let cols = line.length;
     if (hasTab) {
