@@ -90,7 +90,7 @@ describe("logging in the browser version", () => {
     );
     expect(r.status).toBe(403);
     expect(logText()).not.toContain("forged");
-    expect(logText()).toMatch(/WARN  server   Refused a request .*status=403/);
+    expect(logText()).toMatch(/WARN {2}server {3}Refused a request .*status=403/);
   });
 
   it("turns debug logging on and off, logging requests while on", async () => {
@@ -103,7 +103,7 @@ describe("logging in the browser version", () => {
       from: "setting",
     });
     await call("/api/locations");
-    expect(logText()).toMatch(/DEBUG server   POST \/api\/locations  status=200 ms=\d+/);
+    expect(logText()).toMatch(/DEBUG server {3}POST \/api\/locations {2}status=200 ms=\d+/);
     expect((await call("/api/log/set-debug", { on: false })).json.level).toBe("info");
     expect(JSON.parse(readFileSync(join(dataDir, "settings.json"), "utf8"))).toEqual({});
   });

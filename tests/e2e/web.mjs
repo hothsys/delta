@@ -698,7 +698,7 @@ async function run() {
   check("and it now shows as the same", (await rowStatus("left-only.txt")) === "same");
   check(
     "by re-comparing just that entry, not rescanning both folders",
-    /Updated after changes made elsewhere  entries=1/.test(
+    /Updated after changes made elsewhere {2}entries=1/.test(
       logText().split("INFO  folders  Copied").pop(),
     ) && !/Comparing folders/.test(logText().split("INFO  folders  Copied").pop()),
   );
@@ -876,7 +876,7 @@ async function run() {
   section("Logging");
   await sleep(1500); // the page sends its entries about once a second
   const text = logText();
-  check("the server logs that it started", /INFO  server   Delta started .*level=info/.test(text));
+  check("the server logs that it started", /INFO {2}server {3}Delta started .*level=info/.test(text));
   check(
     "the page's actions are logged",
     [
@@ -891,7 +891,7 @@ async function run() {
   );
   check(
     "so are saves and copies, with paths and sizes",
-    /INFO  files    Saved  path=\S+right\.txt bytes=\d+/.test(text) &&
+    /INFO {2}files {4}Saved {2}path=\S+right\.txt bytes=\d+/.test(text) &&
       text.includes("INFO  folders  Copied"),
   );
   check(
@@ -926,7 +926,7 @@ async function run() {
   await sleep(1500);
   check(
     "requests are logged while it is on",
-    /DEBUG server   POST \/api\/recents\/list  status=200/.test(logText()),
+    /DEBUG server {3}POST \/api\/recents\/list {2}status=200/.test(logText()),
   );
   check(
     "and it is saved for the next start",

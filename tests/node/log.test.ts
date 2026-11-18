@@ -32,7 +32,7 @@ describe("formatEntry", () => {
       gone: undefined,
     });
     expect(line).toMatch(
-      /^2026-11-01T16:04:05\.123[+-]\d\d:\d\d INFO  files    Saved  path=\/a\/b\.txt bytes=12\n$/,
+      /^2026-11-01T16:04:05\.123[+-]\d\d:\d\d INFO {2}files {4}Saved {2}path=\/a\/b\.txt bytes=12\n$/,
     );
   });
 
@@ -244,11 +244,11 @@ describe("what is logged about folder scans", () => {
       chmodSync(join(dir, "L", "locked"), 0o755);
     }
     const text = read(dir);
-    expect(text).toMatch(/INFO  folders  Comparing folders  left=\S+ right=\S+ mode=contents/);
+    expect(text).toMatch(/INFO {2}folders {2}Comparing folders {2}left=\S+ right=\S+ mode=contents/);
     expect(text).toMatch(
-      /INFO  folders  Folder comparison finished  status=different entries=\d+ files=1 .*unreadable=1/,
+      /INFO {2}folders {2}Folder comparison finished {2}status=different entries=\d+ files=1 .*unreadable=1/,
     );
-    expect(text).toMatch(/WARN  folders  Couldn't read  relPath=locked error=/);
+    expect(text).toMatch(/WARN {2}folders {2}Couldn't read {2}relPath=locked error=/);
     expect(text).not.toContain("words");
   });
 });
