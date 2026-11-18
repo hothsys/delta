@@ -29,7 +29,11 @@ export interface Hunk {
 
 const INT_MAX = 0x7fffffff;
 
-export function diffSequences(a: Int32Array, b: Int32Array, options: MyersOptions = {}): SequenceDiff {
+export function diffSequences(
+  a: Int32Array,
+  b: Int32Array,
+  options: MyersOptions = {},
+): SequenceDiff {
   const changedA = new Uint8Array(a.length);
   const changedB = new Uint8Array(b.length);
 
@@ -57,7 +61,11 @@ export function diffSequences(a: Int32Array, b: Int32Array, options: MyersOption
 }
 
 /** Keeps elements whose key is present in `allowed`; marks the rest as changed. */
-function keepWhere(seq: Int32Array, allowed: Uint8Array, changed: Uint8Array): [Int32Array, Int32Array] {
+function keepWhere(
+  seq: Int32Array,
+  allowed: Uint8Array,
+  changed: Uint8Array,
+): [Int32Array, Int32Array] {
   const kept = new Int32Array(seq.length);
   const map = new Int32Array(seq.length);
   let n = 0;
@@ -91,14 +99,20 @@ export function marksToHunks(changedA: Uint8Array, changedB: Uint8Array): Hunk[]
     while (i < n && changedA[i]) i++;
     while (j < m && changedB[j]) j++;
     if (i === aStart && j === bStart) {
-      throw new Error('Inconsistent change marks: unchanged element counts differ');
+      throw new Error("Inconsistent change marks: unchanged element counts differ");
     }
     hunks.push({ aStart, aEnd: i, bStart, bEnd: j });
   }
   return hunks;
 }
 
-function compare(a: Int32Array, b: Int32Array, ca: Uint8Array, cb: Uint8Array, minimal: boolean): void {
+function compare(
+  a: Int32Array,
+  b: Int32Array,
+  ca: Uint8Array,
+  cb: Uint8Array,
+  minimal: boolean,
+): void {
   const n = a.length;
   const m = b.length;
   if (n === 0 || m === 0) {
@@ -148,7 +162,10 @@ function compare(a: Int32Array, b: Int32Array, ca: Uint8Array, cb: Uint8Array, m
     const degenerate =
       (xmid === xoff && ymid === yoff) ||
       (xmid === xlim && ymid === ylim) ||
-      xmid < xoff || xmid > xlim || ymid < yoff || ymid > ylim;
+      xmid < xoff ||
+      xmid > xlim ||
+      ymid < yoff ||
+      ymid > ylim;
     if (degenerate) {
       ca.fill(1, xoff, xlim);
       cb.fill(1, yoff, ylim);

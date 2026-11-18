@@ -11,7 +11,7 @@ export interface Range {
  * - `collapse`: like `trim`, and runs of internal whitespace compare equal to a single space.
  * - `ignore`: all whitespace is ignored.
  */
-export type WhitespaceMode = 'exact' | 'trim' | 'collapse' | 'ignore';
+export type WhitespaceMode = "exact" | "trim" | "collapse" | "ignore";
 
 export interface CompareOptions {
   /** Default `'exact'`. */
@@ -36,7 +36,7 @@ export interface LineDiffOptions extends CompareOptions {
    * --histogram` does, for more readable diffs of code; `myers` finds the smallest diff.
    * Not a user setting; kept for comparison and tests.
    */
-  algorithm?: 'histogram' | 'myers';
+  algorithm?: "histogram" | "myers";
 }
 
 /**
@@ -46,7 +46,7 @@ export interface LineDiffOptions extends CompareOptions {
  * - `delete`: lines exist only on the left.
  * - `modify`: a changed region with lines on both sides; see `DiffBlock.pairs`.
  */
-export type BlockKind = 'equal' | 'unimportant' | 'insert' | 'delete' | 'modify';
+export type BlockKind = "equal" | "unimportant" | "insert" | "delete" | "modify";
 
 /** One display row inside a `modify` block. A `null` side means a filler (blank) row on that side. */
 export interface LinePair {

@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { ChevronDownIcon } from './icons';
-import type { FolderCompareMode } from '../../../shared/api';
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { ChevronDownIcon } from "./icons";
+import type { FolderCompareMode } from "../../../shared/api";
 
 const MODES: { mode: FolderCompareMode; label: string; detail: string }[] = [
-  { mode: 'contents', label: 'Contents', detail: 'Exact. Reads files; slower on large or external folders.' },
-  { mode: 'size-date', label: 'Size and modified date', detail: 'Fast. Never opens files.' },
-  { mode: 'date', label: 'Modified date only', detail: 'Fastest. Ignores size and content.' },
+  {
+    mode: "contents",
+    label: "Contents",
+    detail: "Exact. Reads files; slower on large or external folders.",
+  },
+  { mode: "size-date", label: "Size and modified date", detail: "Fast. Never opens files." },
+  { mode: "date", label: "Modified date only", detail: "Fastest. Ignores size and content." },
 ];
 
 interface FolderCompareOptionsProps {
@@ -17,7 +21,12 @@ interface FolderCompareOptionsProps {
 }
 
 /** The folder view's "Compare by" dropdown: how files present on both sides are judged equal. */
-export function FolderCompareOptions({ mode, onChange, autoUpdate, onAutoUpdateChange }: FolderCompareOptionsProps) {
+export function FolderCompareOptions({
+  mode,
+  onChange,
+  autoUpdate,
+  onAutoUpdateChange,
+}: FolderCompareOptionsProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -30,25 +39,27 @@ export function FolderCompareOptions({ mode, onChange, autoUpdate, onAutoUpdateC
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      if (e.key !== "Escape") return;
       setOpen(false);
       buttonRef.current?.focus();
     };
-    window.addEventListener('pointerdown', onPointer, true);
-    window.addEventListener('keydown', onKey, true);
+    window.addEventListener("pointerdown", onPointer, true);
+    window.addEventListener("keydown", onKey, true);
     menuRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
     return () => {
-      window.removeEventListener('pointerdown', onPointer, true);
-      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener("pointerdown", onPointer, true);
+      window.removeEventListener("keydown", onKey, true);
     };
   }, [open]);
 
   const onMenuKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     e.preventDefault();
-    const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? []);
     const i = items.indexOf(document.activeElement as HTMLButtonElement);
-    items[e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length]?.focus();
+    items[
+      e.key === "ArrowDown" ? (i + 1) % items.length : (i - 1 + items.length) % items.length
+    ]?.focus();
   };
 
   const current = MODES.find((m) => m.mode === mode) ?? MODES[0];
@@ -87,7 +98,7 @@ export function FolderCompareOptions({ mode, onChange, autoUpdate, onAutoUpdateC
               }}
             >
               <span className="options-tick" aria-hidden="true">
-                {m.mode === mode ? '✓' : ''}
+                {m.mode === mode ? "✓" : ""}
               </span>
               <span className="options-item">
                 {m.label}
@@ -107,11 +118,13 @@ export function FolderCompareOptions({ mode, onChange, autoUpdate, onAutoUpdateC
             }}
           >
             <span className="options-tick" aria-hidden="true">
-              {autoUpdate ? '✓' : ''}
+              {autoUpdate ? "✓" : ""}
             </span>
             <span className="options-item">
               Update automatically
-              <span className="options-detail">Follow changes made by other programs, without rescanning.</span>
+              <span className="options-detail">
+                Follow changes made by other programs, without rescanning.
+              </span>
             </span>
           </button>
         </div>

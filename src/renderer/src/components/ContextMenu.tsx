@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 export interface MenuItem {
   label: string;
@@ -20,19 +20,19 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
 
   useEffect(() => {
     const close = (e: Event) => {
-      if (e.type === 'keydown' && (e as KeyboardEvent).key !== 'Escape') return;
-      if (e.type === 'pointerdown' && ref.current?.contains(e.target as Node)) return;
+      if (e.type === "keydown" && (e as KeyboardEvent).key !== "Escape") return;
+      if (e.type === "pointerdown" && ref.current?.contains(e.target as Node)) return;
       onClose();
     };
-    window.addEventListener('pointerdown', close, true);
-    window.addEventListener('keydown', close, true);
-    window.addEventListener('wheel', close, true);
-    window.addEventListener('resize', close);
+    window.addEventListener("pointerdown", close, true);
+    window.addEventListener("keydown", close, true);
+    window.addEventListener("wheel", close, true);
+    window.addEventListener("resize", close);
     return () => {
-      window.removeEventListener('pointerdown', close, true);
-      window.removeEventListener('keydown', close, true);
-      window.removeEventListener('wheel', close, true);
-      window.removeEventListener('resize', close);
+      window.removeEventListener("pointerdown", close, true);
+      window.removeEventListener("keydown", close, true);
+      window.removeEventListener("wheel", close, true);
+      window.removeEventListener("resize", close);
     };
   }, [onClose]);
 

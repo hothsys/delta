@@ -1,5 +1,5 @@
-import { prettify, type PrettifyResult } from '.';
-import type { PrettyKind } from './kinds';
+import { prettify, type PrettifyResult } from ".";
+import type { PrettyKind } from "./kinds";
 
 export interface PrettifyRequest {
   id: number;

@@ -1,4 +1,4 @@
-import type { LinePair } from './types';
+import type { LinePair } from "./types";
 
 /** Lines at least this similar (Dice coefficient over character bigrams) are kept on the same row. */
 const SIMILARITY_THRESHOLD = 0.5;
@@ -21,7 +21,12 @@ const MAX_DP_CELLS = 40_000;
  * `aKeys`/`bKeys` are the region's lines in comparison form; `aStart`/`bStart` are the
  * absolute indexes of their first lines.
  */
-export function pairLines(aKeys: readonly string[], bKeys: readonly string[], aStart: number, bStart: number): LinePair[] {
+export function pairLines(
+  aKeys: readonly string[],
+  bKeys: readonly string[],
+  aStart: number,
+  bStart: number,
+): LinePair[] {
   const n = aKeys.length;
   const m = bKeys.length;
   const pairs: LinePair[] = [];
@@ -31,7 +36,8 @@ export function pairLines(aKeys: readonly string[], bKeys: readonly string[], aS
   const bGrams = bLower.map(bigrams);
   const sim = (i: number, j: number) => similarity(aLower[i], bLower[j], aGrams[i], bGrams[j]);
   const zip = (ai: number, aj: number, bi: number, bj: number) => {
-    for (; ai < aj && bi < bj; ai++, bi++) pairs.push({ a: aStart + ai, b: bStart + bi, similar: sim(ai, bi) >= SIMILARITY_THRESHOLD });
+    for (; ai < aj && bi < bj; ai++, bi++)
+      pairs.push({ a: aStart + ai, b: bStart + bi, similar: sim(ai, bi) >= SIMILARITY_THRESHOLD });
     while (ai < aj) pairs.push({ a: aStart + ai++, b: null });
     while (bi < bj) pairs.push({ a: null, b: bStart + bi++ });
   };
@@ -95,7 +101,7 @@ const SIMILARITY_CHARS = 500;
 
 /** A line as compared for similarity: lower case, runs of whitespace collapsed, ends trimmed, bounded. */
 function similarityForm(key: string): string {
-  return key.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, SIMILARITY_CHARS);
+  return key.toLowerCase().replace(/\s+/g, " ").trim().slice(0, SIMILARITY_CHARS);
 }
 
 /** Sorted character bigrams, each packed into one number. */

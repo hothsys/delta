@@ -1,10 +1,10 @@
-export type Eol = '\n' | '\r\n' | '\r';
+export type Eol = "\n" | "\r\n" | "\r";
 
 export interface SplitText {
   /** Lines without their terminators. */
   lines: string[];
   /** Dominant line ending, `'mixed'` if more than one kind occurs, `'none'` if there are no line breaks. */
-  eol: Eol | 'mixed' | 'none';
+  eol: Eol | "mixed" | "none";
   /** Whether the text ends with a line terminator. */
   trailingNewline: boolean;
 }
@@ -38,10 +38,10 @@ export function splitLines(text: string): SplitText {
   if (start < n) lines.push(text.slice(start));
 
   const kinds = (lf > 0 ? 1 : 0) + (crlf > 0 ? 1 : 0) + (cr > 0 ? 1 : 0);
-  let eol: SplitText['eol'];
-  if (kinds === 0) eol = 'none';
-  else if (kinds > 1) eol = 'mixed';
-  else eol = lf > 0 ? '\n' : crlf > 0 ? '\r\n' : '\r';
+  let eol: SplitText["eol"];
+  if (kinds === 0) eol = "none";
+  else if (kinds > 1) eol = "mixed";
+  else eol = lf > 0 ? "\n" : crlf > 0 ? "\r\n" : "\r";
 
   return { lines, eol, trailingNewline };
 }

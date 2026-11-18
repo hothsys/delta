@@ -1,5 +1,5 @@
-import type { DeltaApi } from '../../../shared/api';
-import { createHttpApi } from './http';
+import type { DeltaApi } from "../../../shared/api";
+import { createHttpApi } from "./http";
 
 /**
  * The system bridge for whichever host Delta is running in: Electron's preload provides

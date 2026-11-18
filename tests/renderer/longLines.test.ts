@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { clipRanges, columnSlice, TAB_SIZE } from '../../src/renderer/src/components/layout';
+import { describe, expect, it } from "vitest";
+import { clipRanges, columnSlice, TAB_SIZE } from "../../src/renderer/src/components/layout";
 
 /** Visual column of every character, as the panes lay them out. */
 function columns(text: string): number[] {
@@ -12,11 +12,17 @@ function columns(text: string): number[] {
   return cols;
 }
 
-describe('columnSlice', () => {
-  it('covers the requested columns, starting on a tab stop', () => {
-    const text = 'ab\tcdef\t\tghijklmnop\tq'.repeat(50);
+describe("columnSlice", () => {
+  it("covers the requested columns, starting on a tab stop", () => {
+    const text = "ab\tcdef\t\tghijklmnop\tq".repeat(50);
     const cols = columns(text);
-    for (const [from, to] of [[0, 10], [5, 40], [37, 200], [101, 102], [500, 9999]]) {
+    for (const [from, to] of [
+      [0, 10],
+      [5, 40],
+      [37, 200],
+      [101, 102],
+      [500, 9999],
+    ]) {
       const s = columnSlice(text, from, to);
       expect(s.col % TAB_SIZE).toBe(0);
       expect(s.col).toBe(s.start < text.length ? cols[s.start] : s.col);
@@ -28,15 +34,15 @@ describe('columnSlice', () => {
     }
   });
 
-  it('returns an empty slice past the end of the line', () => {
-    const s = columnSlice('short', 100, 200);
+  it("returns an empty slice past the end of the line", () => {
+    const s = columnSlice("short", 100, 200);
     expect(s.start).toBe(5);
     expect(s.end).toBe(5);
   });
 });
 
-describe('clipRanges', () => {
-  it('keeps overlapping ranges, clipped and relative to the slice', () => {
+describe("clipRanges", () => {
+  it("keeps overlapping ranges, clipped and relative to the slice", () => {
     const ranges = [
       { start: 0, end: 5 },
       { start: 8, end: 20 },

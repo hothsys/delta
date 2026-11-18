@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, type PointerEvent, type Ref } from 'react';
-import type { DiffBlock } from '../../../engine';
-import { markAt, overviewMarks, rowAtY, scrollTopForRow } from '../model/overview';
-import { RowKind, type RowModel } from '../model/rowModel';
-import { cssVar, prepareCanvas, useElementSize } from './canvas';
-import { ROW_HEIGHT } from './layout';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  type PointerEvent,
+  type Ref,
+} from "react";
+import type { DiffBlock } from "../../../engine";
+import { markAt, overviewMarks, rowAtY, scrollTopForRow } from "../model/overview";
+import { RowKind, type RowModel } from "../model/rowModel";
+import { cssVar, prepareCanvas, useElementSize } from "./canvas";
+import { ROW_HEIGHT } from "./layout";
 
 export interface OverviewHandle {
   /** Moves the visible-region box. Called straight from the scroll handler. */
@@ -20,13 +28,13 @@ interface OverviewProps {
 }
 
 const MARK_COLORS: Record<RowKind, string> = {
-  [RowKind.Equal]: '',
-  [RowKind.Unimportant]: '--chg-minor',
-  [RowKind.Modified]: '--stat-mod',
-  [RowKind.Inserted]: '--stat-ins',
-  [RowKind.Deleted]: '--stat-del',
+  [RowKind.Equal]: "",
+  [RowKind.Unimportant]: "--chg-minor",
+  [RowKind.Modified]: "--stat-mod",
+  [RowKind.Inserted]: "--stat-ins",
+  [RowKind.Deleted]: "--stat-del",
   // Replaced rows are drawn as a deletion beside an insertion (see overviewMarks).
-  [RowKind.Replaced]: '',
+  [RowKind.Replaced]: "",
 };
 
 /** Where a clicked change lands in the viewport: a third of the way down, leaving context above. */
@@ -51,12 +59,14 @@ export function Overview({ rows, blocks, theme, getViewport, onJump, handleRef }
     const canvas = canvasRef.current;
     const ctx = canvas && prepareCanvas(canvas, width, height);
     if (!ctx) return;
-    const colors = Object.fromEntries(Object.entries(MARK_COLORS).map(([k, v]) => [k, v && cssVar(v)]));
+    const colors = Object.fromEntries(
+      Object.entries(MARK_COLORS).map(([k, v]) => [k, v && cssVar(v)]),
+    );
     const half = width / 2;
     for (const m of marks) {
       ctx.fillStyle = colors[m.kind];
-      const x = m.side === 'b' ? half + 1 : 2;
-      const w = m.side === 'both' ? width - 4 : half - 3;
+      const x = m.side === "b" ? half + 1 : 2;
+      const w = m.side === "both" ? width - 4 : half - 3;
       ctx.fillRect(x, m.y, w, m.h);
     }
   }, [marks, width, height, theme]);
@@ -94,7 +104,10 @@ export function Overview({ rows, blocks, theme, getViewport, onJump, handleRef }
     const y = localY(e);
     drag.current = { startY: y, dragging: false };
     const mark = markAt(marks, y);
-    if (mark) onJump(scrollTopForRow(mark.row, ROW_HEIGHT, getViewport().height, rows.count, CHANGE_ANCHOR));
+    if (mark)
+      onJump(
+        scrollTopForRow(mark.row, ROW_HEIGHT, getViewport().height, rows.count, CHANGE_ANCHOR),
+      );
     else centreOn(y);
   };
 

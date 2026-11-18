@@ -1,8 +1,8 @@
-import type { DiffBlock } from '../../../engine';
-import { RowKind, type RowModel } from './rowModel';
+import type { DiffBlock } from "../../../engine";
+import { RowKind, type RowModel } from "./rowModel";
 
 /** Which half of the overview a mark is painted in: left file, right file, or across both. */
-export type OverviewSide = 'a' | 'b' | 'both';
+export type OverviewSide = "a" | "b" | "both";
 
 export interface OverviewMark {
   /** Top and height in CSS pixels within the overview. */
@@ -21,13 +21,23 @@ export const MIN_MARK_HEIGHT = 2;
  * Coloured marks for the overview map, scaled so the whole file fits in `height` pixels.
  * Unimportant marks come first so that real changes are painted over them.
  */
-export function overviewMarks(rows: RowModel, blocks: readonly DiffBlock[], height: number): OverviewMark[] {
+export function overviewMarks(
+  rows: RowModel,
+  blocks: readonly DiffBlock[],
+  height: number,
+): OverviewMark[] {
   const minor: OverviewMark[] = [];
   const changes: OverviewMark[] = [];
   if (rows.count === 0 || height <= 0) return [];
   const scale = height / rows.count;
 
-  const add = (list: OverviewMark[], start: number, end: number, kind: RowKind, side: OverviewSide) => {
+  const add = (
+    list: OverviewMark[],
+    start: number,
+    end: number,
+    kind: RowKind,
+    side: OverviewSide,
+  ) => {
     const h = Math.min(height, Math.max(MIN_MARK_HEIGHT, (end - start) * scale));
     // Stretched marks near the bottom move up so they stay fully visible.
     const y = Math.min(start * scale, height - h);
@@ -44,16 +54,16 @@ export function overviewMarks(rows: RowModel, blocks: readonly DiffBlock[], heig
     const start = rows.blockStart[i];
     const end = i + 1 < blocks.length ? rows.blockStart[i + 1] : rows.count;
     switch (blk.kind) {
-      case 'unimportant':
-        add(minor, start, end, RowKind.Unimportant, 'both');
+      case "unimportant":
+        add(minor, start, end, RowKind.Unimportant, "both");
         break;
-      case 'insert':
-        add(changes, start, end, RowKind.Inserted, 'b');
+      case "insert":
+        add(changes, start, end, RowKind.Inserted, "b");
         break;
-      case 'delete':
-        add(changes, start, end, RowKind.Deleted, 'a');
+      case "delete":
+        add(changes, start, end, RowKind.Deleted, "a");
         break;
-      case 'modify':
+      case "modify":
         // A modify block can mix paired, inserted and deleted rows; mark each run separately.
         for (let r = start; r < end; ) {
           const kind = rows.kind[r] as RowKind;
@@ -61,10 +71,16 @@ export function overviewMarks(rows: RowModel, blocks: readonly DiffBlock[], heig
           while (e < end && rows.kind[e] === kind) e++;
           if (kind === RowKind.Replaced) {
             // Removed on the left, added on the right.
-            add(changes, r, e, RowKind.Deleted, 'a');
-            add(changes, r, e, RowKind.Inserted, 'b');
+            add(changes, r, e, RowKind.Deleted, "a");
+            add(changes, r, e, RowKind.Inserted, "b");
           } else {
-            add(changes, r, e, kind, kind === RowKind.Inserted ? 'b' : kind === RowKind.Deleted ? 'a' : 'both');
+            add(
+              changes,
+              r,
+              e,
+              kind,
+              kind === RowKind.Inserted ? "b" : kind === RowKind.Deleted ? "a" : "both",
+            );
           }
           r = e;
         }
@@ -84,7 +100,11 @@ export function rowAtY(y: number, height: number, rowCount: number): number {
  * The mark under `y`, if any. Real changes win over unimportant ones, and a mark within
  * `tolerance` pixels counts so thin marks are easy to hit.
  */
-export function markAt(marks: readonly OverviewMark[], y: number, tolerance = 2): OverviewMark | null {
+export function markAt(
+  marks: readonly OverviewMark[],
+  y: number,
+  tolerance = 2,
+): OverviewMark | null {
   let best: OverviewMark | null = null;
   let bestScore = Infinity;
   for (const m of marks) {

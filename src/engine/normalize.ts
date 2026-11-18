@@ -1,4 +1,4 @@
-import type { CompareOptions } from './types';
+import type { CompareOptions } from "./types";
 
 export type KeyFn = (line: string) => string;
 
@@ -8,15 +8,15 @@ export type KeyFn = (line: string) => string;
  */
 export function lineKeyFn(options: CompareOptions): KeyFn | null {
   let ws: KeyFn | null;
-  switch (options.whitespace ?? 'exact') {
-    case 'trim':
+  switch (options.whitespace ?? "exact") {
+    case "trim":
       ws = (s) => s.trim();
       break;
-    case 'collapse':
-      ws = (s) => s.trim().replace(/\s+/g, ' ');
+    case "collapse":
+      ws = (s) => s.trim().replace(/\s+/g, " ");
       break;
-    case 'ignore':
-      ws = (s) => s.replace(/\s+/g, '');
+    case "ignore":
+      ws = (s) => s.replace(/\s+/g, "");
       break;
     default:
       ws = null;

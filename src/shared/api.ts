@@ -4,9 +4,9 @@
  */
 
 /** How a file's bytes were decoded, so saving can write them back the same way. */
-export type TextEncoding = 'utf8' | 'utf8-bom' | 'utf16le' | 'utf16be' | 'latin1';
+export type TextEncoding = "utf8" | "utf8-bom" | "utf16le" | "utf16be" | "latin1";
 
-export type LineEnding = '\n' | '\r\n' | '\r';
+export type LineEnding = "\n" | "\r\n" | "\r";
 
 /** How many line breaks of each kind a file has (a file can mix them). */
 export interface EolCounts {
@@ -34,7 +34,7 @@ export interface LoadedFile {
 
 export type ReadResult =
   | { ok: true; file: LoadedFile }
-  | { ok: false; path: string; reason: 'binary' | 'error'; message: string };
+  | { ok: false; path: string; reason: "binary" | "error"; message: string };
 
 export interface SaveRequest {
   path: string;
@@ -54,34 +54,34 @@ export interface ConfirmOptions {
 
 /** What the app was asked to compare on launch (`delta a.txt b.txt` or `delta dirA dirB`). */
 export type LaunchRequest =
-  | { kind: 'none' }
-  | { kind: 'files'; left?: string; right?: string }
-  | { kind: 'folders'; left: string; right: string };
+  | { kind: "none" }
+  | { kind: "files"; left?: string; right?: string }
+  | { kind: "folders"; left: string; right: string };
 
 /** Menu and shortcut commands sent from the main process to the renderer. */
 export type Command =
-  | 'compare-files'
-  | 'save'
-  | 'save-as'
-  | 'save-left'
-  | 'save-right'
-  | 'refresh'
-  | 'undo'
-  | 'redo'
-  | 'select-all'
-  | 'compare-folders'
-  | 'toggle-theme'
-  | 'next-difference'
-  | 'previous-difference'
-  | 'toggle-prettify'
-  | 'toggle-debug-logging'
-  | 'open-logs-folder'
-  | 'copy-diagnostics';
+  | "compare-files"
+  | "save"
+  | "save-as"
+  | "save-left"
+  | "save-right"
+  | "refresh"
+  | "undo"
+  | "redo"
+  | "select-all"
+  | "compare-folders"
+  | "toggle-theme"
+  | "next-difference"
+  | "previous-difference"
+  | "toggle-prettify"
+  | "toggle-debug-logging"
+  | "open-logs-folder"
+  | "copy-diagnostics";
 
 // ---- Logging ---------------------------------------------------------------------------
 
 /** Most to least severe; a log level writes its own entries and everything above it. */
-export const LOG_LEVELS = ['error', 'warn', 'info', 'debug'] as const;
+export const LOG_LEVELS = ["error", "warn", "info", "debug"] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
 
 /** Extra details on a log entry: paths, sizes, counts, timings. Never file contents. */
@@ -99,7 +99,7 @@ export interface LogEntry {
 }
 
 /** Where the log level came from, strongest first. */
-export type LogLevelSource = 'command line' | 'DELTA_LOG_LEVEL' | 'setting' | 'default';
+export type LogLevelSource = "command line" | "DELTA_LOG_LEVEL" | "setting" | "default";
 
 export interface LogInfo {
   level: LogLevel;
@@ -110,7 +110,7 @@ export interface LogInfo {
 
 // ---- Folder comparison ----------------------------------------------------------------
 
-export type EntryKind = 'file' | 'dir';
+export type EntryKind = "file" | "dir";
 
 export interface EntryInfo {
   kind: EntryKind;
@@ -128,7 +128,7 @@ export interface EntryInfo {
  * - `left-only` / `right-only`: present on one side.
  * - `kind-mismatch`: a file on one side and a folder on the other.
  */
-export type EntryStatus = 'same' | 'different' | 'left-only' | 'right-only' | 'kind-mismatch';
+export type EntryStatus = "same" | "different" | "left-only" | "right-only" | "kind-mismatch";
 
 export interface FolderNode {
   name: string;
@@ -149,7 +149,7 @@ export interface FolderNode {
  * - `size-date`: same size and modified time (fast; never opens files).
  * - `date`: same modified time only (fastest).
  */
-export type FolderCompareMode = 'contents' | 'size-date' | 'date';
+export type FolderCompareMode = "contents" | "size-date" | "date";
 
 /**
  * Modified times this close count as equal. FAT/exFAT drives store times to 2 seconds, so a
@@ -179,7 +179,7 @@ export interface CopyRequest {
   rightRoot: string;
   relPath: string;
   /** Copy direction: from the left tree into the right one, or the reverse. */
-  from: 'left' | 'right';
+  from: "left" | "right";
 }
 
 export type CopyResult = { ok: true } | { ok: false; message: string; cancelled?: boolean };
@@ -209,18 +209,20 @@ export interface FolderEntryUpdate {
   node: FolderNode | null;
 }
 
-export type FolderEntriesResult = { ok: true; updates: FolderEntryUpdate[] } | { ok: false; message: string };
+export type FolderEntriesResult =
+  | { ok: true; updates: FolderEntryUpdate[] }
+  | { ok: false; message: string };
 
 // ---- Recent comparisons ----------------------------------------------------------------
 
-export type ComparisonKind = 'files' | 'folders';
+export type ComparisonKind = "files" | "folders";
 
 /**
  * - `available`: the path exists (and is the right kind: a file or a folder).
  * - `unmounted`: the path is on an external drive or network share that is not connected.
  * - `missing`: the path no longer exists (moved or deleted).
  */
-export type PathState = 'available' | 'missing' | 'unmounted';
+export type PathState = "available" | "missing" | "unmounted";
 
 export interface RecentSide {
   path: string;
@@ -264,7 +266,7 @@ export interface Location {
   name: string;
   path: string;
   /** `home`: the home folder; `root`: the filesystem root or system drive; `volume`: another drive or share. */
-  kind: 'home' | 'root' | 'volume';
+  kind: "home" | "root" | "volume";
 }
 
 /**
@@ -297,7 +299,11 @@ export interface DeltaApi {
   onCommand(listener: (command: Command) => void): () => void;
   openFolderDialog(title: string): Promise<string | null>;
   /** Starting a comparison cancels any still running in this window or tab. */
-  compareFolders(left: string, right: string, mode: FolderCompareMode): Promise<FolderCompareResult>;
+  compareFolders(
+    left: string,
+    right: string,
+    mode: FolderCompareMode,
+  ): Promise<FolderCompareResult>;
   onFolderProgress(listener: (progress: FolderProgress) => void): () => void;
   /** Stops the running comparison; its promise resolves with `cancelled: true`. */
   cancelFolderCompare(): Promise<void>;
@@ -307,10 +313,17 @@ export interface DeltaApi {
   /** Stops the running copy; its promise resolves with `cancelled: true` and nothing changed. */
   cancelCopy(): Promise<void>;
   /** Watches both roots for outside changes (replacing any earlier watch); null stops watching. */
-  watchFolders(roots: { left: string; right: string } | null): Promise<{ ok: true } | { ok: false; message: string }>;
+  watchFolders(
+    roots: { left: string; right: string } | null,
+  ): Promise<{ ok: true } | { ok: false; message: string }>;
   onFolderChanged(listener: (change: FolderChange) => void): () => void;
   /** Re-compares just these entries (after outside changes), for patching the shown tree. */
-  compareFolderEntries(left: string, right: string, relPaths: string[], mode: FolderCompareMode): Promise<FolderEntriesResult>;
+  compareFolderEntries(
+    left: string,
+    right: string,
+    relPaths: string[],
+    mode: FolderCompareMode,
+  ): Promise<FolderEntriesResult>;
   /** The most recent comparisons, newest first, with each path's current availability. */
   recentComparisons(): Promise<RecentList>;
   /** Records a comparison as just used (moving it to the top if it was already listed). */

@@ -1,4 +1,4 @@
-import type { KeyFn } from './normalize';
+import type { KeyFn } from "./normalize";
 
 /** Assigns dense integer ids to strings so the diff core compares numbers, not strings. */
 export class Interner {
@@ -18,7 +18,11 @@ export class Interner {
   }
 }
 
-export function internAll(lines: readonly string[], interner: Interner, key: KeyFn | null): Int32Array {
+export function internAll(
+  lines: readonly string[],
+  interner: Interner,
+  key: KeyFn | null,
+): Int32Array {
   const out = new Int32Array(lines.length);
   for (let i = 0; i < lines.length; i++) {
     out[i] = interner.id(key ? key(lines[i]) : lines[i]);

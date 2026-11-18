@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from 'react';
-import type { Anchor, DiffBlock } from '../../../engine';
-import { blockAtRow, visibleConnectors, type Connector } from '../model/gutter';
-import type { RowModel, Side } from '../model/rowModel';
-import { cssVar, prepareCanvas, useElementSize } from './canvas';
-import { MergeIcon } from './icons';
-import { mergeTitle } from '../model/merge';
-import { ROW_HEIGHT } from './layout';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  type ReactNode,
+  type Ref,
+} from "react";
+import type { Anchor, DiffBlock } from "../../../engine";
+import { blockAtRow, visibleConnectors, type Connector } from "../model/gutter";
+import type { RowModel, Side } from "../model/rowModel";
+import { cssVar, prepareCanvas, useElementSize } from "./canvas";
+import { MergeIcon } from "./icons";
+import { mergeTitle } from "../model/merge";
+import { ROW_HEIGHT } from "./layout";
 
 export interface GutterHandle {
   /** Redraws for a new scroll offset. Called straight from the scroll handler so it never lags a frame. */
@@ -39,10 +46,10 @@ interface GutterProps {
 /** Merge buttons: big enough to hit easily, small enough for two to fit side by side in the gutter. */
 const BUTTON_HEIGHT = 18;
 
-const COLORS: Record<Connector['kind'], { fill: string; stroke: string }> = {
-  insert: { fill: '--row-ins', stroke: '--stat-ins' },
-  delete: { fill: '--row-del', stroke: '--stat-del' },
-  modify: { fill: '--row-mod', stroke: '--stat-mod' },
+const COLORS: Record<Connector["kind"], { fill: string; stroke: string }> = {
+  insert: { fill: "--row-ins", stroke: "--stat-ins" },
+  delete: { fill: "--row-del", stroke: "--stat-del" },
+  modify: { fill: "--row-mod", stroke: "--stat-mod" },
 };
 
 /**
@@ -67,7 +74,10 @@ export function Gutter(props: GutterProps) {
       const ctx = canvas && prepareCanvas(canvas, width, height);
       if (!ctx) return;
       const colors = Object.fromEntries(
-        Object.entries(COLORS).map(([k, v]) => [k, { fill: cssVar(v.fill), stroke: cssVar(v.stroke) }]),
+        Object.entries(COLORS).map(([k, v]) => [
+          k,
+          { fill: cssVar(v.fill), stroke: cssVar(v.stroke) },
+        ]),
       ) as typeof COLORS;
       const mid = width / 2;
       ctx.lineWidth = 1;
@@ -98,8 +108,8 @@ export function Gutter(props: GutterProps) {
 
       // Manual alignments: a link from the left line's row to the right line's row. After a
       // re-diff both are the same row; while an edit is pending they may briefly differ.
-      ctx.strokeStyle = cssVar('--anchor');
-      ctx.fillStyle = cssVar('--anchor');
+      ctx.strokeStyle = cssVar("--anchor");
+      ctx.fillStyle = cssVar("--anchor");
       ctx.lineWidth = 2;
       for (const anc of anchors) {
         if (anc.a >= rows.aRow.length || anc.b >= rows.bRow.length) continue;
@@ -130,23 +140,35 @@ export function Gutter(props: GutterProps) {
   }, [draw, getScrollTop, theme]);
 
   const buttons: ReactNode[] = [];
-  for (let i = blockAtRow(rows.blockStart, first); i < blocks.length && rows.blockStart[i] < last; i++) {
+  for (
+    let i = blockAtRow(rows.blockStart, first);
+    i < blocks.length && rows.blockStart[i] < last;
+    i++
+  ) {
     const kind = blocks[i].kind;
-    if (kind !== 'insert' && kind !== 'delete' && kind !== 'modify') continue;
+    if (kind !== "insert" && kind !== "delete" && kind !== "modify") continue;
     const top = rows.blockStart[i] * ROW_HEIGHT + (ROW_HEIGHT - BUTTON_HEIGHT) / 2;
     const button = (from: Side) => {
-      const remove = from === 'a' ? kind === 'insert' : kind === 'delete';
+      const remove = from === "a" ? kind === "insert" : kind === "delete";
       const preview = () => props.onMergePreview({ block: i, from });
       const endPreview = () => props.onMergePreview(null);
       return (
         <button
           key={`${i}${from}`}
           type="button"
-          className={`merge merge-${kind} merge-from-${from}${remove ? ' merge-remove' : ''}`}
+          className={`merge merge-${kind} merge-from-${from}${remove ? " merge-remove" : ""}`}
           style={{ top }}
           disabled={!props.mergeEnabled}
           title={props.mergeDisabledReason ?? mergeTitle(blocks[i], from)}
-          aria-label={from === 'a' ? (remove ? 'Remove on the right' : 'Copy to right') : remove ? 'Remove on the left' : 'Copy to left'}
+          aria-label={
+            from === "a"
+              ? remove
+                ? "Remove on the right"
+                : "Copy to right"
+              : remove
+                ? "Remove on the left"
+                : "Copy to left"
+          }
           onClick={() => {
             endPreview();
             props.onMerge(i, from);
@@ -156,15 +178,16 @@ export function Gutter(props: GutterProps) {
           onFocus={preview}
           onBlur={endPreview}
         >
-          <MergeIcon toward={from === 'a' ? 'right' : 'left'} remove={remove} />
+          <MergeIcon toward={from === "a" ? "right" : "left"} remove={remove} />
         </button>
       );
     };
-    buttons.push(button('a'), button('b'));
+    buttons.push(button("a"), button("b"));
   }
 
   const dragging = useRef(false);
-  const onButton = (e: { target: EventTarget }) => (e.target as HTMLElement).closest('button') !== null;
+  const onButton = (e: { target: EventTarget }) =>
+    (e.target as HTMLElement).closest("button") !== null;
 
   return (
     <div
@@ -190,10 +213,13 @@ export function Gutter(props: GutterProps) {
       }}
     >
       <canvas ref={canvasRef} />
-      <div ref={buttonsRef} className="merge-layer" style={{ transform: `translateY(${-getScrollTop()}px)` }}>
+      <div
+        ref={buttonsRef}
+        className="merge-layer"
+        style={{ transform: `translateY(${-getScrollTop()}px)` }}
+      >
         {buttons}
       </div>
     </div>
   );
 }
-

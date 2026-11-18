@@ -1,10 +1,10 @@
-import type { DiffBlock } from '../../../engine';
-import type { RowModel } from './rowModel';
+import type { DiffBlock } from "../../../engine";
+import type { RowModel } from "./rowModel";
 
 /** A change block's extent on each side, in pixels from the top of the viewport. */
 export interface Connector {
   block: number;
-  kind: 'insert' | 'delete' | 'modify';
+  kind: "insert" | "delete" | "modify";
   aTop: number;
   aBottom: number;
   bTop: number;
@@ -22,9 +22,13 @@ export function visibleConnectors(
   const out: Connector[] = [];
   const firstRow = Math.floor(scrollTop / rowHeight);
   const lastRow = Math.ceil((scrollTop + viewportHeight) / rowHeight);
-  for (let i = blockAtRow(rows.blockStart, firstRow); i < blocks.length && rows.blockStart[i] <= lastRow; i++) {
+  for (
+    let i = blockAtRow(rows.blockStart, firstRow);
+    i < blocks.length && rows.blockStart[i] <= lastRow;
+    i++
+  ) {
     const kind = blocks[i].kind;
-    if (kind !== 'insert' && kind !== 'delete' && kind !== 'modify') continue;
+    if (kind !== "insert" && kind !== "delete" && kind !== "modify") continue;
     out.push({
       block: i,
       kind,

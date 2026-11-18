@@ -1,9 +1,17 @@
-import { Interner, internAll } from './intern';
-import { histogramDiff } from './histogram';
-import { diffSequences, marksToHunks, type Hunk } from './myers';
-import { lineKeyFn, type KeyFn } from './normalize';
-import { pairLines } from './pairing';
-import type { Anchor, BlockKind, DiffBlock, DiffStats, LineDiffOptions, LineDiffResult, LinePair } from './types';
+import { Interner, internAll } from "./intern";
+import { histogramDiff } from "./histogram";
+import { diffSequences, marksToHunks, type Hunk } from "./myers";
+import { lineKeyFn, type KeyFn } from "./normalize";
+import { pairLines } from "./pairing";
+import type {
+  Anchor,
+  BlockKind,
+  DiffBlock,
+  DiffStats,
+  LineDiffOptions,
+  LineDiffResult,
+  LinePair,
+} from "./types";
 
 /**
  * Line-by-line diff of two texts (already split into lines).
@@ -13,7 +21,11 @@ import type { Anchor, BlockKind, DiffBlock, DiffStats, LineDiffOptions, LineDiff
  * rare lines, falling back to Myers) finds the changed hunks, which are then slid to more
  * readable positions and classified into blocks.
  */
-export function diffLines(a: readonly string[], b: readonly string[], options: LineDiffOptions = {}): LineDiffResult {
+export function diffLines(
+  a: readonly string[],
+  b: readonly string[],
+  options: LineDiffOptions = {},
+): LineDiffResult {
   const keyFn = lineKeyFn(options);
   const interner = new Interner();
   const aKeys = internAll(a, interner, keyFn);
@@ -25,7 +37,9 @@ export function diffLines(a: readonly string[], b: readonly string[], options: L
     const sa = aKeys.subarray(aStart, aEnd);
     const sb = bKeys.subarray(bStart, bEnd);
     const { changedA, changedB } =
-      options.minimal || options.algorithm === 'myers' ? diffSequences(sa, sb, { minimal: options.minimal }) : histogramDiff(sa, sb);
+      options.minimal || options.algorithm === "myers"
+        ? diffSequences(sa, sb, { minimal: options.minimal })
+        : histogramDiff(sa, sb);
     const hunks = slideHunks(
       marksToHunks(changedA, changedB),
       sa,
@@ -59,7 +73,7 @@ export function diffLines(a: readonly string[], b: readonly string[], options: L
 }
 
 function isBlank(line: string): boolean {
-  return line.trim() === '';
+  return line.trim() === "";
 }
 
 /**
@@ -68,7 +82,10 @@ function isBlank(line: string): boolean {
  */
 function effectiveAnchors(anchors: readonly Anchor[], n: number, m: number): Anchor[] {
   const sorted = anchors
-    .filter(({ a, b }) => Number.isInteger(a) && Number.isInteger(b) && a >= 0 && a < n && b >= 0 && b < m)
+    .filter(
+      ({ a, b }) =>
+        Number.isInteger(a) && Number.isInteger(b) && a >= 0 && a < n && b >= 0 && b < m,
+    )
     .slice()
     .sort((x, y) => x.a - y.a || x.b - y.b);
   const kept: Anchor[] = [];
@@ -152,13 +169,13 @@ class BlockBuilder {
   matched(aStart: number, bStart: number, len: number): void {
     if (len <= 0) return;
     if (!this.keyFn) {
-      this.push('equal', aStart, aStart + len, bStart, bStart + len);
+      this.push("equal", aStart, aStart + len, bStart, bStart + len);
       return;
     }
     for (let k = 0; k < len; ) {
-      const kind: BlockKind = this.a[aStart + k] === this.b[bStart + k] ? 'equal' : 'unimportant';
+      const kind: BlockKind = this.a[aStart + k] === this.b[bStart + k] ? "equal" : "unimportant";
       let e = k + 1;
-      while (e < len && (this.a[aStart + e] === this.b[bStart + e]) === (kind === 'equal')) e++;
+      while (e < len && (this.a[aStart + e] === this.b[bStart + e]) === (kind === "equal")) e++;
       this.push(kind, aStart + k, aStart + e, bStart + k, bStart + e);
       k = e;
     }
@@ -167,14 +184,22 @@ class BlockBuilder {
   changed(aStart: number, aEnd: number, bStart: number, bEnd: number): void {
     if (aStart === aEnd && bStart === bEnd) return;
     if (aStart === aEnd) {
-      this.push('insert', aStart, aEnd, bStart, bEnd);
+      this.push("insert", aStart, aEnd, bStart, bEnd);
     } else if (bStart === bEnd) {
-      this.push('delete', aStart, aEnd, bStart, bEnd);
+      this.push("delete", aStart, aEnd, bStart, bEnd);
     } else {
-      const key = (lines: readonly string[], i: number) => (this.keyFn ? this.keyFn(lines[i]) : lines[i]);
+      const key = (lines: readonly string[], i: number) =>
+        this.keyFn ? this.keyFn(lines[i]) : lines[i];
       const aKeyStrs = Array.from({ length: aEnd - aStart }, (_, k) => key(this.a, aStart + k));
       const bKeyStrs = Array.from({ length: bEnd - bStart }, (_, k) => key(this.b, bStart + k));
-      this.push('modify', aStart, aEnd, bStart, bEnd, pairLines(aKeyStrs, bKeyStrs, aStart, bStart));
+      this.push(
+        "modify",
+        aStart,
+        aEnd,
+        bStart,
+        bEnd,
+        pairLines(aKeyStrs, bKeyStrs, aStart, bStart),
+      );
     }
   }
 
@@ -191,21 +216,21 @@ class BlockBuilder {
       const aLen = blk.a.end - blk.a.start;
       const bLen = blk.b.end - blk.b.start;
       switch (blk.kind) {
-        case 'equal':
+        case "equal":
           s.equalLines += aLen;
           break;
-        case 'unimportant':
+        case "unimportant":
           s.unimportantLines += aLen;
           break;
-        case 'insert':
+        case "insert":
           s.insertedLines += bLen;
           s.changeBlocks++;
           break;
-        case 'delete':
+        case "delete":
           s.deletedLines += aLen;
           s.changeBlocks++;
           break;
-        case 'modify':
+        case "modify":
           for (const p of blk.pairs!) {
             if (p.a !== null && p.b !== null && p.similar) s.modifiedPairs++;
             else {
@@ -221,7 +246,14 @@ class BlockBuilder {
     return s;
   }
 
-  private push(kind: BlockKind, aStart: number, aEnd: number, bStart: number, bEnd: number, pairs?: LinePair[]): void {
+  private push(
+    kind: BlockKind,
+    aStart: number,
+    aEnd: number,
+    bStart: number,
+    bEnd: number,
+    pairs?: LinePair[],
+  ): void {
     const last = this.blocks[this.blocks.length - 1];
     if (last && last.kind === kind) {
       last.a.end = aEnd;
@@ -230,7 +262,11 @@ class BlockBuilder {
       if (pairs) for (const p of pairs) last.pairs!.push(p);
       return;
     }
-    const block: DiffBlock = { kind, a: { start: aStart, end: aEnd }, b: { start: bStart, end: bEnd } };
+    const block: DiffBlock = {
+      kind,
+      a: { start: aStart, end: aEnd },
+      b: { start: bStart, end: bEnd },
+    };
     if (pairs) block.pairs = pairs;
     this.blocks.push(block);
   }

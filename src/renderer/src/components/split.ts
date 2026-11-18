@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState } from "react";
 
 /** Narrowest a pane may be dragged to, in CSS pixels. */
 export const MIN_PANE_WIDTH = 160;
@@ -26,7 +26,12 @@ export function useSplit(storageKey: string): [number, (ratio: number) => void] 
  * The split ratio for a divider dragged to `clientX`, given the container's bounds, the total
  * width of its fixed columns, and the divider's own width.
  */
-export function ratioAt(clientX: number, rect: DOMRect, fixedWidth: number, dividerWidth: number): number {
+export function ratioAt(
+  clientX: number,
+  rect: DOMRect,
+  fixedWidth: number,
+  dividerWidth: number,
+): number {
   const available = rect.width - fixedWidth;
   if (available <= 2 * MIN_PANE_WIDTH) return 0.5;
   const left = clientX - rect.left - dividerWidth / 2;

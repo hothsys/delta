@@ -1,4 +1,4 @@
-import type { DeltaApi } from '../../shared/api';
+import type { DeltaApi } from "../../shared/api";
 
 declare global {
   interface Window {
