@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { diffLines, type DiffBlock } from '../../src/engine';
+import { diffLines, joinLines, type DiffBlock } from '../../src/engine';
 import { mergeOp, mergeTitle } from '../../src/renderer/src/model/merge';
 import { buildRows, patchRows, RowKind, type RowModel } from '../../src/renderer/src/model/rowModel';
 import {
   applyOp,
   colAtVisual,
   composeOps,
+  editorLines,
+  endsWithNewline,
+  fileLineCount,
   invertOp,
   replaceRange,
   textInRange,
@@ -176,6 +179,40 @@ describe('mergeOp', () => {
         expect(after.stats.changeBlocks, `block ${i} from ${from}`).toBe(before - 1);
       }
     }
+  });
+});
+
+describe('editorLines', () => {
+  it('gives a final line break its own empty line, as an editor shows it', () => {
+    expect(editorLines('a\nb\n')).toEqual({ lines: ['a', 'b', ''], eol: '\n' });
+    expect(editorLines('a\nb')).toEqual({ lines: ['a', 'b'], eol: '\n' });
+    expect(editorLines('a\r\n\r\n')).toEqual({ lines: ['a', '', ''], eol: '\r\n' });
+    expect(editorLines('').lines).toEqual([]);
+  });
+
+  it('joins back to exactly the same text', () => {
+    for (const text of ['a\nb\n', 'a\nb', '\n', 'x', 'a\n\n', '']) expect(joinLines(editorLines(text).lines, '\n', false)).toBe(text);
+  });
+
+  it('counts lines as the file does, and knows whether it ends with a line break', () => {
+    expect([fileLineCount(['a', 'b', '']), endsWithNewline(['a', 'b', ''])]).toEqual([2, true]);
+    expect([fileLineCount(['a', 'b']), endsWithNewline(['a', 'b'])]).toEqual([2, false]);
+    expect([fileLineCount(['']), endsWithNewline([''])]).toEqual([1, false]); // everything deleted: one empty line, no break
+    expect([fileLineCount([]), endsWithNewline([])]).toEqual([0, false]);
+  });
+
+  it('shows a final line break on one side only as one extra line, merged like any other', () => {
+    const a = editorLines('x\ny\n').lines;
+    const b = editorLines('x\ny').lines;
+    const r = diffLines(a, b);
+    expect(r.blocks.map((blk) => blk.kind)).toEqual(['equal', 'delete']);
+    expect(r.blocks[1].a).toEqual({ start: 2, end: 3 }); // the empty line 3 on the left
+    const toRight = b.slice();
+    applyOp(toRight, mergeOp(r.blocks[1], 'a', a, toRight));
+    expect(joinLines(toRight, '\n', false)).toBe('x\ny\n');
+    const toLeft = a.slice();
+    applyOp(toLeft, mergeOp(r.blocks[1], 'b', b, toLeft));
+    expect(joinLines(toLeft, '\n', false)).toBe('x\ny');
   });
 });
 
