@@ -124,8 +124,19 @@ export function MenuBar({ enabled, checked, onCommand }: MenuBarProps) {
           className={`menubar-title${open === i ? " open" : ""}`}
           aria-haspopup="menu"
           aria-expanded={open === i}
-          onClick={() => (open === i ? close() : (setOpen(i), setActive(-1)))}
-          onMouseEnter={() => open !== null && open !== i && (setOpen(i), setActive(-1))}
+          onClick={() => {
+            if (open === i) close();
+            else {
+              setOpen(i);
+              setActive(-1);
+            }
+          }}
+          onMouseEnter={() => {
+            if (open !== null && open !== i) {
+              setOpen(i);
+              setActive(-1);
+            }
+          }}
         >
           {section.label}
         </button>

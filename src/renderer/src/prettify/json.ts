@@ -92,7 +92,7 @@ export function formatJson(text: string, indentUnit = "  "): PrettifyResult {
       continue;
     }
     if (c === ",") {
-      if (!t || t.expect !== "comma-or-close") return fail('Unexpected ","');
+      if (t?.expect !== "comma-or-close") return fail('Unexpected ","');
       t.expect = t.close === "}" ? "key-or-close" : "value-or-close";
       line += ",";
       newline();
@@ -100,7 +100,7 @@ export function formatJson(text: string, indentUnit = "  "): PrettifyResult {
       continue;
     }
     if (c === ":") {
-      if (!t || t.expect !== "colon") return fail('Unexpected ":"');
+      if (t?.expect !== "colon") return fail('Unexpected ":"');
       t.expect = "value";
       line += ": ";
       i++;
@@ -135,7 +135,7 @@ export function formatJson(text: string, indentUnit = "  "): PrettifyResult {
   if (stack.length) return fail(`Missing "${top()!.close}" at the end`, n);
   if (!topLevelDone) return fail("No JSON value found", n);
   if (line.trim()) out.push(line);
-  return { ok: true, text: out.join("\n") + "\n" };
+  return { ok: true, text: `${out.join("\n")}\n` };
 }
 
 const indexOrEnd = (text: string, s: string, from: number) => {

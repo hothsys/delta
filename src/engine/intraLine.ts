@@ -108,7 +108,7 @@ function rewritten(a: string, b: string, changedInA: Range[]): boolean {
   let unchanged = "";
   let pos = 0;
   for (const r of changedInA) {
-    unchanged += a.slice(pos, r.start) + " ";
+    unchanged += `${a.slice(pos, r.start)} `;
     pos = r.end;
   }
   unchanged += a.slice(pos);

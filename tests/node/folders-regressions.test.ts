@@ -21,7 +21,11 @@ const dir = (...p: string[]) => {
 };
 const child = (root: FolderNode, name: string) => root.children!.find((c) => c.name === name)!;
 const locked: string[] = [];
-afterAll(() => locked.forEach((p) => chmodSync(p, 0o755)));
+afterAll(() =>
+  locked.forEach((p) => {
+    chmodSync(p, 0o755);
+  }),
+);
 
 // Bugs found in review, kept fixed.
 describe("folder comparison regressions", () => {

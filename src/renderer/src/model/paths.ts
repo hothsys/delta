@@ -1,8 +1,8 @@
 /** `path` with the home folder written as `~`, when it is inside it. */
 export function tildePath(path: string, home: string): string {
-  if (!home || !(path === home || path.startsWith(home + "/") || path.startsWith(home + "\\")))
+  if (!home || !(path === home || path.startsWith(`${home}/`) || path.startsWith(`${home}\\`)))
     return path;
-  return "~" + path.slice(home.length);
+  return `~${path.slice(home.length)}`;
 }
 
 /** Splits a path into its folder (with the trailing separator) and its last segment. */

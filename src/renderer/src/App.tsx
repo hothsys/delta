@@ -224,12 +224,14 @@ export function App() {
       dirty.map(async (s) => {
         const f = sources[s].file;
         const r = f && (await api.readFile(f.path));
-        return r && r.ok ? fromFile(r.file) : { ...sources[s], id: newSourceId() };
+        return r?.ok ? fromFile(r.file) : { ...sources[s], id: newSourceId() };
       }),
     );
     setSources((cur) => {
       const next = { ...cur };
-      dirty.forEach((s, i) => (next[s] = fresh[i]));
+      dirty.forEach((s, i) => {
+        next[s] = fresh[i];
+      });
       return next;
     });
     return true;
@@ -299,7 +301,7 @@ export function App() {
     const trailingNewline = source.file ? doc.trailingNewline : cmp.docs[other].trailingNewline;
     const version = doc.version;
     const text = joinLines(doc.lines, eol, trailingNewline);
-    if (encoding === "latin1" && /[^\u0000-\u00ff]/.test(text)) {
+    if (encoding === "latin1" && /[\u0100-\uffff]/.test(text)) {
       const ok = await api.confirm({
         message: `Save ${source.label} as UTF-8?`,
         detail:
@@ -659,7 +661,10 @@ export function App() {
         picked?.path === path
           ? {
               label: "Clear selection for comparison",
-              run: () => (setPicked(null), setNotice(null)),
+              run: () => {
+                setPicked(null);
+                setNotice(null);
+              },
             }
           : {
               label: `Select “${node.name}” for comparison`,
@@ -669,7 +674,15 @@ export function App() {
                 setNotice({
                   kind: "info",
                   text: `“${node.name}” is selected. Right-click another file and choose Compare with “${node.name}”.`,
-                  actions: [{ label: "Clear", run: () => (setPicked(null), setNotice(null)) }],
+                  actions: [
+                    {
+                      label: "Clear",
+                      run: () => {
+                        setPicked(null);
+                        setNotice(null);
+                      },
+                    },
+                  ],
                 });
               },
             },
@@ -793,7 +806,7 @@ export function App() {
     // Changes from Delta's own copy are covered by the rescan that follows it.
     const own =
       ownCopy.current && Date.now() < ownCopy.current.until ? ownCopy.current.relPath : null;
-    const ours = (p: string) => own !== null && (p === own || p.startsWith(own + "/"));
+    const ours = (p: string) => own !== null && (p === own || p.startsWith(`${own}/`));
     if ("overflow" in change) {
       if (own === null) pendingChanges.current.overflow = true;
     } else for (const p of change.paths) if (!ours(p)) pendingChanges.current.paths.add(p);

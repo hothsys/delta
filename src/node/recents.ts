@@ -110,7 +110,7 @@ export function volumeOf(
   }
   if (platform === "win32") {
     const unc = /^(\\\\[^\\]+\\[^\\]+)/.exec(path);
-    if (unc) return { name: unc[1], root: unc[1] + "\\" };
+    if (unc) return { name: unc[1], root: `${unc[1]}\\` };
     const drive = /^([A-Za-z]:)/.exec(path);
     if (drive && drive[1].toUpperCase() !== systemDrive.toUpperCase())
       return { name: drive[1].toUpperCase(), root: `${drive[1]}\\` };

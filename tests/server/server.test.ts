@@ -226,7 +226,7 @@ describe("API routes", () => {
     ).json();
     expect(copied).toEqual({ ok: true });
     expect(readFileSync(join(files, "R", "a.txt"), "utf8")).toBe("left\n");
-    const escape = (
+    const escapeAttempt = (
       await api("/api/copy", {
         leftRoot: join(files, "L"),
         rightRoot: join(files, "R"),
@@ -234,7 +234,7 @@ describe("API routes", () => {
         from: "left",
       })
     ).json();
-    expect(escape.ok).toBe(false);
+    expect(escapeAttempt.ok).toBe(false);
   });
 
   it("keeps recent comparisons", async () => {

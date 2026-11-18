@@ -48,7 +48,7 @@ async function withPrettier(
   kind: "js" | "ts" | "css" | "scss" | "less",
 ): Promise<PrettifyResult> {
   const prettier = await import("prettier/standalone");
-  let plugins;
+  let plugins: unknown[];
   let parser: string;
   if (kind === "js" || kind === "ts") {
     const [estree, lang] = await Promise.all([

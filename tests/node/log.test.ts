@@ -100,7 +100,7 @@ describe("the log file", () => {
 
   it("carries on from an existing file size, rotating it when already full", () => {
     const dir = fresh();
-    writeFileSync(join(dir, "test.log"), "y".repeat(990) + "\n");
+    writeFileSync(join(dir, "test.log"), `${"y".repeat(990)}\n`);
     initLog({ dir, name: "test.log", level: "info", maxBytes: 1000 });
     log.info("app", "next start");
     expect(read(dir, "test.log.1")).toMatch(/^y+\n$/);
@@ -244,7 +244,9 @@ describe("what is logged about folder scans", () => {
       chmodSync(join(dir, "L", "locked"), 0o755);
     }
     const text = read(dir);
-    expect(text).toMatch(/INFO {2}folders {2}Comparing folders {2}left=\S+ right=\S+ mode=contents/);
+    expect(text).toMatch(
+      /INFO {2}folders {2}Comparing folders {2}left=\S+ right=\S+ mode=contents/,
+    );
     expect(text).toMatch(
       /INFO {2}folders {2}Folder comparison finished {2}status=different entries=\d+ files=1 .*unreadable=1/,
     );

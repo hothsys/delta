@@ -210,7 +210,7 @@ describe("filesEqual", () => {
     const big = "x".repeat(200_000);
     writeFileSync(join(left, "big1"), big);
     writeFileSync(join(left, "big2"), big);
-    writeFileSync(join(left, "big3"), big.slice(0, -1) + "y");
+    writeFileSync(join(left, "big3"), `${big.slice(0, -1)}y`);
     expect(await filesEqual(join(left, "big1"), join(left, "big2"), 200_000, 200_000)).toBe(true);
     expect(await filesEqual(join(left, "big1"), join(left, "big3"), 200_000, 200_000)).toBe(false);
   });

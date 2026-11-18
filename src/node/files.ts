@@ -54,7 +54,7 @@ export async function writeTextFile(req: SaveRequest): Promise<SaveResult> {
   try {
     // Latin-1 cannot represent characters typed beyond U+00FF; fall back to UTF-8 rather than lose them.
     const encoding: TextEncoding =
-      req.encoding === "latin1" && /[^\u0000-\u00ff]/.test(req.text) ? "utf8" : req.encoding;
+      req.encoding === "latin1" && /[\u0100-\uffff]/.test(req.text) ? "utf8" : req.encoding;
     await writeFileAtomic(req.path, encode(req.text, encoding));
     const info = await stat(req.path);
     log.info("files", "Saved", {

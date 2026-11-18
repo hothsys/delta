@@ -78,7 +78,7 @@ writeFileSync(
 );
 writeFileSync(
   join(F, "pretty.json"),
-  JSON.stringify(
+  `${JSON.stringify(
     {
       name: "delta",
       version: "1.1.0",
@@ -87,7 +87,7 @@ writeFileSync(
     },
     null,
     4,
-  ) + "\n",
+  )}\n`,
 );
 writeFileSync(join(F, "broken.json"), '{"name":"delta","version":}');
 // A folder that disappears later, for the missing-path badge on the start screen.
@@ -876,7 +876,10 @@ async function run() {
   section("Logging");
   await sleep(1500); // the page sends its entries about once a second
   const text = logText();
-  check("the server logs that it started", /INFO {2}server {3}Delta started .*level=info/.test(text));
+  check(
+    "the server logs that it started",
+    /INFO {2}server {3}Delta started .*level=info/.test(text),
+  );
   check(
     "the page's actions are logged",
     [
@@ -972,7 +975,7 @@ async function run() {
           resolve();
         }
       });
-      server.on("exit", () => reject(new Error("the server exited; see " + join(T, "server.log"))));
+      server.on("exit", () => reject(new Error(`the server exited; see ${join(T, "server.log")}`)));
       setTimeout(() => reject(new Error("the server did not start")), 15000);
     });
     await app.whenReady();

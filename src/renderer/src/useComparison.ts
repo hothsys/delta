@@ -82,7 +82,7 @@ const tagOf = (docs: Docs, anchors: Anchor[]) =>
   `${docs.a.version}:${docs.b.version}:${anchors.map((x) => `${x.a}-${x.b}`).join(",")}`;
 
 /** Terminates every line, so the worker splits back exactly the same lines (even a trailing empty one). */
-const toDiffText = (lines: readonly string[]) => (lines.length ? lines.join("\n") + "\n" : "");
+const toDiffText = (lines: readonly string[]) => (lines.length ? `${lines.join("\n")}\n` : "");
 
 const toInput = (docs: Docs, anchors: Anchor[]): DiffInput => ({
   left: toDiffText(docs.a.lines),

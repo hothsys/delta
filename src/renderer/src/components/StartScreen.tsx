@@ -133,7 +133,7 @@ export function StartScreen(props: StartScreenProps) {
 /** Replaces the home folder with ~ and elides the middle of very long paths, keeping the end. */
 function shorten(path: string, home: string): string {
   let p = tildePath(path, home);
-  if (p.length > 80) p = p.slice(0, 28) + "…" + p.slice(-50);
+  if (p.length > 80) p = `${p.slice(0, 28)}…${p.slice(-50)}`;
   return p;
 }
 

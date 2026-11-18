@@ -730,7 +730,7 @@ export function DiffView(props: DiffViewProps) {
       case "Enter": {
         // Keep the current line's indentation.
         const indent = /^[ \t]*/.exec(text.slice(0, head.col))![0];
-        insert("\n" + indent);
+        insert(`\n${indent}`);
         break;
       }
       case "Tab": {

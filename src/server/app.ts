@@ -308,9 +308,15 @@ export function createDeltaServer(options: ServerOptions): DeltaServer {
   /** Server-Sent Events: "file changed on disk" notifications for one browser tab. */
   function openStream(req: IncomingMessage, res: ServerResponse, url: URL): void {
     const rejected = checkStreamRequest(req, port(), options.token, url.searchParams.get("token"));
-    if (rejected) return reject(req, res, rejected);
+    if (rejected) {
+      reject(req, res, rejected);
+      return;
+    }
     const id = url.searchParams.get("client");
-    if (!id) return reject(req, res, { status: 400, message: "Missing client id." });
+    if (!id) {
+      reject(req, res, { status: 400, message: "Missing client id." });
+      return;
+    }
     log.debug("server", "Page connected", { client: id.slice(0, 8), pages: streams.size + 1 });
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -355,7 +361,7 @@ export function createDeltaServer(options: ServerOptions): DeltaServer {
     } catch {
       return send(res, 404, { ok: false, message: "Not found." }); // a malformed address
     }
-    const file = resolve(root, "." + normalize(decoded));
+    const file = resolve(root, `.${normalize(decoded)}`);
     if (file !== root && !file.startsWith(root + sep))
       return send(res, 404, { ok: false, message: "Not found." });
     let data: Buffer;
