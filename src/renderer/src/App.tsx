@@ -303,6 +303,7 @@ export function App() {
     const trailingNewline = endsWithNewline(doc.lines);
     const version = doc.version;
     const text = joinLines(doc.lines, eol, false);
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional - matches characters outside the Latin-1 range to gate the save-as-UTF-8 prompt
     if (encoding === "latin1" && /[^\u0000-\u00ff]/.test(text)) {
       const ok = await api.confirm({
         message: `Save ${source.label} as UTF-8?`,
