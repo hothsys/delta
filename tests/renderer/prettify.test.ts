@@ -170,7 +170,9 @@ describe("XML and HTML", () => {
 describe("JavaScript, TypeScript and CSS (Prettier)", () => {
   it("formats JavaScript, including regex literals and template strings", async () => {
     expect(
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: intentional - test input exercising Prettier's template-string formatting
       ok(await prettify("function f(a,b){return a+b}const x=/re\\/g/.test(`t${1}`);", "js")),
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: intentional - expected Prettier output, keeps the template literal verbatim
     ).toBe("function f(a, b) {\n  return a + b;\n}\nconst x = /re\\/g/.test(`t${1}`);\n");
   });
 
