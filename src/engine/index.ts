@@ -1,10 +1,10 @@
 import { diffLines } from "./lineDiff";
-import { splitLines, type SplitText } from "./text";
+import { type SplitText, splitLines } from "./text";
 import type { LineDiffOptions, LineDiffResult } from "./types";
 
-export { diffLines } from "./lineDiff";
 export { diffChars } from "./intraLine";
-export { splitLines, joinLines, type Eol, type SplitText } from "./text";
+export { diffLines } from "./lineDiff";
+export { type Eol, joinLines, type SplitText, splitLines } from "./text";
 export type * from "./types";
 
 export interface TextDiffResult extends LineDiffResult {

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
 import type { Command, CopyProgress, DeltaApi, FolderChange, FolderProgress } from "../shared/api";
 
 /** Subscribes to a main-process event and returns an unsubscribe function. */

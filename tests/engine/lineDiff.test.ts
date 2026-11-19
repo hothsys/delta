@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diffLines, diffText, type DiffBlock, type LineDiffResult } from "../../src/engine";
+import { type DiffBlock, diffLines, diffText, type LineDiffResult } from "../../src/engine";
 
 const kinds = (r: LineDiffResult) => r.blocks.map((b) => b.kind);
 const span = (b: DiffBlock) => [b.a.start, b.a.end, b.b.start, b.b.end];

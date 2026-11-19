@@ -5,12 +5,13 @@
 // Vite passes /api calls through to Delta's server as if they came from its own page, and
 // adds the server's token to the page, as the server does. CORS stays off, so other websites
 // can neither read the page (and its token) nor call the API through it.
-import react from "@vitejs/plugin-react";
+
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import react from "@vitejs/plugin-react";
 import { createServer } from "vite";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");

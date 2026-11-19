@@ -15,6 +15,7 @@ const base = {
 /** An arrow pointing up (previous difference). */
 export function ArrowUpIcon() {
   return (
+    // biome-ignore lint/a11y/noSvgWithoutTitle: decorative by design - shared base props set aria-hidden
     <svg {...base}>
       <path d="M12 19V5" />
       <path d="m5 12 7-7 7 7" />
@@ -25,6 +26,7 @@ export function ArrowUpIcon() {
 /** An arrow pointing down (next difference). */
 export function ArrowDownIcon() {
   return (
+    // biome-ignore lint/a11y/noSvgWithoutTitle: decorative by design - shared base props set aria-hidden
     <svg {...base}>
       <path d="M12 5v14" />
       <path d="m19 12-7 7-7-7" />
@@ -35,6 +37,7 @@ export function ArrowDownIcon() {
 /** A floppy disk. */
 export function SaveIcon() {
   return (
+    // biome-ignore lint/a11y/noSvgWithoutTitle: decorative by design - shared base props set aria-hidden
     <svg {...base}>
       <path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
       <path d="M7 3v5h8V3" />
@@ -46,6 +49,7 @@ export function SaveIcon() {
 /** A curved arrow pointing back. */
 export function UndoIcon() {
   return (
+    // biome-ignore lint/a11y/noSvgWithoutTitle: decorative by design - shared base props set aria-hidden
     <svg {...base}>
       <path d="M9 14 4 9l5-5" />
       <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
@@ -56,6 +60,7 @@ export function UndoIcon() {
 /** A circular arrow: reload from disk. */
 export function RefreshIcon() {
   return (
+    // biome-ignore lint/a11y/noSvgWithoutTitle: decorative by design - shared base props set aria-hidden
     <svg {...base}>
       <path d="M20 12a8 8 0 1 1-2.34-5.66" />
       <path d="M20 4v4.5h-4.5" />
@@ -75,6 +80,7 @@ export function MergeIcon({
   remove?: boolean;
 }) {
   return (
+    // biome-ignore lint/a11y/noSvgWithoutTitle: decorative by design - shared base props set aria-hidden
     <svg
       {...base}
       width={14}
@@ -100,6 +106,7 @@ export function MergeIcon({
 /** A small downward chevron: this button opens a menu. */
 export function ChevronDownIcon() {
   return (
+    // biome-ignore lint/a11y/noSvgWithoutTitle: decorative by design - shared base props set aria-hidden
     <svg {...base} width={12} height={12} strokeWidth={2.5}>
       <path d="M6 9l6 6 6-6" />
     </svg>

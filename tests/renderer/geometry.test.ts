@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { diffLines } from "../../src/engine";
 import { blockAtRow, visibleConnectors } from "../../src/renderer/src/model/gutter";
 import {
-  markAt,
   MIN_MARK_HEIGHT,
+  markAt,
   overviewMarks,
   rowAtY,
   scrollTopForRow,

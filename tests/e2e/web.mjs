@@ -4,7 +4,7 @@
 //   npm run test:e2e        (builds first)
 //
 // Everything runs against temporary files and a temporary settings folder, on a spare port.
-import electron from "electron";
+
 import { spawn, spawnSync } from "node:child_process";
 import {
   appendFileSync,
@@ -22,6 +22,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import electron from "electron";
 
 const { app, BrowserWindow } = electron;
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");

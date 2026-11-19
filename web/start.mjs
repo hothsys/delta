@@ -14,7 +14,6 @@
 // Only Node's built-in modules are used here: node_modules may not exist yet.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { homedir } from "node:os";
 import {
   appendFileSync,
   existsSync,
@@ -25,6 +24,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 

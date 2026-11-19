@@ -9,7 +9,7 @@ import type {
 } from "react";
 import type { IntraLineDiff, Range } from "../../../engine";
 import { RowKind, type RowModel, type Side } from "../model/rowModel";
-import { ordered, visualColumn, type Selection } from "../model/textEdit";
+import { ordered, type Selection, visualColumn } from "../model/textEdit";
 import { CELL_PADDING, clipRanges, columnSlice, LONG_LINE, ROW_HEIGHT, TAB_SIZE } from "./layout";
 
 export type { Side };

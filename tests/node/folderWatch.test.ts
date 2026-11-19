@@ -4,11 +4,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { compareEntries, copyEntry } from "../../src/node/folders";
 import {
+  type FolderChangeSubscriber,
   folderWatchCount,
   MAX_BATCH_PATHS,
   MISSING_ROOT_POLL_MS,
   watchFolders,
-  type FolderChangeSubscriber,
 } from "../../src/node/folderWatch";
 import type { FolderChange } from "../../src/shared/api";
 

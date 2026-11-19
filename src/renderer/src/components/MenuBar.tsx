@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { type MouseEvent, useEffect, useRef, useState } from "react";
 import type { Command } from "../../../shared/api";
 import { acceleratorFor, formatAccelerator, MENU } from "../../../shared/menu";
 

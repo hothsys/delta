@@ -1,3 +1,6 @@
+import { stat } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import {
   app,
   BrowserWindow,
@@ -7,9 +10,15 @@ import {
   shell,
   type WebContents,
 } from "electron";
-import { stat } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { listDirectory, locations } from "../node/browse";
+import { readTextFile, writeTextFile } from "../node/files";
+import { compareEntries, compareFolders, copyEntry } from "../node/folders";
+import { type FolderChangeSubscriber, watchFolders } from "../node/folderWatch";
+import { launchRequest } from "../node/launch";
+import { log, logLevel, takeLogLevel, writeFromInterface } from "../node/log";
+import { diagnostics, logInfo, logsFolder, setDebugLogging, startLogging } from "../node/logging";
+import { RecentStore } from "../node/recents";
+import { type ChangeSubscriber, noteOwnWrite, setWatched } from "../node/watch";
 import type {
   Command,
   ComparisonKind,
@@ -18,16 +27,7 @@ import type {
   FolderCompareMode,
   SaveRequest,
 } from "../shared/api";
-import { readTextFile, writeTextFile } from "../node/files";
-import { compareEntries, compareFolders, copyEntry } from "../node/folders";
-import { watchFolders, type FolderChangeSubscriber } from "../node/folderWatch";
-import { listDirectory, locations } from "../node/browse";
 import { installMenu } from "./menu";
-import { RecentStore } from "../node/recents";
-import { launchRequest } from "../node/launch";
-import { log, logLevel, takeLogLevel, writeFromInterface } from "../node/log";
-import { diagnostics, logInfo, logsFolder, setDebugLogging, startLogging } from "../node/logging";
-import { noteOwnWrite, setWatched, type ChangeSubscriber } from "../node/watch";
 
 // In development Electron is started as `electron <app dir> …args`, so skip one more.
 const args = takeLogLevel(process.argv.slice(app.isPackaged ? 1 : 2));

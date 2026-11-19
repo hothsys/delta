@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ChevronDownIcon } from "./icons";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { WhitespaceMode } from "../../../engine";
+import { ChevronDownIcon } from "./icons";
 
 const WHITESPACE_LABELS: Record<WhitespaceMode, string> = {
   exact: "Compare whitespace",

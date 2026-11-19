@@ -1,4 +1,4 @@
-import { statSync, watch, type FSWatcher } from "node:fs";
+import { type FSWatcher, statSync, watch } from "node:fs";
 import type { FolderChange } from "../shared/api";
 import { errorMessage } from "./files";
 import { IGNORED_NAMES } from "./folders";

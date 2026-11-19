@@ -3,6 +3,15 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { homedir } from "node:os";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
+import { listDirectory, locations } from "../node/browse";
+import { readTextFile, writeTextFile } from "../node/files";
+import { compareEntries, compareFolders, copyEntry } from "../node/folders";
+import { type FolderChangeSubscriber, watchFolders } from "../node/folderWatch";
+import { launchRequest } from "../node/launch";
+import { log, writeFromInterface } from "../node/log";
+import { diagnostics, logInfo, logsFolder, setDebugLogging } from "../node/logging";
+import { RecentStore } from "../node/recents";
+import { type ChangeSubscriber, noteOwnWrite, setWatched } from "../node/watch";
 import type {
   ComparisonKind,
   CopyRequest,
@@ -10,15 +19,6 @@ import type {
   LaunchRequest,
   SaveRequest,
 } from "../shared/api";
-import { listDirectory, locations } from "../node/browse";
-import { readTextFile, writeTextFile } from "../node/files";
-import { compareEntries, compareFolders, copyEntry } from "../node/folders";
-import { watchFolders, type FolderChangeSubscriber } from "../node/folderWatch";
-import { launchRequest } from "../node/launch";
-import { log, writeFromInterface } from "../node/log";
-import { diagnostics, logInfo, logsFolder, setDebugLogging } from "../node/logging";
-import { RecentStore } from "../node/recents";
-import { noteOwnWrite, setWatched, type ChangeSubscriber } from "../node/watch";
 import { openExternally } from "./open";
 import { checkApiRequest, checkHost, checkStreamRequest, type Rejection } from "./security";
 

@@ -4,7 +4,7 @@
  * replaces one line with one line, Enter replaces one line with two, a merge replaces a block.
  */
 
-import { splitLines, type SplitText } from "../../../engine";
+import { type SplitText, splitLines } from "../../../engine";
 
 /**
  * A text's lines as an editor shows them: every line break starts a new line, so a text that
