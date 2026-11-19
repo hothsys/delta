@@ -20,27 +20,27 @@ import { commandForKey, isShortcutOnly } from "../../shared/menu";
 import { ContextMenu, type MenuItem } from "./components/ContextMenu";
 import { DiffView, type DiffViewHandle } from "./components/DiffView";
 import { FolderView, type TreeSide } from "./components/FolderView";
+import { LONG_LINE } from "./components/layout";
 import { MenuBar } from "./components/MenuBar";
 import { Notice, type NoticeState } from "./components/Notice";
 import { PrettifyBar } from "./components/PrettifyBar";
-import { LONG_LINE } from "./components/layout";
-import { prettifyAvailability } from "./prettify/kinds";
-import { usePrettify } from "./usePrettify";
 import { StartScreen } from "./components/StartScreen";
-import { Toolbar, type Theme } from "./components/Toolbar";
+import { type Theme, Toolbar } from "./components/Toolbar";
 import { log, setLogLevel } from "./log";
 import {
   conventionsDiffer,
+  type FileDetails,
   identicalNote,
   isAsciiText,
   savedEolCounts,
-  type FileDetails,
 } from "./model/fileDetails";
 import { entriesToRecompare, patchTree } from "./model/folderTree";
 import type { Side } from "./model/rowModel";
-import { api } from "./platform";
-import { newSourceId, useComparison, type Source } from "./useComparison";
 import { endsWithNewline, fileLineCount } from "./model/textEdit";
+import { api } from "./platform";
+import { prettifyAvailability } from "./prettify/kinds";
+import { newSourceId, type Source, useComparison } from "./useComparison";
+import { usePrettify } from "./usePrettify";
 
 const THEME_KEY = "delta.theme";
 const SCAN_CANCELLED = "The folder comparison was cancelled.";

@@ -3,13 +3,13 @@ import {
   conventionsDiffer,
   encodingLabel,
   eolSummary,
+  type FileDetails,
   formatBytes,
   formatLines,
   formatSize,
   identicalNote,
   isAsciiText,
   savedEolCounts,
-  type FileDetails,
 } from "../../src/renderer/src/model/fileDetails";
 
 const file = (over: Partial<FileDetails> = {}): FileDetails => ({

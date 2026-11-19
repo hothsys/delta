@@ -1,4 +1,5 @@
 import { existsSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,7 +14,6 @@ import {
   stopRunning,
   writeRuntime,
 } from "../../src/server/runtime";
-import { createServer } from "node:http";
 
 const dir = mkdtempSync(join(tmpdir(), "delta-runtime-"));
 const token = "runtime-test-token-0123456789";

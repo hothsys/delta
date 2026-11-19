@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { DirEntry, DirectoryListing, Location } from "../../../shared/api";
 import { parentDir } from "../model/paths";
 import { api } from "../platform";

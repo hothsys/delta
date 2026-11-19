@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from "react";
+import { type RefObject, useEffect, useState } from "react";
 
 /** Reads a theme colour from the CSS variables in styles.css, so canvases follow the theme. */
 export function cssVar(name: string): string {

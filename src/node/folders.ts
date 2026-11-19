@@ -1,8 +1,8 @@
-import { constants as fsConstants, type Dirent, type Stats } from "node:fs";
+import { type Dirent, constants as fsConstants, type Stats } from "node:fs";
 import {
-  type FileHandle,
   chmod,
   copyFile,
+  type FileHandle,
   lstat,
   mkdir,
   open,
@@ -17,7 +17,6 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
-  TIMESTAMP_TOLERANCE_MS,
   type CopyProgress,
   type CopyRequest,
   type CopyResult,
@@ -28,6 +27,7 @@ import {
   type FolderEntriesResult,
   type FolderNode,
   type FolderProgress,
+  TIMESTAMP_TOLERANCE_MS,
 } from "../shared/api";
 import { BINARY_SNIFF_BYTES, errorMessage, looksBinary } from "./files";
 import { log } from "./log";

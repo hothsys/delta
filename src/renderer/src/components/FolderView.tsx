@@ -1,30 +1,30 @@
 import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
-  type KeyboardEvent,
-  type PointerEvent,
-  type ReactNode,
 } from "react";
 import {
-  TIMESTAMP_TOLERANCE_MS,
   type CopyProgress,
   type FolderCompareMode,
   type FolderCompareResult,
   type FolderNode,
   type FolderProgress,
+  TIMESTAMP_TOLERANCE_MS,
 } from "../../../shared/api";
 import { countFiles, flattenTree, folderPaths } from "../model/folderTree";
-import { ratioAt, useSplit } from "./split";
-import type { Theme } from "./Toolbar";
 import { FolderCompareOptions } from "./FolderCompareOptions";
 import { HomeButton } from "./HomeButton";
 import { MergeIcon, RefreshIcon } from "./icons";
 import { GUTTER_WIDTH } from "./layout";
+import { ratioAt, useSplit } from "./split";
 import { ThemeButton } from "./ThemeButton";
+import type { Theme } from "./Toolbar";
 
 /** Width of the centre column holding the copy arrows; it doubles as the divider. */
 /** The middle column with the copy arrows: as wide as the text view's gutter. */

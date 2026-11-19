@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import type { Range } from "../../../engine";
 import { BAND_WIDTH, CELL_PADDING, clipRanges, columnSlice, LONG_LINE, TAB_SIZE } from "./layout";
 

@@ -1,5 +1,5 @@
 import { Interner } from "./intern";
-import { diffSequences, marksToHunks, type Hunk } from "./myers";
+import { diffSequences, type Hunk, marksToHunks } from "./myers";
 import { isWhitespace } from "./normalize";
 import type { CompareOptions, IntraLineDiff, Range, WhitespaceMode } from "./types";
 

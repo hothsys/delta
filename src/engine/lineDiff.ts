@@ -1,7 +1,7 @@
-import { Interner, internAll } from "./intern";
 import { histogramDiff } from "./histogram";
-import { diffSequences, marksToHunks, type Hunk } from "./myers";
-import { lineKeyFn, type KeyFn } from "./normalize";
+import { Interner, internAll } from "./intern";
+import { diffSequences, type Hunk, marksToHunks } from "./myers";
+import { type KeyFn, lineKeyFn } from "./normalize";
 import { pairLines } from "./pairing";
 import type {
   Anchor,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commandForKey, formatAccelerator, matchesAccelerator, MENU } from "../../src/shared/menu";
+import { commandForKey, formatAccelerator, MENU, matchesAccelerator } from "../../src/shared/menu";
 
 const key = (
   k: string,

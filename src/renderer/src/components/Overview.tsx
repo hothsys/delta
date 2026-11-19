@@ -1,11 +1,11 @@
 import {
+  type PointerEvent,
+  type Ref,
   useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
-  type PointerEvent,
-  type Ref,
 } from "react";
 import type { DiffBlock } from "../../../engine";
 import { markAt, overviewMarks, rowAtY, scrollTopForRow } from "../model/overview";

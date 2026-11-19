@@ -1,10 +1,10 @@
 import {
-  eolSummary,
   encodingLabel,
+  eolSummary,
+  type FileDetails,
   formatBytes,
   formatLines,
   formatSize,
-  type FileDetails,
 } from "../model/fileDetails";
 
 interface FileStatusProps {

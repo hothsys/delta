@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { readTextFile, writeTextFile } from "../../src/node/files";
 import {
   closeLog,
   formatEntry,
@@ -14,7 +15,6 @@ import {
   writeFromInterface,
 } from "../../src/node/log";
 import { logInfo, setDebugLogging, startLogging } from "../../src/node/logging";
-import { readTextFile, writeTextFile } from "../../src/node/files";
 
 const fresh = () => mkdtempSync(join(tmpdir(), "delta-log-"));
 const read = (dir: string, name = "test.log") => readFileSync(join(dir, name), "utf8");

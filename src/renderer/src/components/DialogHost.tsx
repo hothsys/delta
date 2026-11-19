@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ConfirmOptions } from "../../../shared/api";
-import { registerDialogs, type PickRequest } from "../platform/dialogs";
+import { type PickRequest, registerDialogs } from "../platform/dialogs";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { FileBrowser } from "./FileBrowser";
 

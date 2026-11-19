@@ -9,7 +9,7 @@
 // the scenes below. Images are 2800px wide (1400 at 2x) whatever screen this runs on.
 //
 // To add a screenshot, add a scene: a file name, a theme, and the steps that set up the view.
-import electron from "electron";
+
 import { spawn, spawnSync } from "node:child_process";
 import {
   cpSync,
@@ -26,6 +26,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import electron from "electron";
 
 const { app, BrowserWindow, nativeImage } = electron;
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");

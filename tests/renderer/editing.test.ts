@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diffLines, joinLines, type DiffBlock } from "../../src/engine";
+import { type DiffBlock, diffLines, joinLines } from "../../src/engine";
 import { mergeOp, mergeTitle } from "../../src/renderer/src/model/merge";
 import {
   buildRows,
@@ -11,6 +11,7 @@ import {
   applyOp,
   colAtVisual,
   composeOps,
+  type EditOp,
   editorLines,
   endsWithNewline,
   fileLineCount,
@@ -22,7 +23,6 @@ import {
   wordAt,
   wordLeft,
   wordRight,
-  type EditOp,
 } from "../../src/renderer/src/model/textEdit";
 import { UndoHistory } from "../../src/renderer/src/model/undo";
 

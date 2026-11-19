@@ -1,8 +1,8 @@
 import type { RecentComparison, RecentSide } from "../../../shared/api";
 import logoUrl from "../assets/logo.svg";
 import { tildePath } from "../model/paths";
-import type { Theme } from "./Toolbar";
 import { ThemeButton } from "./ThemeButton";
+import type { Theme } from "./Toolbar";
 
 interface StartScreenProps {
   onCompareFiles: () => void;

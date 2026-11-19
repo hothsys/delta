@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ChevronDownIcon } from "./icons";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { FolderCompareMode } from "../../../shared/api";
+import { ChevronDownIcon } from "./icons";
 
 const MODES: { mode: FolderCompareMode; label: string; detail: string }[] = [
   {

@@ -1,11 +1,4 @@
 import {
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
   type ClipboardEvent,
   type CSSProperties,
   type FormEvent,
@@ -13,43 +6,52 @@ import {
   type PointerEvent,
   type MouseEvent as ReactMouseEvent,
   type Ref,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 import {
-  diffChars,
   type Anchor,
   type CompareOptions,
   type DiffBlock,
+  diffChars,
   type IntraLineDiff,
 } from "../../../engine";
 import { log } from "../log";
+import type { FileDetails } from "../model/fileDetails";
 import { mergeOp } from "../model/merge";
+import { scrollTopForRow } from "../model/overview";
+import { splitPath, tildePath } from "../model/paths";
 import { maxColumns, RowKind, type RowModel, type Side } from "../model/rowModel";
 import {
   caretAt,
   clampPos,
   colAtVisual,
+  type EditOp,
   endsWithNewline,
   fileLineCount,
   isCaret,
   ordered,
+  type Pos,
   replaceRange,
+  type Selection,
   textInRange,
   transformPos,
   visualColumn,
   wordAt,
   wordLeft,
   wordRight,
-  type EditOp,
-  type Pos,
-  type Selection,
 } from "../model/textEdit";
 import type { Docs, EditMeta } from "../useComparison";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { FileStatus } from "./FileStatus";
 import { Gutter, type GutterHandle } from "./Gutter";
 import { SaveIcon, UndoIcon } from "./icons";
-import { FileStatus } from "./FileStatus";
 import { LineDetails } from "./LineDetails";
-import type { FileDetails } from "../model/fileDetails";
 import {
   BAND_ROWS,
   BAND_WIDTH,
@@ -61,8 +63,6 @@ import {
   ROW_HEIGHT,
   TAB_SIZE,
 } from "./layout";
-import { scrollTopForRow } from "../model/overview";
-import { splitPath, tildePath } from "../model/paths";
 import { Overview, type OverviewHandle } from "./Overview";
 import { Pane } from "./Pane";
 import { ratioAt, useSplit } from "./split";

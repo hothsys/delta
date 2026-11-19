@@ -1,4 +1,4 @@
-import { unwatchFile, watchFile, type Stats } from "node:fs";
+import { type Stats, unwatchFile, watchFile } from "node:fs";
 import { log } from "./log";
 
 /** How often watched files are polled. Polling, unlike fs.watch, survives editors that save by replacing the file. */

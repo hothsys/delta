@@ -1,7 +1,7 @@
 import { mkdir, readFile, stat } from "node:fs/promises";
 import { dirname } from "node:path";
-import { writeFileAtomic } from "./files";
 import type { ComparisonKind, PathState, RecentComparison, RecentSide } from "../shared/api";
+import { writeFileAtomic } from "./files";
 
 /** How many unique comparisons are remembered. */
 export const MAX_RECENTS = 20;
