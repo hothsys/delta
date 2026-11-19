@@ -100,12 +100,12 @@ export async function compareFolders(
   try {
     // The roots themselves may be links to folders (entries inside are never followed).
     const [l, r] = await Promise.all([rootInfo(leftRoot), rootInfo(rightRoot)]);
-    const notFolder = (path: string): FolderCompareResult => {
-      log.warn("folders", "Not a folder", { path });
-      return { ok: false, message: `${path} is not a folder.` };
+    const notFolder = (path: string, info: Stat | undefined): FolderCompareResult => {
+      log.warn("folders", info ? "Not a folder" : "Folder not found", { path });
+      return { ok: false, message: info ? `${path} is not a folder.` : `${path} doesn't exist.` };
     };
-    if (l?.kind !== "dir") return notFolder(leftRoot);
-    if (r?.kind !== "dir") return notFolder(rightRoot);
+    if (l?.kind !== "dir") return notFolder(leftRoot, l);
+    if (r?.kind !== "dir") return notFolder(rightRoot, r);
     const root = await compareDir(ctx, "", "", leftRoot, rightRoot, l, r);
     const elapsedMs = performance.now() - t0;
     // Always finish with the final totals, however recently the last throttled report went out.

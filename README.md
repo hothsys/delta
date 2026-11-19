@@ -201,7 +201,7 @@ Levels, from least to most detail: `error`, `warn`, `info` (the default) and `de
 
 **Comparing files**
 - Side-by-side view with synchronised scrolling. Deleted, inserted and modified lines are colour-coded, and the changed *words* in a modified line are highlighted (red for removed, green for added).
-- A **status line under each pane** shows the file's encoding (ASCII, UTF-8, UTF-8 with BOM, UTF-16 or Latin-1), line endings (LF, CRLF, CR or mixed), line count, a missing final newline, and size. Whatever differs between the two files is highlighted, and files whose text is identical but whose encoding or line endings aren't say so ("Identical text; line endings differ").
+- A **status line under each pane** shows the file's encoding (ASCII, UTF-8, UTF-8 with BOM, UTF-16 or Latin-1), line endings (LF, CRLF, CR or mixed), line count, a missing final newline, and size. Whatever differs between the two files is highlighted, and files whose text is identical but whose encoding or line endings aren't say so ("Identical text; line endings differ"). As in a text editor, a file that ends with a newline shows an empty last line, so a final newline on one side only appears as one extra line you can merge like any other.
 - A **line-details strip** at the bottom shows the current line pair in full, with visible whitespace (`·` spaces, `→` tabs, `¶` line ends), so long lines and spacing changes are easy to inspect.
 - A **centre gutter** links each change on the left to its counterpart on the right, and an **overview map** on the right shows every change in the file at a glance. Click it to jump.
 - **Whitespace and case options:** compare everything, or ignore leading/trailing whitespace, whitespace changes, all whitespace, or letter case.
@@ -287,6 +287,7 @@ npm run web:dev    # the browser version with hot reload
 | `npm run web` | Run the browser version (same as `start.command`) |
 | `npm run dist` | Build installers for your platform into `dist/installers/` |
 | `npm run dist:mac` / `dist:win` / `dist:linux` | Build installers for a specific platform |
+| `npm run clean` | Delete `dist/` (builds and installers); everything in it can be rebuilt |
 
 Installers are configured in `desktop/electron-builder.yml`; they're unsigned unless you add code-signing credentials there (or `CSC_LINK` / `CSC_KEY_PASSWORD` in CI). The GitHub Actions workflow (`.github/workflows/build.yml`) builds all three platforms on version tags.
 

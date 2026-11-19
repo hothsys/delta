@@ -10,8 +10,8 @@ import type { Anchor, DiffBlock } from "../../../engine";
 import { blockAtRow, visibleConnectors, type Connector } from "../model/gutter";
 import type { RowModel, Side } from "../model/rowModel";
 import { cssVar, prepareCanvas, useElementSize } from "./canvas";
-import { MergeIcon } from "./icons";
 import { mergeTitle } from "../model/merge";
+import { MergeIcon } from "./icons";
 import { ROW_HEIGHT } from "./layout";
 
 export interface GutterHandle {

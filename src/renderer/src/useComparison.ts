@@ -1,26 +1,20 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import {
-  splitLines,
-  type Anchor,
-  type DiffBlock,
-  type LineDiffOptions,
-  type SplitText,
-} from "../../engine";
+import { type Anchor, type DiffBlock, type LineDiffOptions, type SplitText } from "../../engine";
 import { addAnchor, removeAnchor, transformAnchors } from "./model/anchors";
 import { patchRows, type RowModel, type Side } from "./model/rowModel";
-import { applyOp, invertOp, type EditOp, type Selection } from "./model/textEdit";
+import { applyOp, editorLines, invertOp, type EditOp, type Selection } from "./model/textEdit";
 import { UndoHistory, type UndoEntry } from "./model/undo";
 import { useDiff, type DiffInput } from "./useDiff";
 import type { EolCounts, LineEnding, TextEncoding } from "../../shared/api";
 
 /**
  * An open text. `lines` is edited in place for speed on large files; `version` changes on
- * every edit and is what React dependencies and diff results are keyed on.
+ * every edit and is what React dependencies and diff results are keyed on. Lines are held
+ * as an editor shows them, a final line break starting an empty last line (see `editorLines`).
  */
 export interface Doc {
   lines: string[];
   eol: SplitText["eol"];
-  trailingNewline: boolean;
   version: number;
 }
 
@@ -73,9 +67,7 @@ export const REDIFF_DELAY_MS = 300;
 let versionCounter = 0;
 
 function makeDoc(text: string): Doc {
-  const s = splitLines(text);
-  const version = ++versionCounter;
-  return { lines: s.lines, eol: s.eol, trailingNewline: s.trailingNewline, version };
+  return { ...editorLines(text), version: ++versionCounter };
 }
 
 const tagOf = (docs: Docs, anchors: Anchor[]) =>

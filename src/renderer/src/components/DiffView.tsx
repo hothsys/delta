@@ -28,6 +28,8 @@ import {
   caretAt,
   clampPos,
   colAtVisual,
+  endsWithNewline,
+  fileLineCount,
   isCaret,
   ordered,
   replaceRange,
@@ -1047,6 +1049,8 @@ export function DiffView(props: DiffViewProps) {
     return {
       number: line < 0 ? null : line + 1,
       text: line < 0 ? "" : linesOf(side)[line],
+      // Every line but the last ends with a line break (a final break starts an empty last line).
+      lineBreak: line >= 0 && line < linesOf(side).length - 1,
       ranges,
       highlight: kind === RowKind.Unimportant ? "chg-minor" : side === "a" ? "chg-del" : "chg-ins",
     };
@@ -1056,8 +1060,8 @@ export function DiffView(props: DiffViewProps) {
     <FileStatus
       side={side}
       details={props.fileDetails[side]}
-      lines={linesOf(side).length}
-      trailingNewline={props.docs[side].trailingNewline}
+      lines={fileLineCount(linesOf(side))}
+      trailingNewline={endsWithNewline(linesOf(side))}
       edited={props.isEdited(side)}
       differs={props.conventionsDiffer}
       prettified={!!props.readOnly}

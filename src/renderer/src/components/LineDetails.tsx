@@ -9,6 +9,8 @@ interface DetailLine {
   ranges: Range[];
   /** CSS class for the highlighted ranges. */
   highlight: string;
+  /** The line ends with a line break, shown as ¶ (every line but a file's last). */
+  lineBreak: boolean;
 }
 
 interface LineDetailsProps {
@@ -22,7 +24,7 @@ interface LineDetailsProps {
 /**
  * The row at the caret, left above right, in one strip that scrolls sideways so long lines
  * can be read in full. Whitespace is made visible (· for a space, → for a tab, ¶ at the end
- * of the line) so spacing differences can be seen.
+ * of a line that ends with a line break) so spacing differences can be seen.
  */
 export function LineDetails({ left, right, charWidth: cw, rowKey }: LineDetailsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -59,7 +61,7 @@ export function LineDetails({ left, right, charWidth: cw, rowKey }: LineDetailsP
         l.text.slice(s.start, s.end),
         clipRanges(l.ranges, s.start, s.end),
         l.highlight,
-        s.end === l.text.length,
+        s.end === l.text.length && l.lineBreak,
       );
       // The full width keeps the strip's scroll range; the slice sits at its own column.
       style = {
@@ -67,7 +69,7 @@ export function LineDetails({ left, right, charWidth: cw, rowKey }: LineDetailsP
         minWidth: 2 * CELL_PADDING + (visualCol(l.text, l.text.length) + 1) * cw,
       };
     } else {
-      content = visible(l.text, l.ranges, l.highlight);
+      content = visible(l.text, l.ranges, l.highlight, l.lineBreak);
     }
     return (
       <div className={`detail-line detail-${side}`}>
@@ -104,8 +106,8 @@ function visualCol(text: string, col: number): number {
   return v;
 }
 
-/** Renders text with highlighted ranges and visible whitespace markers. */
-function visible(text: string, ranges: Range[], highlight: string, lineEnd = true): ReactNode[] {
+/** Renders text with highlighted ranges and visible whitespace markers; `lineEnd` adds the ¶ (not when the line is cut short). */
+function visible(text: string, ranges: Range[], highlight: string, lineEnd: boolean): ReactNode[] {
   const out: ReactNode[] = [];
   let col = 0;
   let key = 0;

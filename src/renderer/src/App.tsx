@@ -40,6 +40,7 @@ import { entriesToRecompare, patchTree } from "./model/folderTree";
 import type { Side } from "./model/rowModel";
 import { api } from "./platform";
 import { newSourceId, useComparison, type Source } from "./useComparison";
+import { endsWithNewline, fileLineCount } from "./model/textEdit";
 
 const THEME_KEY = "delta.theme";
 const SCAN_CANCELLED = "The folder comparison was cancelled.";
@@ -298,10 +299,11 @@ export function App() {
     const model = source.file ?? sources[other].file;
     const eol = model?.eol ?? "\n";
     const encoding = model?.encoding ?? "utf8";
-    const trailingNewline = source.file ? doc.trailingNewline : cmp.docs[other].trailingNewline;
+    // The document holds a final line break as an empty last line, so joining its lines gives the text exactly.
+    const trailingNewline = endsWithNewline(doc.lines);
     const version = doc.version;
-    const text = joinLines(doc.lines, eol, trailingNewline);
-    if (encoding === "latin1" && /[\u0100-\uffff]/.test(text)) {
+    const text = joinLines(doc.lines, eol, false);
+    if (encoding === "latin1" && /[^\u0000-\u00ff]/.test(text)) {
       const ok = await api.confirm({
         message: `Save ${source.label} as UTF-8?`,
         detail:
@@ -330,8 +332,6 @@ export function App() {
     }
     // Only mark clean if nothing was typed while the write was in flight.
     if (doc.version === version) cmp.markSaved(side);
-    // A file just created took its counterpart's final newline; the status line shows what's on disk.
-    doc.trailingNewline = trailingNewline;
     if (roots) folderStale.current = true;
     setSources((s) => ({
       ...s,
@@ -349,7 +349,7 @@ export function App() {
           mtimeMs: result.mtimeMs,
           size: result.size,
           // Saving writes every line with one ending, which settles mixed endings.
-          eolCounts: savedEolCounts(doc.lines.length, eol, trailingNewline),
+          eolCounts: savedEolCounts(fileLineCount(doc.lines), eol, trailingNewline),
           asciiOnly: result.encoding === "utf8" && isAsciiText(text),
         },
       },
@@ -731,10 +731,12 @@ export function App() {
   const latestFolderResult = useRef(folderResult);
   latestFolderResult.current = folderResult;
 
-  const folderReady = !!folderResult?.ok;
+  // Watching starts once a scan has finished, and carries on if a later one fails: a compared
+  // folder that's deleted and put back (or replaced) brings the comparison back by itself.
+  const folderScanned = !!folderResult;
   useEffect(() => {
     setWatchNote(null);
-    if (!roots || !autoUpdate || !folderReady) return;
+    if (!roots || !autoUpdate || !folderScanned) return;
     let current = true;
     void api
       .watchFolders(roots)
@@ -752,7 +754,7 @@ export function App() {
       watchingFolders.current = false;
       void api.watchFolders(null).catch(() => {});
     };
-  }, [roots?.left, roots?.right, autoUpdate, folderReady]);
+  }, [roots?.left, roots?.right, autoUpdate, folderScanned]);
 
   /** Applies the outside changes collected so far, unless a scan or another update is running. */
   const applyFolderChanges = async () => {
@@ -1202,8 +1204,8 @@ export function App() {
   const fileDetails = (side: Side): FileDetails | null => sources[side].file ?? null;
   const sideFacts = (side: Side) => ({
     details: fileDetails(side),
-    trailingNewline: cmp.docs[side].trailingNewline,
-    lines: cmp.docs[side].lines.length,
+    trailingNewline: endsWithNewline(cmp.docs[side].lines),
+    lines: fileLineCount(cmp.docs[side].lines),
   });
   const differs =
     mode === "files"
