@@ -69,7 +69,7 @@ export async function setDebugLogging(dataDir: string, on: boolean): Promise<Log
   else delete settings.logLevel;
   try {
     mkdirSync(dataDir, { recursive: true });
-    await writeFileAtomic(settingsFile(dataDir), JSON.stringify(settings, null, 2) + "\n", 0o600);
+    await writeFileAtomic(settingsFile(dataDir), `${JSON.stringify(settings, null, 2)}\n`, 0o600);
   } catch (err) {
     log.warn("app", "Could not save the logging setting", err as Error);
   }

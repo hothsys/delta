@@ -32,7 +32,7 @@ describe("formatEntry", () => {
       gone: undefined,
     });
     expect(line).toMatch(
-      /^2026-11-01T16:04:05\.123[+-]\d\d:\d\d INFO  files    Saved  path=\/a\/b\.txt bytes=12\n$/,
+      /^2026-11-01T16:04:05\.123[+-]\d\d:\d\d INFO {2}files {4}Saved {2}path=\/a\/b\.txt bytes=12\n$/,
     );
   });
 
@@ -100,7 +100,7 @@ describe("the log file", () => {
 
   it("carries on from an existing file size, rotating it when already full", () => {
     const dir = fresh();
-    writeFileSync(join(dir, "test.log"), "y".repeat(990) + "\n");
+    writeFileSync(join(dir, "test.log"), `${"y".repeat(990)}\n`);
     initLog({ dir, name: "test.log", level: "info", maxBytes: 1000 });
     log.info("app", "next start");
     expect(read(dir, "test.log.1")).toMatch(/^y+\n$/);
@@ -244,11 +244,13 @@ describe("what is logged about folder scans", () => {
       chmodSync(join(dir, "L", "locked"), 0o755);
     }
     const text = read(dir);
-    expect(text).toMatch(/INFO  folders  Comparing folders  left=\S+ right=\S+ mode=contents/);
     expect(text).toMatch(
-      /INFO  folders  Folder comparison finished  status=different entries=\d+ files=1 .*unreadable=1/,
+      /INFO {2}folders {2}Comparing folders {2}left=\S+ right=\S+ mode=contents/,
     );
-    expect(text).toMatch(/WARN  folders  Couldn't read  relPath=locked error=/);
+    expect(text).toMatch(
+      /INFO {2}folders {2}Folder comparison finished {2}status=different entries=\d+ files=1 .*unreadable=1/,
+    );
+    expect(text).toMatch(/WARN {2}folders {2}Couldn't read {2}relPath=locked error=/);
     expect(text).not.toContain("words");
   });
 });

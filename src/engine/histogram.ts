@@ -194,10 +194,14 @@ export function histogramOnly(a: Int32Array, b: Int32Array): SequenceDiff {
       let next = 0;
       const ra = new Int32Array(ae - as);
       const rb = new Int32Array(be - bs);
-      for (let i = as; i < ae; i++)
-        ra[i - as] = local[a[i]] === -1 ? (local[a[i]] = next++) : local[a[i]];
-      for (let j = bs; j < be; j++)
-        rb[j - bs] = local[b[j]] === -1 ? (local[b[j]] = next++) : local[b[j]];
+      for (let i = as; i < ae; i++) {
+        if (local[a[i]] === -1) local[a[i]] = next++;
+        ra[i - as] = local[a[i]];
+      }
+      for (let j = bs; j < be; j++) {
+        if (local[b[j]] === -1) local[b[j]] = next++;
+        rb[j - bs] = local[b[j]];
+      }
       for (let i = as; i < ae; i++) local[a[i]] = -1;
       for (let j = bs; j < be; j++) local[b[j]] = -1;
       const sub = diffSequences(ra, rb);

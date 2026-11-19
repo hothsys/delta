@@ -444,7 +444,10 @@ function breadcrumbs(path: string): { name: string; path: string }[] {
   if (path.startsWith("\\\\") && parts.length >= 2) {
     let acc = `\\\\${parts[0]}\\${parts[1]}`;
     const out = [{ name: acc, path: acc }];
-    for (const p of parts.slice(2)) out.push({ name: p, path: (acc = `${acc}\\${p}`) });
+    for (const p of parts.slice(2)) {
+      acc = `${acc}\\${p}`;
+      out.push({ name: p, path: acc });
+    }
     return out;
   }
   const windows = /^[A-Za-z]:\\/.test(path);

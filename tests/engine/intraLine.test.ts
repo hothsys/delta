@@ -7,7 +7,7 @@ function mark(s: string, ranges: IntraLineDiff["a"]): string {
   let out = "";
   let pos = 0;
   for (const r of ranges) {
-    out += s.slice(pos, r.start) + "[" + s.slice(r.start, r.end) + "]";
+    out += `${s.slice(pos, r.start)}[${s.slice(r.start, r.end)}]`;
     pos = r.end;
   }
   return out + s.slice(pos);
@@ -137,7 +137,7 @@ describe("diffChars", () => {
     // Minified code: tens of thousands of tokens with changes scattered throughout.
     const words = Array.from({ length: MAX_TOKENS }, (_, i) => `w${i}`);
     const a = `start ${words.join(",")} end`;
-    const b = `start ${words.map((w, i) => (i % 97 === 5 ? "x" + w : w)).join(",")} end`;
+    const b = `start ${words.map((w, i) => (i % 97 === 5 ? `x${w}` : w)).join(",")} end`;
     const t = performance.now();
     const d = diffChars(a, b);
     expect(performance.now() - t).toBeLessThan(500);

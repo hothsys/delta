@@ -84,7 +84,7 @@ export function formatMarkup(text: string, html: boolean, indentUnit = "  "): Pr
   }
   if (!html && stack.length)
     return errorAt(text, text.length, `Missing </${stack[stack.length - 1]}> at the end`);
-  return { ok: true, text: out.join("\n") + "\n" };
+  return { ok: true, text: `${out.join("\n")}\n` };
 }
 
 type Token =

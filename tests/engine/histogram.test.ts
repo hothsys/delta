@@ -5,7 +5,10 @@ import { diffSequences } from "../../src/engine/myers";
 
 const seq = (xs: number[]) => Int32Array.from(xs);
 let seed = 11;
-const rand = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+const rand = () => {
+  seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+  return seed / 0x7fffffff;
+};
 
 /** The unchanged elements, in order, must be equal and present on both sides (a common subsequence). */
 function expectValid(
@@ -96,7 +99,10 @@ describe("histogram diff reads better on code", () => {
     const b = [...parse, ...render, ...level]; // level() moved to the end
     const owner = (lines: string[]) => {
       let current = "";
-      return lines.map((l) => (l.startsWith("function ") ? (current = l) : current));
+      return lines.map((l) => {
+        if (l.startsWith("function ")) current = l;
+        return current;
+      });
     };
     const [oa, ob] = [owner(a), owner(b)];
     for (const [i, j] of equalPairs(a, b, "histogram"))

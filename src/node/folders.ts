@@ -1,5 +1,6 @@
 import { constants as fsConstants, type Dirent, type Stats } from "node:fs";
 import {
+  type FileHandle,
   chmod,
   copyFile,
   lstat,
@@ -450,7 +451,7 @@ async function contentsEqual(
     checkCancelled(ctx);
     // One after the other, so a failure opening the second can't leak the first.
     const fa = await open(a, "r");
-    let fb;
+    let fb: FileHandle;
     try {
       fb = await open(b, "r");
     } catch (err) {

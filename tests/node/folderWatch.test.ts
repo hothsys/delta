@@ -161,7 +161,7 @@ describe("watchFolders", () => {
 
   it("says why when a folder cannot be watched", () => {
     const sub = subscriber();
-    expect(watchFolders(sub.s, [join(tmpdir(), "delta-no-such-folder-" + Date.now())])).toMatch(
+    expect(watchFolders(sub.s, [join(tmpdir(), `delta-no-such-folder-${Date.now()}`)])).toMatch(
       /no such file|ENOENT/i,
     );
   });

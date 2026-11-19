@@ -90,7 +90,7 @@ export function savedEolCounts(
   };
 }
 
-export const isAsciiText = (text: string) => !/[^\u0000-\u007f]/.test(text);
+export const isAsciiText = (text: string) => !/[\u0080-\uffff]/.test(text);
 
 /**
  * Which file conventions differ between the two sides, so they can be pointed out even when

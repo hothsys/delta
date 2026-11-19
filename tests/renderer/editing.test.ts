@@ -113,13 +113,14 @@ describe("UndoHistory", () => {
       const col = lines[0].length;
       const { op, end } = replaceRange(lines, { line: 0, col }, { line: 0, col }, ch);
       applyOp(lines, op);
+      t += 100;
       h.push({
         side: "a",
         op,
         before: caret(0, col),
         after: caret(end.line, end.col),
         group: "type",
-        time: (t += 100),
+        time: t,
       });
     }
     expect(lines).toEqual(["abcde"]);
@@ -318,7 +319,10 @@ describe("patchRows", () => {
 
   it("stays consistent through many random edits on both sides", () => {
     let seed = 1;
-    const rand = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
     const a = Array.from({ length: 40 }, (_, i) => `line ${i % 7}`);
     const b = a.map((l, i) => (i % 5 === 0 ? `${l}!` : l)).filter((_, i) => i % 9 !== 3);
     let rows = buildRows(diffLines(a, b).blocks);
