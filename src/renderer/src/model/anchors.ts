@@ -1,6 +1,6 @@
-import type { Anchor } from '../../../engine';
-import type { Side } from './rowModel';
-import type { EditOp } from './textEdit';
+import type { Anchor } from "../../../engine";
+import type { Side } from "./rowModel";
+import type { EditOp } from "./textEdit";
 
 /**
  * Keeps manual alignments attached to their lines through an edit on one side. Lines after
@@ -16,7 +16,8 @@ export function transformAnchors(anchors: Anchor[], side: Side, op: EditOp): Anc
   const { removed, inserted } = op;
   // Lines the edit left as they were at its start and at its end.
   let head = 0;
-  while (head < removed.length && head < inserted.length && removed[head] === inserted[head]) head++;
+  while (head < removed.length && head < inserted.length && removed[head] === inserted[head])
+    head++;
   let tail = 0;
   while (
     tail < removed.length - head &&
@@ -31,7 +32,8 @@ export function transformAnchors(anchors: Anchor[], side: Side, op: EditOp): Anc
     let next = line;
     const k = line - op.start;
     if (line >= end) next = line + inserted.length - removed.length;
-    else if (line >= op.start && k >= head && k >= removed.length - tail) next = op.start + inserted.length - (removed.length - k);
+    else if (line >= op.start && k >= head && k >= removed.length - tail)
+      next = op.start + inserted.length - (removed.length - k);
     else if (line >= op.start && k >= inserted.length) {
       changed = true;
       continue;

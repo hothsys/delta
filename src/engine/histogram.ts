@@ -1,4 +1,4 @@
-import { diffSequences, type SequenceDiff } from './myers';
+import { diffSequences, type SequenceDiff } from "./myers";
 
 /**
  * Histogram diff for lines, after Git's `--histogram` (JGit's HistogramDiff) and the patience
@@ -194,8 +194,14 @@ export function histogramOnly(a: Int32Array, b: Int32Array): SequenceDiff {
       let next = 0;
       const ra = new Int32Array(ae - as);
       const rb = new Int32Array(be - bs);
-      for (let i = as; i < ae; i++) ra[i - as] = local[a[i]] === -1 ? (local[a[i]] = next++) : local[a[i]];
-      for (let j = bs; j < be; j++) rb[j - bs] = local[b[j]] === -1 ? (local[b[j]] = next++) : local[b[j]];
+      for (let i = as; i < ae; i++) {
+        if (local[a[i]] === -1) local[a[i]] = next++;
+        ra[i - as] = local[a[i]];
+      }
+      for (let j = bs; j < be; j++) {
+        if (local[b[j]] === -1) local[b[j]] = next++;
+        rb[j - bs] = local[b[j]];
+      }
       for (let i = as; i < ae; i++) local[a[i]] = -1;
       for (let j = bs; j < be; j++) local[b[j]] = -1;
       const sub = diffSequences(ra, rb);
@@ -223,7 +229,13 @@ export function histogramOnly(a: Int32Array, b: Int32Array): SequenceDiff {
  * chain ending below each left position (n log n). Of equally heavy chains, the one completed
  * first (earliest on the right) wins, as in Git, where a later candidate must be better.
  */
-function heaviestIncreasing(pi: number[], pj: number[], weight: number[], lo: number, hi: number): Int32Array {
+function heaviestIncreasing(
+  pi: number[],
+  pj: number[],
+  weight: number[],
+  lo: number,
+  hi: number,
+): Int32Array {
   const n = pi.length;
   if (n === 0) return new Int32Array(0);
   const size = hi - lo;

@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { log } from './log';
-import type { Side } from './model/rowModel';
-import type { PrettyKind } from './prettify/kinds';
-import type { PrettifyRequest, PrettifyResponse } from './prettify/prettify.worker';
-import { newSourceId, type Source } from './useComparison';
+import { useEffect, useRef, useState } from "react";
+import { log } from "./log";
+import type { Side } from "./model/rowModel";
+import type { PrettyKind } from "./prettify/kinds";
+import type { PrettifyRequest, PrettifyResponse } from "./prettify/prettify.worker";
+import { newSourceId, type Source } from "./useComparison";
 
 export interface PrettifyState {
   /** `working` while either side is being formatted. */
-  status: 'off' | 'working' | 'ready';
+  status: "off" | "working" | "ready";
   /** The formatted sides (a side that couldn't be formatted keeps its own text). */
   sources: Record<Side, Source> | null;
   /** Why a side couldn't be formatted. */
@@ -27,16 +27,22 @@ const CACHE_SIZE = 6;
  * cached per document (a reload is a new document, so it's formatted again). `cancel` stops
  * formatting at once by terminating the worker.
  */
-export function usePrettify(on: boolean, sources: Record<Side, Source>, kinds: Record<Side, PrettyKind> | null) {
+export function usePrettify(
+  on: boolean,
+  sources: Record<Side, Source>,
+  kinds: Record<Side, PrettyKind> | null,
+) {
   const worker = useRef<Worker | null>(null);
   const cache = useRef(new Map<string, Formatted>());
   const nextId = useRef(0);
   const pending = useRef(new Map<number, (r: PrettifyResponse) => void>());
-  const [state, setState] = useState<PrettifyState>({ status: 'off', sources: null, errors: {} });
+  const [state, setState] = useState<PrettifyState>({ status: "off", sources: null, errors: {} });
 
   const getWorker = () => {
     if (!worker.current) {
-      const w = new Worker(new URL('./prettify/prettify.worker.ts', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL("./prettify/prettify.worker.ts", import.meta.url), {
+        type: "module",
+      });
       w.onmessage = (e: MessageEvent<PrettifyResponse>) => {
         pending.current.get(e.data.id)?.(e.data);
         pending.current.delete(e.data.id);
@@ -54,15 +60,26 @@ export function usePrettify(on: boolean, sources: Record<Side, Source>, kinds: R
     const id = ++nextId.current;
     return new Promise((resolve) => {
       pending.current.set(id, ({ result, elapsedMs }) => {
-        const fields = { side: side === 'a' ? 'left' : 'right', kind, chars: source.text.length, ms: Math.round(elapsedMs) };
-        if (result.ok) log.info('prettify', 'Prettified', fields);
-        else log.warn('prettify', 'Could not prettify', { ...fields, error: result.message });
+        const fields = {
+          side: side === "a" ? "left" : "right",
+          kind,
+          chars: source.text.length,
+          ms: Math.round(elapsedMs),
+        };
+        if (result.ok) log.info("prettify", "Prettified", fields);
+        else log.warn("prettify", "Could not prettify", { ...fields, error: result.message });
         const formatted: Formatted = {
-          source: { ...source, id: newSourceId(), saved: undefined, text: result.ok ? result.text : source.text },
+          source: {
+            ...source,
+            id: newSourceId(),
+            saved: undefined,
+            text: result.ok ? result.text : source.text,
+          },
           error: result.ok ? undefined : result.message,
         };
         cache.current.set(key, formatted);
-        if (cache.current.size > CACHE_SIZE) cache.current.delete(cache.current.keys().next().value!);
+        if (cache.current.size > CACHE_SIZE)
+          cache.current.delete(cache.current.keys().next().value!);
         resolve(formatted);
       });
       const request: PrettifyRequest = { id, text: source.text, kind };
@@ -74,14 +91,20 @@ export function usePrettify(on: boolean, sources: Record<Side, Source>, kinds: R
   useEffect(() => {
     const gen = ++generation.current;
     if (!on || !kinds) {
-      setState({ status: 'off', sources: null, errors: {} });
+      setState({ status: "off", sources: null, errors: {} });
       return;
     }
-    setState((s) => ({ ...s, status: 'working' }));
-    void Promise.all([format('a', sources.a, kinds.a), format('b', sources.b, kinds.b)]).then(([a, b]) => {
-      if (gen !== generation.current) return; // turned off, cancelled or superseded meanwhile
-      setState({ status: 'ready', sources: { a: a.source, b: b.source }, errors: { a: a.error, b: b.error } });
-    });
+    setState((s) => ({ ...s, status: "working" }));
+    void Promise.all([format("a", sources.a, kinds.a), format("b", sources.b, kinds.b)]).then(
+      ([a, b]) => {
+        if (gen !== generation.current) return; // turned off, cancelled or superseded meanwhile
+        setState({
+          status: "ready",
+          sources: { a: a.source, b: b.source },
+          errors: { a: a.error, b: b.error },
+        });
+      },
+    );
   }, [on, sources.a.id, sources.b.id, sources.a.saved, sources.b.saved, kinds?.a, kinds?.b]);
 
   useEffect(() => () => worker.current?.terminate(), []);
@@ -92,7 +115,7 @@ export function usePrettify(on: boolean, sources: Record<Side, Source>, kinds: R
     worker.current?.terminate();
     worker.current = null;
     pending.current.clear();
-    log.info('prettify', 'Cancelled');
+    log.info("prettify", "Cancelled");
   };
 
   return { state, cancel };

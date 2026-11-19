@@ -1,5 +1,5 @@
-import type { Side } from './rowModel';
-import { composeOps, type EditOp, type Selection } from './textEdit';
+import type { Side } from "./rowModel";
+import { composeOps, type EditOp, type Selection } from "./textEdit";
 
 export interface UndoEntry {
   side: Side;
@@ -70,7 +70,8 @@ export class UndoHistory {
 
   /** The most recent undoable entry for one side; identifies the side's position in history. */
   lastEntry(side: Side): UndoEntry | null {
-    for (let i = this.done.length - 1; i >= 0; i--) if (this.done[i].side === side) return this.done[i];
+    for (let i = this.done.length - 1; i >= 0; i--)
+      if (this.done[i].side === side) return this.done[i];
     return null;
   }
 

@@ -123,18 +123,20 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
     if (stopped) return; // a new watcher failed and stopped everything
     if (!overflow && pending.size === 0) return;
     const change: FolderChange = overflow ? { overflow: true } : { paths: [...pending] };
-    log.debug('watch', 'Folder changes', overflow ? { overflow: true } : { paths: pending.size });
+    log.debug("watch", "Folder changes", overflow ? { overflow: true } : { paths: pending.size });
     pending.clear();
     overflow = false;
     owner.send(change);
   };
 
   const noted = (filename: string | null) => {
-    if (filename === null) overflow = true; // the system couldn't say what changed
+    if (filename === null)
+      overflow = true; // the system couldn't say what changed
     else {
       const parts = filename.split(/[\\/]/).filter(Boolean);
-      if (parts.length === 0 || parts.some((p) => IGNORED_NAMES.has(p) || isDeltaScratch(p))) return;
-      pending.add(parts.join('/'));
+      if (parts.length === 0 || parts.some((p) => IGNORED_NAMES.has(p) || isDeltaScratch(p)))
+        return;
+      pending.add(parts.join("/"));
       if (pending.size > MAX_BATCH_PATHS) overflow = true;
     }
     schedule();
@@ -166,7 +168,10 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
     for (const r of watched) if (r.id !== null) startWatcher(r);
   } catch (err) {
     stop();
-    log.warn('watch', 'Could not watch folders', { roots: roots.join(' | '), error: errorMessage(err) });
+    log.warn("watch", "Could not watch folders", {
+      roots: roots.join(" | "),
+      error: errorMessage(err),
+    });
     return errorMessage(err);
   }
   // A root missing from the start (deleted while its last scan ran) is looked for until it's back.
@@ -179,7 +184,7 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
       active.delete(owner);
     });
   }
-  log.info('watch', 'Watching folders for outside changes', { roots: roots.join(' | ') });
+  log.info("watch", "Watching folders for outside changes", { roots: roots.join(" | ") });
   return null;
 }
 
@@ -188,7 +193,8 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
  * (`.name.delta-copy-…`, `.name.delta-old-…`), and a file being saved (`.name.….delta-tmp`).
  * They come and go in the middle of Delta's own work and are never worth an update.
  */
-export const isDeltaScratch = (name: string) => name.startsWith('.') && (/\.delta-(copy|old)-\d+-\d+$/.test(name) || name.endsWith('.delta-tmp'));
+export const isDeltaScratch = (name: string) =>
+  name.startsWith(".") && (/\.delta-(copy|old)-\d+-\d+$/.test(name) || name.endsWith(".delta-tmp"));
 
 /** How many owners are watching folders (tests). */
 export const folderWatchCount = () => active.size;

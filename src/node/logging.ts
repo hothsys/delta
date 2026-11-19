@@ -1,9 +1,9 @@
-import { mkdirSync, readFileSync } from 'node:fs';
-import { arch, release } from 'node:os';
-import { dirname, join } from 'node:path';
-import type { LogInfo, LogLevelSource } from '../shared/api';
-import { writeFileAtomic } from './files';
-import { initLog, log, logFile, logLevel, recentLines, resolveLogLevel, setLogLevel } from './log';
+import { mkdirSync, readFileSync } from "node:fs";
+import { arch, release } from "node:os";
+import { dirname, join } from "node:path";
+import type { LogInfo, LogLevelSource } from "../shared/api";
+import { writeFileAtomic } from "./files";
+import { initLog, log, logFile, logLevel, recentLines, resolveLogLevel, setLogLevel } from "./log";
 
 /**
  * Logging set-up shared by the desktop app and the browser version's server: which level to
@@ -15,18 +15,18 @@ interface Settings {
   logLevel?: string;
 }
 
-const settingsFile = (dataDir: string) => join(dataDir, 'settings.json');
+const settingsFile = (dataDir: string) => join(dataDir, "settings.json");
 
 function readSettings(dataDir: string): Settings {
   try {
-    const value: unknown = JSON.parse(readFileSync(settingsFile(dataDir), 'utf8'));
-    return value && typeof value === 'object' ? (value as Settings) : {};
+    const value: unknown = JSON.parse(readFileSync(settingsFile(dataDir), "utf8"));
+    return value && typeof value === "object" ? (value as Settings) : {};
   } catch {
     return {};
   }
 }
 
-let levelFrom: LogLevelSource = 'default';
+let levelFrom: LogLevelSource = "default";
 
 export interface StartLogging {
   /** The logs folder. */
@@ -40,12 +40,18 @@ export interface StartLogging {
 
 /** Opens the log at the level the command line, DELTA_LOG_LEVEL or the setting asks for. */
 export function startLogging(options: StartLogging): LogInfo {
-  const { level, from } = resolveLogLevel({ cli: options.cli, env: process.env.DELTA_LOG_LEVEL, saved: readSettings(options.dataDir).logLevel });
+  const { level, from } = resolveLogLevel({
+    cli: options.cli,
+    env: process.env.DELTA_LOG_LEVEL,
+    saved: readSettings(options.dataDir).logLevel,
+  });
   levelFrom = from;
   try {
     initLog({ dir: options.dir, name: options.name, level });
   } catch (err) {
-    console.error(`Delta can't write its log in ${options.dir}: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(
+      `Delta can't write its log in ${options.dir}: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
   return logInfo();
 }
@@ -54,18 +60,18 @@ export const logInfo = (): LogInfo => ({ level: logLevel(), from: levelFrom, fil
 
 /** The Help menu's Debug Logging: applies now, and is saved for later starts. */
 export async function setDebugLogging(dataDir: string, on: boolean): Promise<LogInfo> {
-  const level = on ? 'debug' : 'info';
-  log.info('app', `Debug logging turned ${on ? 'on' : 'off'}`);
+  const level = on ? "debug" : "info";
+  log.info("app", `Debug logging turned ${on ? "on" : "off"}`);
   setLogLevel(level);
-  levelFrom = 'setting';
+  levelFrom = "setting";
   const settings = readSettings(dataDir);
   if (on) settings.logLevel = level;
   else delete settings.logLevel;
   try {
     mkdirSync(dataDir, { recursive: true });
-    await writeFileAtomic(settingsFile(dataDir), JSON.stringify(settings, null, 2) + '\n', 0o600);
+    await writeFileAtomic(settingsFile(dataDir), `${JSON.stringify(settings, null, 2)}\n`, 0o600);
   } catch (err) {
-    log.warn('app', 'Could not save the logging setting', err as Error);
+    log.warn("app", "Could not save the logging setting", err as Error);
   }
   return logInfo();
 }
@@ -80,13 +86,13 @@ export function diagnostics(host: string, version: string, dataDir: string): str
   const info = logInfo();
   return [
     `Delta ${version} (${host})`,
-    `Node ${process.versions.node}${process.versions.electron ? `, Electron ${process.versions.electron}, Chromium ${process.versions.chrome}` : ''}`,
+    `Node ${process.versions.node}${process.versions.electron ? `, Electron ${process.versions.electron}, Chromium ${process.versions.chrome}` : ""}`,
     `System: ${process.platform} ${release()} ${arch()}`,
     `Log level: ${info.level} (from ${info.from})`,
-    `Log file: ${info.file ?? 'none'}`,
+    `Log file: ${info.file ?? "none"}`,
     `Settings folder: ${dataDir}`,
-    '',
-    'Latest log entries:',
+    "",
+    "Latest log entries:",
     ...recentLines(100),
-  ].join('\n');
+  ].join("\n");
 }

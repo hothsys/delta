@@ -1,5 +1,5 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
-import type { Command, CopyProgress, DeltaApi, FolderChange, FolderProgress } from '../shared/api';
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+import type { Command, CopyProgress, DeltaApi, FolderChange, FolderProgress } from "../shared/api";
 
 /** Subscribes to a main-process event and returns an unsubscribe function. */
 function on<T>(channel: string, listener: (value: T) => void): () => void {
@@ -8,43 +8,46 @@ function on<T>(channel: string, listener: (value: T) => void): () => void {
   return () => ipcRenderer.removeListener(channel, handler);
 }
 
-const sep = process.platform === 'win32' ? '\\' : '/';
+const sep = process.platform === "win32" ? "\\" : "/";
 
 const api: DeltaApi = {
   capabilities: { nativeDialogs: true, nativeMenu: true },
-  openFileDialog: (title) => ipcRenderer.invoke('file:open-dialog', title),
-  readFile: (path) => ipcRenderer.invoke('file:read', path),
-  saveFileDialog: (defaultName) => ipcRenderer.invoke('file:save-dialog', defaultName),
-  saveFile: (request) => ipcRenderer.invoke('file:save', request),
-  watchFiles: (paths) => ipcRenderer.invoke('file:watch', paths),
-  onFileChanged: (listener) => on<string>('file:changed', listener),
-  confirm: (options) => ipcRenderer.invoke('dialog:confirm', options),
-  setUnsavedChanges: (unsaved) => ipcRenderer.send('app:unsaved-changes', unsaved),
-  pathKind: (path) => ipcRenderer.invoke('app:path-kind', path),
-  launchRequest: () => ipcRenderer.invoke('app:launch-request'),
-  onCommand: (listener) => on<Command>('menu:command', listener),
-  openFolderDialog: (title) => ipcRenderer.invoke('folder:open-dialog', title),
-  compareFolders: (left, right, mode) => ipcRenderer.invoke('folder:compare', left, right, mode),
-  onFolderProgress: (listener) => on<FolderProgress>('folder:progress', listener),
-  cancelFolderCompare: () => ipcRenderer.invoke('folder:cancel'),
-  copyEntry: (request) => ipcRenderer.invoke('folder:copy', request),
-  onCopyProgress: (listener) => on<CopyProgress>('folder:copy-progress', listener),
-  cancelCopy: () => ipcRenderer.invoke('folder:copy-cancel'),
-  watchFolders: (roots) => ipcRenderer.invoke('folder:watch', roots),
-  onFolderChanged: (listener) => on<FolderChange>('folder:changed', listener),
-  compareFolderEntries: (left, right, relPaths, mode) => ipcRenderer.invoke('folder:compare-entries', left, right, relPaths, mode),
-  recentComparisons: () => ipcRenderer.invoke('recents:list'),
-  rememberComparison: (kind, left, right) => ipcRenderer.invoke('recents:remember', kind, left, right),
-  forgetComparison: (kind, left, right) => ipcRenderer.invoke('recents:forget', kind, left, right),
-  listDirectory: (path, showHidden) => ipcRenderer.invoke('browse:list', path, showHidden),
-  locations: () => ipcRenderer.invoke('browse:locations'),
-  joinPath: (root, relPath) => (relPath ? root.replace(/[\\/]+$/, '') + sep + relPath.split('/').join(sep) : root),
-  setMenuChecked: (command, checked) => ipcRenderer.send('menu:set-checked', command, checked),
-  log: (entry) => ipcRenderer.send('log:write', entry),
-  logInfo: () => ipcRenderer.invoke('log:info'),
-  setDebugLogging: (on) => ipcRenderer.invoke('log:set-debug', on),
-  openLogsFolder: () => ipcRenderer.invoke('log:open-folder'),
-  diagnostics: () => ipcRenderer.invoke('log:diagnostics'),
+  openFileDialog: (title) => ipcRenderer.invoke("file:open-dialog", title),
+  readFile: (path) => ipcRenderer.invoke("file:read", path),
+  saveFileDialog: (defaultName) => ipcRenderer.invoke("file:save-dialog", defaultName),
+  saveFile: (request) => ipcRenderer.invoke("file:save", request),
+  watchFiles: (paths) => ipcRenderer.invoke("file:watch", paths),
+  onFileChanged: (listener) => on<string>("file:changed", listener),
+  confirm: (options) => ipcRenderer.invoke("dialog:confirm", options),
+  setUnsavedChanges: (unsaved) => ipcRenderer.send("app:unsaved-changes", unsaved),
+  pathKind: (path) => ipcRenderer.invoke("app:path-kind", path),
+  launchRequest: () => ipcRenderer.invoke("app:launch-request"),
+  onCommand: (listener) => on<Command>("menu:command", listener),
+  openFolderDialog: (title) => ipcRenderer.invoke("folder:open-dialog", title),
+  compareFolders: (left, right, mode) => ipcRenderer.invoke("folder:compare", left, right, mode),
+  onFolderProgress: (listener) => on<FolderProgress>("folder:progress", listener),
+  cancelFolderCompare: () => ipcRenderer.invoke("folder:cancel"),
+  copyEntry: (request) => ipcRenderer.invoke("folder:copy", request),
+  onCopyProgress: (listener) => on<CopyProgress>("folder:copy-progress", listener),
+  cancelCopy: () => ipcRenderer.invoke("folder:copy-cancel"),
+  watchFolders: (roots) => ipcRenderer.invoke("folder:watch", roots),
+  onFolderChanged: (listener) => on<FolderChange>("folder:changed", listener),
+  compareFolderEntries: (left, right, relPaths, mode) =>
+    ipcRenderer.invoke("folder:compare-entries", left, right, relPaths, mode),
+  recentComparisons: () => ipcRenderer.invoke("recents:list"),
+  rememberComparison: (kind, left, right) =>
+    ipcRenderer.invoke("recents:remember", kind, left, right),
+  forgetComparison: (kind, left, right) => ipcRenderer.invoke("recents:forget", kind, left, right),
+  listDirectory: (path, showHidden) => ipcRenderer.invoke("browse:list", path, showHidden),
+  locations: () => ipcRenderer.invoke("browse:locations"),
+  joinPath: (root, relPath) =>
+    relPath ? root.replace(/[\\/]+$/, "") + sep + relPath.split("/").join(sep) : root,
+  setMenuChecked: (command, checked) => ipcRenderer.send("menu:set-checked", command, checked),
+  log: (entry) => ipcRenderer.send("log:write", entry),
+  logInfo: () => ipcRenderer.invoke("log:info"),
+  setDebugLogging: (on) => ipcRenderer.invoke("log:set-debug", on),
+  openLogsFolder: () => ipcRenderer.invoke("log:open-folder"),
+  diagnostics: () => ipcRenderer.invoke("log:diagnostics"),
 };
 
-contextBridge.exposeInMainWorld('delta', api);
+contextBridge.exposeInMainWorld("delta", api);

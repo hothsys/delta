@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { ChevronDownIcon } from './icons';
-import type { WhitespaceMode } from '../../../engine';
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { ChevronDownIcon } from "./icons";
+import type { WhitespaceMode } from "../../../engine";
 
 const WHITESPACE_LABELS: Record<WhitespaceMode, string> = {
-  exact: 'Compare whitespace',
-  trim: 'Ignore leading/trailing',
-  collapse: 'Ignore whitespace changes',
-  ignore: 'Ignore all whitespace',
+  exact: "Compare whitespace",
+  trim: "Ignore leading/trailing",
+  collapse: "Ignore whitespace changes",
+  ignore: "Ignore all whitespace",
 };
 
 interface CompareOptionsProps {
@@ -33,17 +33,17 @@ export function CompareOptions(props: CompareOptionsProps) {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      if (e.key !== "Escape") return;
       setOpen(false);
       buttonRef.current?.focus();
     };
-    window.addEventListener('pointerdown', onPointer, true);
-    window.addEventListener('keydown', onKey, true);
+    window.addEventListener("pointerdown", onPointer, true);
+    window.addEventListener("keydown", onKey, true);
     // Start keyboard users on the checked whitespace option.
     menuRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
     return () => {
-      window.removeEventListener('pointerdown', onPointer, true);
-      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener("pointerdown", onPointer, true);
+      window.removeEventListener("keydown", onKey, true);
     };
   }, [open]);
 
@@ -55,15 +55,16 @@ export function CompareOptions(props: CompareOptionsProps) {
 
   // Arrow keys move between the items.
   const onMenuKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     e.preventDefault();
-    const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? []);
     const i = items.indexOf(document.activeElement as HTMLButtonElement);
-    const next = e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
+    const next =
+      e.key === "ArrowDown" ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
     items[next]?.focus();
   };
 
-  const summary = WHITESPACE_LABELS[props.whitespace] + (props.ignoreCase ? ' · Ignore case' : '');
+  const summary = WHITESPACE_LABELS[props.whitespace] + (props.ignoreCase ? " · Ignore case" : "");
 
   return (
     <div className="options" ref={rootRef}>
@@ -95,7 +96,7 @@ export function CompareOptions(props: CompareOptionsProps) {
               onClick={() => choose(() => props.onWhitespaceChange(mode))}
             >
               <span className="options-tick" aria-hidden="true">
-                {mode === props.whitespace ? '✓' : ''}
+                {mode === props.whitespace ? "✓" : ""}
               </span>
               {WHITESPACE_LABELS[mode]}
             </button>
@@ -112,7 +113,7 @@ export function CompareOptions(props: CompareOptionsProps) {
             onClick={() => choose(() => props.onIgnoreCaseChange(!props.ignoreCase))}
           >
             <span className="options-tick" aria-hidden="true">
-              {props.ignoreCase ? '✓' : ''}
+              {props.ignoreCase ? "✓" : ""}
             </span>
             Ignore case
           </button>

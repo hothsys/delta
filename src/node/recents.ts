@@ -1,7 +1,7 @@
-import { mkdir, readFile, stat } from 'node:fs/promises';
-import { dirname } from 'node:path';
-import { writeFileAtomic } from './files';
-import type { ComparisonKind, PathState, RecentComparison, RecentSide } from '../shared/api';
+import { mkdir, readFile, stat } from "node:fs/promises";
+import { dirname } from "node:path";
+import { writeFileAtomic } from "./files";
+import type { ComparisonKind, PathState, RecentComparison, RecentSide } from "../shared/api";
 
 /** How many unique comparisons are remembered. */
 export const MAX_RECENTS = 20;
@@ -29,7 +29,12 @@ export class RecentStore {
   }
 
   remember(kind: ComparisonKind, left: string, right: string, now = Date.now()): Promise<void> {
-    return this.update((list) => [{ kind, left, right, at: now }, ...list.filter((x) => !sameComparison(x, kind, left, right))].slice(0, MAX_RECENTS));
+    return this.update((list) =>
+      [
+        { kind, left, right, at: now },
+        ...list.filter((x) => !sameComparison(x, kind, left, right)),
+      ].slice(0, MAX_RECENTS),
+    );
   }
 
   forget(kind: ComparisonKind, left: string, right: string): Promise<void> {
@@ -38,7 +43,7 @@ export class RecentStore {
 
   /** Newest first, with each side's availability checked now. */
   async list(): Promise<RecentComparison[]> {
-    const want = (kind: ComparisonKind) => (kind === 'folders' ? 'dir' : 'file');
+    const want = (kind: ComparisonKind) => (kind === "folders" ? "dir" : "file");
     return Promise.all(
       (await this.load()).map(async (x) => ({
         kind: x.kind,
@@ -51,11 +56,14 @@ export class RecentStore {
 
   private async load(): Promise<StoredRecent[]> {
     try {
-      const data: unknown = JSON.parse(await readFile(this.file, 'utf8'));
+      const data: unknown = JSON.parse(await readFile(this.file, "utf8"));
       if (!Array.isArray(data)) return [];
       return data.filter(
         (x): x is StoredRecent =>
-          !!x && (x.kind === 'files' || x.kind === 'folders') && typeof x.left === 'string' && typeof x.right === 'string',
+          !!x &&
+          (x.kind === "files" || x.kind === "folders") &&
+          typeof x.left === "string" &&
+          typeof x.right === "string",
       );
     } catch {
       return [];
@@ -71,13 +79,17 @@ export class RecentStore {
 }
 
 /** Whether a path is usable now, and which external drive (if any) it lives on. */
-export async function describePath(path: string, want: 'file' | 'dir', platform = process.platform): Promise<RecentSide> {
+export async function describePath(
+  path: string,
+  want: "file" | "dir",
+  platform = process.platform,
+): Promise<RecentSide> {
   const volume = volumeOf(path, platform);
-  let state: PathState = 'available';
-  if (volume && !(await exists(volume.root))) state = 'unmounted';
+  let state: PathState = "available";
+  if (volume && !(await exists(volume.root))) state = "unmounted";
   else {
     const kind = await kindOf(path);
-    if (kind !== want) state = 'missing';
+    if (kind !== want) state = "missing";
   }
   return volume ? { path, state, volume: volume.name } : { path, state };
 }
@@ -90,26 +102,27 @@ export async function describePath(path: string, want: 'file' | 'dir', platform 
 export function volumeOf(
   path: string,
   platform: NodeJS.Platform = process.platform,
-  systemDrive = process.env.SystemDrive ?? 'C:',
+  systemDrive = process.env.SystemDrive ?? "C:",
 ): { name: string; root: string } | null {
-  if (platform === 'darwin') {
+  if (platform === "darwin") {
     const m = /^\/Volumes\/([^/]+)/.exec(path);
     return m ? { name: m[1], root: `/Volumes/${m[1]}` } : null;
   }
-  if (platform === 'win32') {
+  if (platform === "win32") {
     const unc = /^(\\\\[^\\]+\\[^\\]+)/.exec(path);
-    if (unc) return { name: unc[1], root: unc[1] + '\\' };
+    if (unc) return { name: unc[1], root: `${unc[1]}\\` };
     const drive = /^([A-Za-z]:)/.exec(path);
-    if (drive && drive[1].toUpperCase() !== systemDrive.toUpperCase()) return { name: drive[1].toUpperCase(), root: `${drive[1]}\\` };
+    if (drive && drive[1].toUpperCase() !== systemDrive.toUpperCase())
+      return { name: drive[1].toUpperCase(), root: `${drive[1]}\\` };
     return null;
   }
   const m = /^(\/(?:run\/)?media\/[^/]+\/([^/]+))/.exec(path) ?? /^(\/mnt\/([^/]+))/.exec(path);
   return m ? { name: m[2], root: m[1] } : null;
 }
 
-async function kindOf(path: string): Promise<'file' | 'dir' | null> {
+async function kindOf(path: string): Promise<"file" | "dir" | null> {
   try {
-    return (await stat(path)).isDirectory() ? 'dir' : 'file';
+    return (await stat(path)).isDirectory() ? "dir" : "file";
   } catch {
     return null;
   }

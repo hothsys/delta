@@ -7,14 +7,15 @@ import { folderWatchCount, MAX_BATCH_PATHS, MISSING_ROOT_POLL_MS, watchFolders, 
 import type { FolderChange } from '../../src/shared/api';
 
 function roots() {
-  const base = mkdtempSync(join(tmpdir(), 'delta-fwatch-'));
-  const left = join(base, 'L');
-  const right = join(base, 'R');
-  for (const d of [left, right, join(left, 'sub'), join(right, 'sub')]) mkdirSync(d, { recursive: true });
-  writeFileSync(join(left, 'a.txt'), 'a');
-  writeFileSync(join(right, 'a.txt'), 'a');
-  writeFileSync(join(left, 'sub/b.txt'), 'b');
-  writeFileSync(join(right, 'sub/b.txt'), 'b');
+  const base = mkdtempSync(join(tmpdir(), "delta-fwatch-"));
+  const left = join(base, "L");
+  const right = join(base, "R");
+  for (const d of [left, right, join(left, "sub"), join(right, "sub")])
+    mkdirSync(d, { recursive: true });
+  writeFileSync(join(left, "a.txt"), "a");
+  writeFileSync(join(right, "a.txt"), "a");
+  writeFileSync(join(left, "sub/b.txt"), "b");
+  writeFileSync(join(right, "sub/b.txt"), "b");
   return { left, right };
 }
 
@@ -27,7 +28,7 @@ function subscriber() {
     closed: () => false,
     onClose: (l) => (close = l),
   };
-  const paths = () => new Set(batches.flatMap((b) => ('paths' in b ? b.paths : [])));
+  const paths = () => new Set(batches.flatMap((b) => ("paths" in b ? b.paths : [])));
   return { s, batches, paths, close: () => close() };
 }
 
@@ -42,60 +43,77 @@ afterEach(() => {
   for (const s of opened.splice(0)) watchFolders(s, null);
 });
 
-describe('compareEntries', () => {
-  it('re-compares just the given entries, after edits, creations and deletions on either side', async () => {
+describe("compareEntries", () => {
+  it("re-compares just the given entries, after edits, creations and deletions on either side", async () => {
     const { left, right } = roots();
-    writeFileSync(join(right, 'a.txt'), 'changed');
-    writeFileSync(join(left, 'sub/new.txt'), 'n');
-    rmSync(join(right, 'sub/b.txt'));
-    const r = await compareEntries(left, right, ['a.txt', 'sub/new.txt', 'sub/b.txt', 'missing.txt'], 'contents');
+    writeFileSync(join(right, "a.txt"), "changed");
+    writeFileSync(join(left, "sub/new.txt"), "n");
+    rmSync(join(right, "sub/b.txt"));
+    const r = await compareEntries(
+      left,
+      right,
+      ["a.txt", "sub/new.txt", "sub/b.txt", "missing.txt"],
+      "contents",
+    );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const by = Object.fromEntries(r.updates.map((u) => [u.relPath, u.node?.status ?? null]));
-    expect(by).toEqual({ 'a.txt': 'different', 'sub/new.txt': 'left-only', 'sub/b.txt': 'left-only', 'missing.txt': null });
+    expect(by).toEqual({
+      "a.txt": "different",
+      "sub/new.txt": "left-only",
+      "sub/b.txt": "left-only",
+      "missing.txt": null,
+    });
   });
 
-  it('compares a folder with everything in it', async () => {
+  it("compares a folder with everything in it", async () => {
     const { left, right } = roots();
-    writeFileSync(join(right, 'sub/b.txt'), 'other');
-    const r = await compareEntries(left, right, ['sub'], 'contents');
-    expect(r.ok && r.updates[0].node).toMatchObject({ status: 'different', children: [{ name: 'b.txt', status: 'different' }] });
+    writeFileSync(join(right, "sub/b.txt"), "other");
+    const r = await compareEntries(left, right, ["sub"], "contents");
+    expect(r.ok && r.updates[0].node).toMatchObject({
+      status: "different",
+      children: [{ name: "b.txt", status: "different" }],
+    });
   });
 
-  it('refuses the roots themselves and paths outside them', async () => {
+  it("refuses the roots themselves and paths outside them", async () => {
     const { left, right } = roots();
-    expect((await compareEntries(left, right, [''], 'contents')).ok).toBe(false);
-    expect((await compareEntries(left, right, ['../x'], 'contents')).ok).toBe(false);
+    expect((await compareEntries(left, right, [""], "contents")).ok).toBe(false);
+    expect((await compareEntries(left, right, ["../x"], "contents")).ok).toBe(false);
   });
 });
 
-describe('watchFolders', () => {
-  it('reports outside changes in either root, batched, as paths relative to the roots', async () => {
+describe("watchFolders", () => {
+  it("reports outside changes in either root, batched, as paths relative to the roots", async () => {
     const { left, right } = roots();
     const sub = subscriber();
     opened.push(sub.s);
     expect(watchFolders(sub.s, [left, right])).toBeNull();
     await new Promise((r) => setTimeout(r, 200)); // let the system's watch settle
-    writeFileSync(join(right, 'a.txt'), 'edited elsewhere');
-    writeFileSync(join(left, 'sub/new.txt'), 'created');
-    renameSync(join(right, 'sub/b.txt'), join(right, 'sub/renamed.txt'));
-    expect(await until(() => ['a.txt', 'sub/new.txt', 'sub/b.txt', 'sub/renamed.txt'].every((p) => sub.paths().has(p)))).toBe(true);
+    writeFileSync(join(right, "a.txt"), "edited elsewhere");
+    writeFileSync(join(left, "sub/new.txt"), "created");
+    renameSync(join(right, "sub/b.txt"), join(right, "sub/renamed.txt"));
+    expect(
+      await until(() =>
+        ["a.txt", "sub/new.txt", "sub/b.txt", "sub/renamed.txt"].every((p) => sub.paths().has(p)),
+      ),
+    ).toBe(true);
     // Several changes close together arrive as few batches, not one per event.
     expect(sub.batches.length).toBeLessThanOrEqual(3);
   });
 
-  it('ignores .git and .DS_Store, as the comparison does', async () => {
+  it("ignores .git and .DS_Store, as the comparison does", async () => {
     const { left, right } = roots();
-    mkdirSync(join(left, '.git'));
+    mkdirSync(join(left, ".git"));
     const sub = subscriber();
     opened.push(sub.s);
     watchFolders(sub.s, [left, right]);
     await new Promise((r) => setTimeout(r, 200));
-    writeFileSync(join(left, '.git/HEAD'), 'ref');
-    writeFileSync(join(left, '.DS_Store'), 'x');
-    writeFileSync(join(left, 'a.txt'), 'real change');
-    expect(await until(() => sub.paths().has('a.txt'))).toBe(true);
-    expect([...sub.paths()].some((p) => p.includes('.git') || p.includes('.DS_Store'))).toBe(false);
+    writeFileSync(join(left, ".git/HEAD"), "ref");
+    writeFileSync(join(left, ".DS_Store"), "x");
+    writeFileSync(join(left, "a.txt"), "real change");
+    expect(await until(() => sub.paths().has("a.txt"))).toBe(true);
+    expect([...sub.paths()].some((p) => p.includes(".git") || p.includes(".DS_Store"))).toBe(false);
   });
 
   it('turns a burst of thousands of changes into one "too many" batch', async () => {
@@ -104,23 +122,24 @@ describe('watchFolders', () => {
     opened.push(sub.s);
     watchFolders(sub.s, [left, right]);
     await new Promise((r) => setTimeout(r, 200));
-    mkdirSync(join(left, 'many'));
-    for (let i = 0; i <= MAX_BATCH_PATHS + 50; i++) writeFileSync(join(left, 'many', `f${i}.txt`), 'x');
-    expect(await until(() => sub.batches.some((b) => 'overflow' in b), 10000)).toBe(true);
+    mkdirSync(join(left, "many"));
+    for (let i = 0; i <= MAX_BATCH_PATHS + 50; i++)
+      writeFileSync(join(left, "many", `f${i}.txt`), "x");
+    expect(await until(() => sub.batches.some((b) => "overflow" in b), 10000)).toBe(true);
   });
 
-  it('sees Delta’s own copies too (the update is the same as a rescan would find)', async () => {
+  it("sees Delta’s own copies too (the update is the same as a rescan would find)", async () => {
     const { left, right } = roots();
-    writeFileSync(join(left, 'only-left.txt'), 'x');
+    writeFileSync(join(left, "only-left.txt"), "x");
     const sub = subscriber();
     opened.push(sub.s);
     watchFolders(sub.s, [left, right]);
     await new Promise((r) => setTimeout(r, 200));
-    await copyEntry({ leftRoot: left, rightRoot: right, relPath: 'only-left.txt', from: 'left' });
-    expect(await until(() => sub.paths().has('only-left.txt'))).toBe(true);
+    await copyEntry({ leftRoot: left, rightRoot: right, relPath: "only-left.txt", from: "left" });
+    expect(await until(() => sub.paths().has("only-left.txt"))).toBe(true);
   });
 
-  it('stops when asked, when replaced, and when its window or tab goes away', () => {
+  it("stops when asked, when replaced, and when its window or tab goes away", () => {
     const { left, right } = roots();
     const a = subscriber();
     const b = subscriber();

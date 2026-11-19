@@ -1,5 +1,5 @@
-import { diffText, type LineDiffOptions, type LineDiffResult } from '../../engine';
-import { buildRows, type RowModel } from './model/rowModel';
+import { diffText, type LineDiffOptions, type LineDiffResult } from "../../engine";
+import { buildRows, type RowModel } from "./model/rowModel";
 
 export interface DiffRequest {
   id: number;
@@ -28,10 +28,25 @@ self.onmessage = (e: MessageEvent<DiffRequest>) => {
     };
     // Typed arrays are transferred rather than copied.
     const { a, b, kind, blockStart, aRowStart, aRowEnd, bRowStart, bRowEnd, aRow, bRow } = rows;
-    const transfer = [a, b, kind, blockStart, aRowStart, aRowEnd, bRowStart, bRowEnd, aRow, bRow].map((t) => t.buffer);
+    const transfer = [
+      a,
+      b,
+      kind,
+      blockStart,
+      aRowStart,
+      aRowEnd,
+      bRowStart,
+      bRowEnd,
+      aRow,
+      bRow,
+    ].map((t) => t.buffer);
     self.postMessage(response, { transfer });
   } catch (err) {
-    const response: DiffResponse = { id, ok: false, error: err instanceof Error ? err.message : String(err) };
+    const response: DiffResponse = {
+      id,
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
     self.postMessage(response);
   }
 };

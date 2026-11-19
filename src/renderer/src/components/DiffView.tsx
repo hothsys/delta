@@ -13,11 +13,17 @@ import {
   type PointerEvent,
   type MouseEvent as ReactMouseEvent,
   type Ref,
-} from 'react';
-import { diffChars, type Anchor, type CompareOptions, type DiffBlock, type IntraLineDiff } from '../../../engine';
-import { log } from '../log';
-import { mergeOp } from '../model/merge';
-import { maxColumns, RowKind, type RowModel, type Side } from '../model/rowModel';
+} from "react";
+import {
+  diffChars,
+  type Anchor,
+  type CompareOptions,
+  type DiffBlock,
+  type IntraLineDiff,
+} from "../../../engine";
+import { log } from "../log";
+import { mergeOp } from "../model/merge";
+import { maxColumns, RowKind, type RowModel, type Side } from "../model/rowModel";
 import {
   caretAt,
   clampPos,
@@ -36,20 +42,30 @@ import {
   type EditOp,
   type Pos,
   type Selection,
-} from '../model/textEdit';
-import type { Docs, EditMeta } from '../useComparison';
-import { ContextMenu, type MenuItem } from './ContextMenu';
-import { Gutter, type GutterHandle } from './Gutter';
-import { SaveIcon, UndoIcon } from './icons';
-import { FileStatus } from './FileStatus';
-import { LineDetails } from './LineDetails';
-import type { FileDetails } from '../model/fileDetails';
-import { BAND_ROWS, BAND_WIDTH, CELL_PADDING, charWidth, FONT, GUTTER_WIDTH, OVERVIEW_WIDTH, ROW_HEIGHT, TAB_SIZE } from './layout';
-import { scrollTopForRow } from '../model/overview';
-import { splitPath, tildePath } from '../model/paths';
-import { Overview, type OverviewHandle } from './Overview';
-import { Pane } from './Pane';
-import { ratioAt, useSplit } from './split';
+} from "../model/textEdit";
+import type { Docs, EditMeta } from "../useComparison";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { Gutter, type GutterHandle } from "./Gutter";
+import { SaveIcon, UndoIcon } from "./icons";
+import { FileStatus } from "./FileStatus";
+import { LineDetails } from "./LineDetails";
+import type { FileDetails } from "../model/fileDetails";
+import {
+  BAND_ROWS,
+  BAND_WIDTH,
+  CELL_PADDING,
+  charWidth,
+  FONT,
+  GUTTER_WIDTH,
+  OVERVIEW_WIDTH,
+  ROW_HEIGHT,
+  TAB_SIZE,
+} from "./layout";
+import { scrollTopForRow } from "../model/overview";
+import { splitPath, tildePath } from "../model/paths";
+import { Overview, type OverviewHandle } from "./Overview";
+import { Pane } from "./Pane";
+import { ratioAt, useSplit } from "./split";
 
 /** Commands the app forwards from the menu. */
 export interface DiffViewHandle {
@@ -118,12 +134,12 @@ interface UndoResult {
   op: EditOp;
 }
 
-const isMac = navigator.platform.toUpperCase().includes('MAC');
+const isMac = navigator.platform.toUpperCase().includes("MAC");
 /** Presses closer together than this (and within a few pixels) count as a double or triple click. */
 const MULTI_CLICK_MS = 400;
 /** Wheel steps at least this many pixels (a mouse wheel's clicks, not a trackpad) are eased. */
 const SMOOTH_WHEEL_STEP = 40;
-const other = (s: Side): Side => (s === 'a' ? 'b' : 'a');
+const other = (s: Side): Side => (s === "a" ? "b" : "a");
 
 /**
  * Side-by-side comparison with both panes editable. Both panes render the same row model and
@@ -134,7 +150,7 @@ export function DiffView(props: DiffViewProps) {
   const { docs, rows, blocks, fresh, options, theme, onEdit } = props;
   const refs = { a: useRef<HTMLDivElement>(null), b: useRef<HTMLDivElement>(null) };
   const rootRef = useRef<HTMLDivElement>(null);
-  const [split, setSplit] = useSplit('delta.split.files');
+  const [split, setSplit] = useSplit("delta.split.files");
   // Pane widths, so both panes can be given the same horizontal scroll range when the split is uneven.
   const [paneWidths, setPaneWidths] = useState({ a: 0, b: 0 });
   const inputs = { a: useRef<HTMLTextAreaElement>(null), b: useRef<HTMLTextAreaElement>(null) };
@@ -173,7 +189,10 @@ export function DiffView(props: DiffViewProps) {
 
   // Character-level highlights are computed on demand for visible rows and cached per row.
   const { whitespace, ignoreCase } = options;
-  const intraCache = useMemo(() => new Map<number, IntraLineDiff>(), [rows, versions, whitespace, ignoreCase]);
+  const intraCache = useMemo(
+    () => new Map<number, IntraLineDiff>(),
+    [rows, versions, whitespace, ignoreCase],
+  );
   const intraLine = useCallback(
     (r: number): IntraLineDiff | null => {
       const a = rows.a[r];
@@ -196,7 +215,7 @@ export function DiffView(props: DiffViewProps) {
   // The pane the user last interacted with leads; the other follows. Programmatic scrolls and
   // layout clamps also fire scroll events, possibly in the same frame as the user's next scroll,
   // so letting either pane push its offsets would let a stale event drag the leader backwards.
-  const leader = useRef<Side>('b');
+  const leader = useRef<Side>("b");
   const lead = (side: Side) => () => {
     leader.current = side;
   };
@@ -221,7 +240,10 @@ export function DiffView(props: DiffViewProps) {
     if (!el) return;
     const exp = expected.current[from];
     expected.current[from] = null;
-    const programmatic = exp !== null && Math.abs(el.scrollTop - exp.top) <= 1 && Math.abs(el.scrollLeft - exp.left) <= 1;
+    const programmatic =
+      exp !== null &&
+      Math.abs(el.scrollTop - exp.top) <= 1 &&
+      Math.abs(el.scrollLeft - exp.left) <= 1;
     if (!programmatic) {
       leader.current = from;
       const w = wheel.current;
@@ -252,7 +274,7 @@ export function DiffView(props: DiffViewProps) {
   /** Offsets the app last set on each pane, so its own scrolls can be told from the user's. */
   const expected = useRef<Record<Side, { top: number; left: number } | null>>({ a: null, b: null });
   const setScroll = (el: HTMLDivElement, top: number, left: number) => {
-    const side: Side = el === refs.a.current ? 'a' : 'b';
+    const side: Side = el === refs.a.current ? "a" : "b";
     el.scrollTop = top;
     el.scrollLeft = left;
     expected.current[side] = { top: el.scrollTop, left: el.scrollLeft };
@@ -277,7 +299,7 @@ export function DiffView(props: DiffViewProps) {
       w.frame = done ? 0 : requestAnimationFrame(step);
     };
     const onWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || !(e.target as Element).closest('.pane, .gutter, .overview')) return; // Ctrl: zoom.
+      if (e.ctrlKey || !(e.target as Element).closest(".pane, .gutter, .overview")) return; // Ctrl: zoom.
       const leadEl = refs[leader.current].current;
       if (!leadEl) return;
       e.preventDefault();
@@ -294,8 +316,14 @@ export function DiffView(props: DiffViewProps) {
         w.targetTop = w.top;
         w.targetLeft = w.left;
       }
-      w.targetTop = Math.max(0, Math.min(leadEl.scrollHeight - leadEl.clientHeight, w.targetTop + dy));
-      w.targetLeft = Math.max(0, Math.min(leadEl.scrollWidth - leadEl.clientWidth, w.targetLeft + dx));
+      w.targetTop = Math.max(
+        0,
+        Math.min(leadEl.scrollHeight - leadEl.clientHeight, w.targetTop + dy),
+      );
+      w.targetLeft = Math.max(
+        0,
+        Math.min(leadEl.scrollWidth - leadEl.clientWidth, w.targetLeft + dx),
+      );
       if (w.frame || Math.abs(dx) >= SMOOTH_WHEEL_STEP || Math.abs(dy) >= SMOOTH_WHEEL_STEP) {
         if (!w.frame) w.frame = requestAnimationFrame(step);
       } else {
@@ -304,9 +332,9 @@ export function DiffView(props: DiffViewProps) {
         apply();
       }
     };
-    root.addEventListener('wheel', onWheel, { passive: false });
+    root.addEventListener("wheel", onWheel, { passive: false });
     return () => {
-      root.removeEventListener('wheel', onWheel);
+      root.removeEventListener("wheel", onWheel);
       cancelAnimationFrame(wheel.current.frame);
     };
   }, []);
@@ -318,10 +346,12 @@ export function DiffView(props: DiffViewProps) {
   );
   // Programmatic scrolls move both panes at once, so there is nothing for the follower to catch up on.
   const scrollTo = useCallback((top: number) => {
-    for (const ref of [refs.a, refs.b]) if (ref.current) setScroll(ref.current, top, ref.current.scrollLeft);
+    for (const ref of [refs.a, refs.b])
+      if (ref.current) setScroll(ref.current, top, ref.current.scrollLeft);
   }, []);
   const scrollLeftTo = (left: number) => {
-    for (const ref of [refs.a, refs.b]) if (ref.current) setScroll(ref.current, ref.current.scrollTop, left);
+    for (const ref of [refs.a, refs.b])
+      if (ref.current) setScroll(ref.current, ref.current.scrollTop, left);
   };
 
   // ---- Editing state ---------------------------------------------------------------------
@@ -330,7 +360,7 @@ export function DiffView(props: DiffViewProps) {
     a: caretAt({ line: 0, col: 0 }),
     b: caretAt({ line: 0, col: 0 }),
   });
-  const [active, setActive] = useState<Side>('a');
+  const [active, setActive] = useState<Side>("a");
   const [focused, setFocused] = useState(false);
   /** Display column that vertical movement tries to keep, like any text editor. */
   const goalColumn = useRef<number | null>(null);
@@ -346,14 +376,18 @@ export function DiffView(props: DiffViewProps) {
     return { anchor: clampPos(lines, s.anchor), head: clampPos(lines, s.head) };
   };
 
-  const select = (side: Side, s: Selection, opts: { reveal?: boolean; keepGoal?: boolean } = {}) => {
+  const select = (
+    side: Side,
+    s: Selection,
+    opts: { reveal?: boolean; keepGoal?: boolean } = {},
+  ) => {
     if (!opts.keepGoal) goalColumn.current = null;
     if (opts.reveal) reveal.current = true;
     setSelections((prev) => ({ ...prev, [side]: s }));
   };
 
   const rowOfLine = (side: Side, line: number): number => {
-    const inv = side === 'a' ? rows.aRow : rows.bRow;
+    const inv = side === "a" ? rows.aRow : rows.bRow;
     return inv.length ? inv[Math.min(line, inv.length - 1)] : 0;
   };
 
@@ -367,8 +401,9 @@ export function DiffView(props: DiffViewProps) {
     leader.current = active;
     const top = rowOfLine(active, head.line) * ROW_HEIGHT;
     if (top < el.scrollTop) scrollTo(top);
-    else if (top + ROW_HEIGHT > el.scrollTop + el.clientHeight) scrollTo(top + ROW_HEIGHT - el.clientHeight);
-    const x = textLeft + visualColumn(linesOf(active)[head.line] ?? '', head.col, TAB_SIZE) * cw;
+    else if (top + ROW_HEIGHT > el.scrollTop + el.clientHeight)
+      scrollTo(top + ROW_HEIGHT - el.clientHeight);
+    const x = textLeft + visualColumn(linesOf(active)[head.line] ?? "", head.col, TAB_SIZE) * cw;
     const margin = 4 * cw;
     if (x < el.scrollLeft + textLeft) scrollLeftTo(Math.max(0, x - textLeft - margin));
     else if (x > el.scrollLeft + el.clientWidth - margin) scrollLeftTo(x - el.clientWidth + margin);
@@ -393,22 +428,32 @@ export function DiffView(props: DiffViewProps) {
     const side = active;
     const lines = linesOf(side);
     const before = selOf(side);
-    if (!isCaret(before)) return insert('', group);
+    if (!isCaret(before)) return insert("", group);
     const t = clampPos(lines, target(before.head, lines));
     if (t.line === before.head.line && t.col === before.head.col) return;
     const [from, to] = ordered({ anchor: before.head, head: t });
-    const { op, end } = replaceRange(lines, from, to, '');
+    const { op, end } = replaceRange(lines, from, to, "");
     const after = caretAt(end);
     onEdit(side, op, { before, after, group });
     select(side, after, { reveal: true });
   };
 
-  const undoRedo = (which: 'undo' | 'redo' | Side) => {
+  const undoRedo = (which: "undo" | "redo" | Side) => {
     if (props.readOnly) return;
-    const r = which === 'undo' ? props.onUndo() : which === 'redo' ? props.onRedo() : props.onUndoSide(which);
-    const what = which === 'redo' ? 'Redo' : which === 'undo' ? 'Undo' : `Undo on the ${which === 'a' ? 'left' : 'right'}`;
-    if (!r) return log.debug('edit', `${what}: nothing to ${which === 'redo' ? 'redo' : 'undo'}`);
-    log.info('edit', what, { side: r.side === 'a' ? 'left' : 'right', line: r.op.start + 1 });
+    const r =
+      which === "undo"
+        ? props.onUndo()
+        : which === "redo"
+          ? props.onRedo()
+          : props.onUndoSide(which);
+    const what =
+      which === "redo"
+        ? "Redo"
+        : which === "undo"
+          ? "Undo"
+          : `Undo on the ${which === "a" ? "left" : "right"}`;
+    if (!r) return log.debug("edit", `${what}: nothing to ${which === "redo" ? "redo" : "undo"}`);
+    log.info("edit", what, { side: r.side === "a" ? "left" : "right", line: r.op.start + 1 });
     setActive(r.side);
     inputs[r.side].current?.focus({ preventScroll: true });
     // Show where the change happened. The remembered selection is right for typing, but for a
@@ -417,13 +462,15 @@ export function DiffView(props: DiffViewProps) {
     const first = r.op.start;
     const last = r.op.start + Math.max(0, r.op.inserted.length - 1);
     const head = r.selection.head.line;
-    select(r.side, head >= first && head <= last ? r.selection : caretAt({ line: first, col: 0 }), { reveal: true });
+    select(r.side, head >= first && head <= last ? r.selection : caretAt({ line: first, col: 0 }), {
+      reveal: true,
+    });
   };
 
   /** Jumps to the next or previous change block relative to the caret on the active side. */
   const goToDifference = (direction: 1 | -1) => {
     const side = active;
-    const index = side === 'a' ? rows.a : rows.b;
+    const index = side === "a" ? rows.a : rows.b;
     const caretLine = selOf(side).head.line;
     // Still where the last jump put the caret: measure from that block, not the caret's row
     // (on the side without lines in the block, the caret sits on the line after it, and
@@ -435,18 +482,22 @@ export function DiffView(props: DiffViewProps) {
         : linesOf(side).length
           ? rowOfLine(side, caretLine)
           : 0;
-    const isChange = (i: number) => blocks[i].kind !== 'equal' && blocks[i].kind !== 'unimportant';
+    const isChange = (i: number) => blocks[i].kind !== "equal" && blocks[i].kind !== "unimportant";
     let target = -1;
     if (direction === 1) {
-      for (let i = 0; i < blocks.length && target < 0; i++) if (isChange(i) && rows.blockStart[i] > caretRow) target = i;
+      for (let i = 0; i < blocks.length && target < 0; i++)
+        if (isChange(i) && rows.blockStart[i] > caretRow) target = i;
     } else {
       for (let i = blocks.length - 1; i >= 0 && target < 0; i--) {
         const end = i + 1 < blocks.length ? rows.blockStart[i + 1] : rows.count;
         if (isChange(i) && end <= caretRow) target = i;
       }
     }
-    if (target < 0) return log.debug('view', `No ${direction === 1 ? 'next' : 'previous'} difference`);
-    log.info('view', direction === 1 ? 'Next difference' : 'Previous difference', { block: target });
+    if (target < 0)
+      return log.debug("view", `No ${direction === 1 ? "next" : "previous"} difference`);
+    log.info("view", direction === 1 ? "Next difference" : "Previous difference", {
+      block: target,
+    });
     const startRow = rows.blockStart[target];
     // Put the caret on the block's first line on this side, or where its lines would go.
     let r = startRow;
@@ -461,12 +512,15 @@ export function DiffView(props: DiffViewProps) {
   };
 
   useImperativeHandle(props.handleRef, () => ({
-    undo: () => undoRedo('undo'),
-    redo: () => undoRedo('redo'),
+    undo: () => undoRedo("undo"),
+    redo: () => undoRedo("redo"),
     selectAll: () => {
       const lines = linesOf(active);
       const last = Math.max(0, lines.length - 1);
-      select(active, { anchor: { line: 0, col: 0 }, head: clampPos(lines, { line: last, col: Infinity }) });
+      select(active, {
+        anchor: { line: 0, col: 0 },
+        head: clampPos(lines, { line: last, col: Infinity }),
+      });
     },
     goToDifference,
     activeSide: () => active,
@@ -485,18 +539,39 @@ export function DiffView(props: DiffViewProps) {
    * arrival) so it's obvious where it is. It stays while the caret is where the jump put it;
    * clicking elsewhere, typing or a re-diff clears it. `flash` restarts the animation.
    */
-  const [landed, setLanded] = useState<{ block: number; side: Side; line: number; flash: number } | null>(null);
+  const [landed, setLanded] = useState<{
+    block: number;
+    side: Side;
+    line: number;
+    flash: number;
+  } | null>(null);
   useEffect(() => setLanded(null), [blocks]);
-  const landedHere = landed && blocks[landed.block] && selOf(landed.side).head.line === landed.line && isCaret(selOf(landed.side)) ? landed : null;
+  const landedHere =
+    landed &&
+    blocks[landed.block] &&
+    selOf(landed.side).head.line === landed.line &&
+    isCaret(selOf(landed.side))
+      ? landed
+      : null;
   const landedRows = landedHere && {
     first: rows.blockStart[landedHere.block],
     last: landedHere.block + 1 < blocks.length ? rows.blockStart[landedHere.block + 1] : rows.count,
     flash: landedHere.flash,
   };
-  const landedIndex = landedHere ? blocks.slice(0, landedHere.block + 1).filter((b) => b.kind !== 'equal' && b.kind !== 'unimportant').length : 0;
-  const changeCount = useMemo(() => blocks.filter((b) => b.kind !== 'equal' && b.kind !== 'unimportant').length, [blocks]);
+  const landedIndex = landedHere
+    ? blocks
+        .slice(0, landedHere.block + 1)
+        .filter((b) => b.kind !== "equal" && b.kind !== "unimportant").length
+    : 0;
+  const changeCount = useMemo(
+    () => blocks.filter((b) => b.kind !== "equal" && b.kind !== "unimportant").length,
+    [blocks],
+  );
   const { onLandedChange } = props;
-  useEffect(() => onLandedChange?.(landedHere ? { index: landedIndex, total: changeCount } : null), [landedIndex, changeCount, !!landedHere, onLandedChange]);
+  useEffect(
+    () => onLandedChange?.(landedHere ? { index: landedIndex, total: changeCount } : null),
+    [landedIndex, changeCount, !!landedHere, onLandedChange],
+  );
   useEffect(() => () => onLandedChange?.(null), [onLandedChange]);
 
   const [mergePreview, setMergePreview] = useState<{ block: number; from: Side } | null>(null);
@@ -507,10 +582,14 @@ export function DiffView(props: DiffViewProps) {
     const i = mergePreview.block;
     const first = rows.blockStart[i];
     const last = i + 1 < blocks.length ? rows.blockStart[i + 1] : rows.count;
-    const src = mergePreview.from === 'a' ? blocks[i].a : blocks[i].b;
+    const src = mergePreview.from === "a" ? blocks[i].a : blocks[i].b;
     // Removing lines (nothing to copy from this side): only the side that changes is outlined.
     if (side === mergePreview.from && src.end === src.start) return null;
-    return { first, last, role: side === mergePreview.from ? ('source' as const) : ('target' as const) };
+    return {
+      first,
+      last,
+      role: side === mergePreview.from ? ("source" as const) : ("target" as const),
+    };
   };
 
   const merge = (block: number, from: Side) => {
@@ -518,7 +597,7 @@ export function DiffView(props: DiffViewProps) {
     const to = other(from);
     const op = mergeOp(blocks[block], from, linesOf(from), linesOf(to));
     if (op.removed.length === 0 && op.inserted.length === 0) return;
-    log.info('merge', `Copied a change to the ${to === 'a' ? 'left' : 'right'}`, {
+    log.info("merge", `Copied a change to the ${to === "a" ? "left" : "right"}`, {
       kind: blocks[block].kind,
       line: op.start + 1,
       removed: op.removed.length,
@@ -535,7 +614,7 @@ export function DiffView(props: DiffViewProps) {
   const onKeyDown = (side: Side) => (e: KeyboardEvent<HTMLTextAreaElement>) => {
     // keyCode 229: the key that ends a composition in WebKit, which fires compositionend first.
     if (composing.current || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
-    if (e.key === 'Escape' && pendingAlign) {
+    if (e.key === "Escape" && pendingAlign) {
       setPendingAlign(null);
       e.preventDefault();
       return;
@@ -543,55 +622,72 @@ export function DiffView(props: DiffViewProps) {
     const lines = linesOf(side);
     const sel = selOf(side);
     const { head } = sel;
-    const text = lines[head.line] ?? '';
+    const text = lines[head.line] ?? "";
     const mod = isMac ? e.metaKey : e.ctrlKey;
     const byWord = isMac ? e.altKey : e.ctrlKey;
     const extend = e.shiftKey;
     const lastLine = Math.max(0, lines.length - 1);
-    const pageLines = Math.max(1, Math.floor((refs[side].current?.clientHeight ?? 0) / ROW_HEIGHT) - 1);
+    const pageLines = Math.max(
+      1,
+      Math.floor((refs[side].current?.clientHeight ?? 0) / ROW_HEIGHT) - 1,
+    );
 
     const moveTo = (p: Pos, keepGoal = false) => {
       const target = clampPos(lines, p);
-      select(side, extend ? { anchor: sel.anchor, head: target } : caretAt(target), { reveal: true, keepGoal });
+      select(side, extend ? { anchor: sel.anchor, head: target } : caretAt(target), {
+        reveal: true,
+        keepGoal,
+      });
       props.onSealHistory();
     };
     const vertical = (delta: number) => {
       if (goalColumn.current === null) goalColumn.current = visualColumn(text, head.col, TAB_SIZE);
       const line = head.line + delta;
       if (line < 0) return moveTo({ line: 0, col: 0 }, true);
-      if (line > lastLine) return moveTo({ line: lastLine, col: (lines[lastLine] ?? '').length }, true);
+      if (line > lastLine)
+        return moveTo({ line: lastLine, col: (lines[lastLine] ?? "").length }, true);
       moveTo({ line, col: colAtVisual(lines[line], goalColumn.current, TAB_SIZE) }, true);
     };
     const [selStart, selEnd] = ordered(sel);
 
     switch (e.key) {
-      case 'ArrowLeft':
+      case "ArrowLeft":
         if (!extend && !isCaret(sel)) moveTo(selStart);
         else if (isMac && e.metaKey) moveTo({ line: head.line, col: 0 });
-        else if (head.col === 0) moveTo(head.line > 0 ? { line: head.line - 1, col: lines[head.line - 1].length } : head);
-        else moveTo({ line: head.line, col: byWord ? wordLeft(text, head.col) : prevChar(text, head.col) });
+        else if (head.col === 0)
+          moveTo(head.line > 0 ? { line: head.line - 1, col: lines[head.line - 1].length } : head);
+        else
+          moveTo({
+            line: head.line,
+            col: byWord ? wordLeft(text, head.col) : prevChar(text, head.col),
+          });
         break;
-      case 'ArrowRight':
+      case "ArrowRight":
         if (!extend && !isCaret(sel)) moveTo(selEnd);
         else if (isMac && e.metaKey) moveTo({ line: head.line, col: text.length });
-        else if (head.col >= text.length) moveTo(head.line < lastLine ? { line: head.line + 1, col: 0 } : head);
-        else moveTo({ line: head.line, col: byWord ? wordRight(text, head.col) : nextChar(text, head.col) });
+        else if (head.col >= text.length)
+          moveTo(head.line < lastLine ? { line: head.line + 1, col: 0 } : head);
+        else
+          moveTo({
+            line: head.line,
+            col: byWord ? wordRight(text, head.col) : nextChar(text, head.col),
+          });
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         if (isMac && e.metaKey) moveTo({ line: 0, col: 0 });
         else vertical(-1);
         break;
-      case 'ArrowDown':
+      case "ArrowDown":
         if (isMac && e.metaKey) moveTo({ line: lastLine, col: Infinity });
         else vertical(1);
         break;
-      case 'PageUp':
+      case "PageUp":
         vertical(-pageLines);
         break;
-      case 'PageDown':
+      case "PageDown":
         vertical(pageLines);
         break;
-      case 'Home': {
+      case "Home": {
         if (mod) moveTo({ line: 0, col: 0 });
         else {
           // Toggle between the first non-blank character and the start of the line.
@@ -600,58 +696,67 @@ export function DiffView(props: DiffViewProps) {
         }
         break;
       }
-      case 'End':
+      case "End":
         moveTo(mod ? { line: lastLine, col: Infinity } : { line: head.line, col: text.length });
         break;
-      case 'Backspace':
-        if (isMac && e.metaKey) deleteTo((h) => ({ line: h.line, col: 0 }), 'delete');
+      case "Backspace":
+        if (isMac && e.metaKey) deleteTo((h) => ({ line: h.line, col: 0 }), "delete");
         else
           deleteTo(
             (h, ls) =>
               h.col > 0
-                ? { line: h.line, col: byWord ? wordLeft(ls[h.line], h.col) : prevChar(ls[h.line], h.col) }
+                ? {
+                    line: h.line,
+                    col: byWord ? wordLeft(ls[h.line], h.col) : prevChar(ls[h.line], h.col),
+                  }
                 : h.line > 0
                   ? { line: h.line - 1, col: ls[h.line - 1].length }
                   : h,
-            'delete',
+            "delete",
           );
         break;
-      case 'Delete':
+      case "Delete":
         deleteTo(
           (h, ls) =>
-            h.col < (ls[h.line] ?? '').length
-              ? { line: h.line, col: byWord ? wordRight(ls[h.line], h.col) : nextChar(ls[h.line], h.col) }
+            h.col < (ls[h.line] ?? "").length
+              ? {
+                  line: h.line,
+                  col: byWord ? wordRight(ls[h.line], h.col) : nextChar(ls[h.line], h.col),
+                }
               : h.line < ls.length - 1
                 ? { line: h.line + 1, col: 0 }
                 : h,
-          'delete',
+          "delete",
         );
         break;
-      case 'Enter': {
+      case "Enter": {
         // Keep the current line's indentation.
         const indent = /^[ \t]*/.exec(text.slice(0, head.col))![0];
-        insert('\n' + indent);
+        insert(`\n${indent}`);
         break;
       }
-      case 'Tab': {
+      case "Tab": {
         if (e.shiftKey) break;
-        const usesTabs = lines.some((l) => l.startsWith('\t'));
+        const usesTabs = lines.some((l) => l.startsWith("\t"));
         const v = visualColumn(text, selStart.col, TAB_SIZE);
-        insert(usesTabs ? '\t' : ' '.repeat(TAB_SIZE - (v % TAB_SIZE)), 'type');
+        insert(usesTabs ? "\t" : " ".repeat(TAB_SIZE - (v % TAB_SIZE)), "type");
         break;
       }
-      case 'z':
-      case 'Z':
+      case "z":
+      case "Z":
         if (!mod) return;
-        undoRedo(e.shiftKey ? 'redo' : 'undo');
+        undoRedo(e.shiftKey ? "redo" : "undo");
         break;
-      case 'y':
+      case "y":
         if (!mod || isMac) return;
-        undoRedo('redo');
+        undoRedo("redo");
         break;
-      case 'a':
+      case "a":
         if (!mod) return;
-        select(side, { anchor: { line: 0, col: 0 }, head: clampPos(lines, { line: lastLine, col: Infinity }) });
+        select(side, {
+          anchor: { line: 0, col: 0 },
+          head: clampPos(lines, { line: lastLine, col: Infinity }),
+        });
         break;
       default:
         return;
@@ -663,21 +768,21 @@ export function DiffView(props: DiffViewProps) {
     if (composing.current) return;
     const ta = e.currentTarget;
     const text = ta.value;
-    ta.value = '';
-    if (text) insert(text, 'type');
+    ta.value = "";
+    if (text) insert(text, "type");
   };
   // While composing, the input shows the text being composed at the caret (it's invisible otherwise).
   const onCompositionStart = (e: { currentTarget: HTMLTextAreaElement }) => {
     composing.current = true;
-    e.currentTarget.classList.add('composing');
+    e.currentTarget.classList.add("composing");
   };
   const onCompositionEnd = (e: { currentTarget: HTMLTextAreaElement }) => {
     composing.current = false;
     const ta = e.currentTarget;
-    ta.classList.remove('composing');
+    ta.classList.remove("composing");
     const text = ta.value;
-    ta.value = '';
-    if (text) insert(text, 'type');
+    ta.value = "";
+    if (text) insert(text, "type");
   };
 
   const selectedText = (side: Side) => {
@@ -686,17 +791,17 @@ export function DiffView(props: DiffViewProps) {
   };
   const onCopy = (side: Side) => (e: ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
-    if (!isCaret(selOf(side))) e.clipboardData.setData('text/plain', selectedText(side));
+    if (!isCaret(selOf(side))) e.clipboardData.setData("text/plain", selectedText(side));
   };
   const onCut = (side: Side) => (e: ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
     if (isCaret(selOf(side))) return;
-    e.clipboardData.setData('text/plain', selectedText(side));
-    insert('');
+    e.clipboardData.setData("text/plain", selectedText(side));
+    insert("");
   };
   const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
-    const text = e.clipboardData.getData('text/plain');
+    const text = e.clipboardData.getData("text/plain");
     if (text) insert(text);
   };
 
@@ -708,8 +813,11 @@ export function DiffView(props: DiffViewProps) {
     const lines = linesOf(side);
     if (lines.length === 0 || rows.count === 0) return { line: 0, col: 0 };
     const rect = el.getBoundingClientRect();
-    const row = Math.min(rows.count - 1, Math.max(0, Math.floor((clientY - rect.top + el.scrollTop) / ROW_HEIGHT)));
-    const index = side === 'a' ? rows.a : rows.b;
+    const row = Math.min(
+      rows.count - 1,
+      Math.max(0, Math.floor((clientY - rect.top + el.scrollTop) / ROW_HEIGHT)),
+    );
+    const index = side === "a" ? rows.a : rows.b;
     if (index[row] < 0) {
       let r = row;
       while (r < rows.count && index[r] < 0) r++;
@@ -719,7 +827,8 @@ export function DiffView(props: DiffViewProps) {
       return { line: index[r], col: lines[index[r]].length };
     }
     const line = index[row];
-    const x = clientX - rect.left < lineNumberWidth ? 0 : clientX - rect.left + el.scrollLeft - textLeft;
+    const x =
+      clientX - rect.left < lineNumberWidth ? 0 : clientX - rect.left + el.scrollLeft - textLeft;
     return { line, col: colAtVisual(lines[line], Math.max(0, x) / cw, TAB_SIZE) };
   };
 
@@ -731,7 +840,8 @@ export function DiffView(props: DiffViewProps) {
   useEffect(() => setPendingAlign(null), [versions]);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
-  const lineLabel = (side: Side, line: number) => `${side === 'a' ? 'left' : 'right'} line ${line + 1}`;
+  const lineLabel = (side: Side, line: number) =>
+    `${side === "a" ? "left" : "right"} line ${line + 1}`;
 
   const onContextMenu = (side: Side) => (e: ReactMouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -743,8 +853,8 @@ export function DiffView(props: DiffViewProps) {
       items.push({
         label: `Align with ${lineLabel(p.side, p.line)}`,
         run: () => {
-          const [a, b] = side === 'a' ? [line, p.line] : [p.line, line];
-          log.info('edit', 'Aligned lines', { left: a + 1, right: b + 1 });
+          const [a, b] = side === "a" ? [line, p.line] : [p.line, line];
+          log.info("edit", "Aligned lines", { left: a + 1, right: b + 1 });
           setPendingAlign(null);
           props.onAlign(a, b);
         },
@@ -753,26 +863,32 @@ export function DiffView(props: DiffViewProps) {
       items.push({
         label: `Align ${lineLabel(side, line)} with…`,
         run: () => {
-          log.debug('edit', 'Choosing a line to align with', { side: side === 'a' ? 'left' : 'right', line: line + 1 });
+          log.debug("edit", "Choosing a line to align with", {
+            side: side === "a" ? "left" : "right",
+            line: line + 1,
+          });
           setPendingAlign({ side, line });
         },
       });
     }
-    if (pendingAlign) items.push({ label: 'Cancel alignment', run: () => setPendingAlign(null) });
+    if (pendingAlign) items.push({ label: "Cancel alignment", run: () => setPendingAlign(null) });
     if (props.anchors.some((x) => x[side] === line)) {
       items.push({
-        label: 'Remove this alignment',
+        label: "Remove this alignment",
         run: () => {
-          log.info('edit', 'Removed an alignment', { side: side === 'a' ? 'left' : 'right', line: line + 1 });
+          log.info("edit", "Removed an alignment", {
+            side: side === "a" ? "left" : "right",
+            line: line + 1,
+          });
           props.onUnalign(side, line);
         },
       });
     }
     if (props.anchors.length > 0) {
       items.push({
-        label: 'Clear all alignments',
+        label: "Clear all alignments",
         run: () => {
-          log.info('edit', 'Cleared all alignments', { count: props.anchors.length });
+          log.info("edit", "Cleared all alignments", { count: props.anchors.length });
           props.onClearAlignments();
         },
       });
@@ -781,7 +897,10 @@ export function DiffView(props: DiffViewProps) {
   };
 
   const anchoredLines = useMemo(
-    () => ({ a: new Set(props.anchors.map((x) => x.a)), b: new Set(props.anchors.map((x) => x.b)) }),
+    () => ({
+      a: new Set(props.anchors.map((x) => x.a)),
+      b: new Set(props.anchors.map((x) => x.b)),
+    }),
     [props.anchors],
   );
 
@@ -812,7 +931,10 @@ export function DiffView(props: DiffViewProps) {
       const [ws, we] = wordAt(lines[pos.line], pos.col);
       s = { anchor: { line: pos.line, col: ws }, head: { line: pos.line, col: we } };
     } else if (clicks >= 3 && lines.length) {
-      const end = pos.line + 1 < lines.length ? { line: pos.line + 1, col: 0 } : { line: pos.line, col: lines[pos.line].length };
+      const end =
+        pos.line + 1 < lines.length
+          ? { line: pos.line + 1, col: 0 }
+          : { line: pos.line, col: lines[pos.line].length };
       s = { anchor: { line: pos.line, col: 0 }, head: end };
     } else if (e.shiftKey) {
       s = { anchor: selOf(side).anchor, head: pos };
@@ -843,16 +965,19 @@ export function DiffView(props: DiffViewProps) {
 
   // Render the viewport's bands plus one band of margin above and below.
   const first = Math.max(0, (band - 1) * BAND_ROWS);
-  const last = Math.min(rows.count, (band + 2 + Math.ceil(viewportHeight / (BAND_ROWS * ROW_HEIGHT))) * BAND_ROWS);
+  const last = Math.min(
+    rows.count,
+    (band + 2 + Math.ceil(viewportHeight / (BAND_ROWS * ROW_HEIGHT))) * BAND_ROWS,
+  );
   // Columns likewise, for long lines: the viewport's bands plus one either side.
   const firstCol = Math.floor((Math.max(0, hBand - 1) * BAND_WIDTH) / cw);
   const lastCol = Math.ceil(((hBand + 2) * BAND_WIDTH + Math.max(paneWidths.a, paneWidths.b)) / cw);
   const style = {
     font: FONT,
     gridTemplateColumns: `minmax(0, ${split}fr) ${GUTTER_WIDTH}px minmax(0, ${1 - split}fr) ${OVERVIEW_WIDTH}px`,
-    gridTemplateRows: 'auto 1fr auto auto',
-    '--row-height': `${ROW_HEIGHT}px`,
-    '--tab-size': TAB_SIZE,
+    gridTemplateRows: "auto 1fr auto auto",
+    "--row-height": `${ROW_HEIGHT}px`,
+    "--tab-size": TAB_SIZE,
   } as CSSProperties;
 
   const pane = (side: Side) => {
@@ -909,18 +1034,25 @@ export function DiffView(props: DiffViewProps) {
   // The line pair at the caret, shown in full in the details strip at the bottom.
   // Right after a jump, the difference itself: when it has no lines on the caret's side (an
   // insertion or deletion), the caret waits on the next line below it, which is not the change.
-  const detailRow = !rows.count ? -1 : landedRows ? landedRows.first : Math.min(rows.count - 1, rowOfLine(active, selOf(active).head.line));
+  const detailRow = !rows.count
+    ? -1
+    : landedRows
+      ? landedRows.first
+      : Math.min(rows.count - 1, rowOfLine(active, selOf(active).head.line));
   const detail = (side: Side) => {
-    const line = detailRow < 0 ? -1 : (side === 'a' ? rows.a : rows.b)[detailRow];
+    const line = detailRow < 0 ? -1 : (side === "a" ? rows.a : rows.b)[detailRow];
     const kind = detailRow < 0 ? RowKind.Equal : (rows.kind[detailRow] as RowKind);
-    const ranges = kind === RowKind.Modified || kind === RowKind.Unimportant ? (intraLine(detailRow)?.[side] ?? []) : [];
+    const ranges =
+      kind === RowKind.Modified || kind === RowKind.Unimportant
+        ? (intraLine(detailRow)?.[side] ?? [])
+        : [];
     return {
       number: line < 0 ? null : line + 1,
       text: line < 0 ? '' : linesOf(side)[line],
       // Every line but the last ends with a line break (a final break starts an empty last line).
       lineBreak: line >= 0 && line < linesOf(side).length - 1,
       ranges,
-      highlight: kind === RowKind.Unimportant ? 'chg-minor' : side === 'a' ? 'chg-del' : 'chg-ins',
+      highlight: kind === RowKind.Unimportant ? "chg-minor" : side === "a" ? "chg-del" : "chg-ins",
     };
   };
 
@@ -953,8 +1085,13 @@ export function DiffView(props: DiffViewProps) {
         className="header-button header-icon"
         onClick={() => props.onSave(side)}
         disabled={!props.isEdited(side) || !!props.readOnly}
-        title={props.readOnly ?? (props.isEdited(side) ? `Save the ${side === 'a' ? 'left' : 'right'} file` : 'No unsaved changes')}
-        aria-label={`Save the ${side === 'a' ? 'left' : 'right'} file`}
+        title={
+          props.readOnly ??
+          (props.isEdited(side)
+            ? `Save the ${side === "a" ? "left" : "right"} file`
+            : "No unsaved changes")
+        }
+        aria-label={`Save the ${side === "a" ? "left" : "right"} file`}
       >
         <SaveIcon />
       </button>
@@ -963,8 +1100,10 @@ export function DiffView(props: DiffViewProps) {
         className="header-button header-icon"
         onClick={() => undoRedo(side)}
         disabled={!props.canUndo(side) || !!props.readOnly}
-        title={props.readOnly ?? `Undo the last change to the ${side === 'a' ? 'left' : 'right'} side`}
-        aria-label={`Undo the last change to the ${side === 'a' ? 'left' : 'right'} side`}
+        title={
+          props.readOnly ?? `Undo the last change to the ${side === "a" ? "left" : "right"} side`
+        }
+        aria-label={`Undo the last change to the ${side === "a" ? "left" : "right"} side`}
       >
         <UndoIcon />
       </button>
@@ -973,11 +1112,11 @@ export function DiffView(props: DiffViewProps) {
 
   return (
     <div className="diff-view" ref={rootRef} style={style}>
-      {header('a')}
+      {header("a")}
       <div className="pane-header gutter-header" />
-      {header('b')}
+      {header("b")}
       <div className="pane-header overview-header" />
-      {pane('a')}
+      {pane("a")}
       <Gutter
         rows={rows}
         blocks={blocks}
@@ -997,7 +1136,7 @@ export function DiffView(props: DiffViewProps) {
         }}
         onDividerReset={() => setSplit(0.5)}
       />
-      {pane('b')}
+      {pane("b")}
       <Overview
         rows={rows}
         blocks={blocks}
@@ -1006,15 +1145,20 @@ export function DiffView(props: DiffViewProps) {
         onJump={scrollTo}
         handleRef={overview}
       />
-      {fileStatus('a')}
+      {fileStatus("a")}
       <div className="file-status gutter-status" />
-      {fileStatus('b')}
+      {fileStatus("b")}
       <div className="file-status overview-status" />
-      <LineDetails left={detail('a')} right={detail('b')} charWidth={cw} rowKey={detailRow < 0 ? '' : `${detailRow}:${rows.a[detailRow]}:${rows.b[detailRow]}`} />
+      <LineDetails
+        left={detail("a")}
+        right={detail("b")}
+        charWidth={cw}
+        rowKey={detailRow < 0 ? "" : `${detailRow}:${rows.a[detailRow]}:${rows.b[detailRow]}`}
+      />
       {pendingAlign && (
         <div className="align-hint" role="status">
-          Right-click a line in the {pendingAlign.side === 'a' ? 'right' : 'left'} pane to align it with{' '}
-          {lineLabel(pendingAlign.side, pendingAlign.line)}. Esc cancels.
+          Right-click a line in the {pendingAlign.side === "a" ? "right" : "left"} pane to align it
+          with {lineLabel(pendingAlign.side, pendingAlign.line)}. Esc cancels.
         </div>
       )}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />}

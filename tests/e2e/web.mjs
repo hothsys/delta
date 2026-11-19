@@ -12,77 +12,107 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const { app, BrowserWindow } = electron;
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
-const SERVER = join(ROOT, 'dist/app/server/index.js');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
+const SERVER = join(ROOT, "dist/app/server/index.js");
 const PORT = 5990 + Math.floor(Math.random() * 9);
-const MOD = process.platform === 'darwin' ? 'meta' : 'control';
+const MOD = process.platform === "darwin" ? "meta" : "control";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---- Fixtures ----------------------------------------------------------------------------
 
-const T = mkdtempSync(join(tmpdir(), 'delta-e2e-'));
-const DATA = join(T, 'settings');
-const LOGS = join(T, 'logs');
-const logText = () => (existsSync(join(LOGS, 'web.log')) ? readFileSync(join(LOGS, 'web.log'), 'utf8') : '');
-const F = join(T, 'files');
+const T = mkdtempSync(join(tmpdir(), "delta-e2e-"));
+const DATA = join(T, "settings");
+const LOGS = join(T, "logs");
+const logText = () =>
+  existsSync(join(LOGS, "web.log")) ? readFileSync(join(LOGS, "web.log"), "utf8") : "";
+const F = join(T, "files");
 mkdirSync(F);
-writeFileSync(join(F, 'left.txt'), 'alpha\nbravo\ncharlie\ndelta\necho\n');
-writeFileSync(join(F, 'right.txt'), 'alpha\nBRAVO\ncharlie\necho\nfoxtrot\n');
+writeFileSync(join(F, "left.txt"), "alpha\nbravo\ncharlie\ndelta\necho\n");
+writeFileSync(join(F, "right.txt"), "alpha\nBRAVO\ncharlie\necho\nfoxtrot\n");
 // Latin-1 with CRLF line endings: saving must keep both.
-writeFileSync(join(F, 'latin1.txt'), Buffer.from('caf\xe9\r\nna\xefve\r\n', 'latin1'));
-writeFileSync(join(F, 'other.txt'), 'cafe\r\nnaive\r\n');
+writeFileSync(join(F, "latin1.txt"), Buffer.from("caf\xe9\r\nna\xefve\r\n", "latin1"));
+writeFileSync(join(F, "other.txt"), "cafe\r\nnaive\r\n");
 // The same text with different file conventions: UTF-8 and LF against UTF-8 with a BOM and CRLF.
-writeFileSync(join(F, 'plain.txt'), 'one\ntwo\nthree\n');
-writeFileSync(join(F, 'bom-crlf.txt'), Buffer.from('\ufeffone\r\ntwo\r\nthree\r\n', 'utf8'));
+writeFileSync(join(F, "plain.txt"), "one\ntwo\nthree\n");
+writeFileSync(join(F, "bom-crlf.txt"), Buffer.from("\ufeffone\r\ntwo\r\nthree\r\n", "utf8"));
 
-const L = join(T, 'L');
-const R = join(T, 'R');
-for (const d of [L, R, join(L, 'sub'), join(R, 'sub'), join(R, 'right-only')]) mkdirSync(d, { recursive: true });
-writeFileSync(join(L, 'same.txt'), 'same\n');
-writeFileSync(join(R, 'same.txt'), 'same\n');
-writeFileSync(join(L, 'diff.txt'), 'left version\n');
-writeFileSync(join(R, 'diff.txt'), 'right version, longer\n');
-writeFileSync(join(L, 'left-only.txt'), 'only on the left\n');
-writeFileSync(join(R, 'right-only', 'x.txt'), 'x\n');
-writeFileSync(join(L, 'sub', 'nested.txt'), 'one\n');
-writeFileSync(join(R, 'sub', 'nested.txt'), 'two\n');
-writeFileSync(join(R, 'sub', 'right-extra.txt'), 'only on the right\n');
+const L = join(T, "L");
+const R = join(T, "R");
+for (const d of [L, R, join(L, "sub"), join(R, "sub"), join(R, "right-only")])
+  mkdirSync(d, { recursive: true });
+writeFileSync(join(L, "same.txt"), "same\n");
+writeFileSync(join(R, "same.txt"), "same\n");
+writeFileSync(join(L, "diff.txt"), "left version\n");
+writeFileSync(join(R, "diff.txt"), "right version, longer\n");
+writeFileSync(join(L, "left-only.txt"), "only on the left\n");
+writeFileSync(join(R, "right-only", "x.txt"), "x\n");
+writeFileSync(join(L, "sub", "nested.txt"), "one\n");
+writeFileSync(join(R, "sub", "nested.txt"), "two\n");
+writeFileSync(join(R, "sub", "right-extra.txt"), "only on the right\n");
 // Same size and modified time, different content: only a contents comparison can tell.
-writeFileSync(join(L, 'tricky.txt'), 'aaaa\n');
-writeFileSync(join(R, 'tricky.txt'), 'bbbb\n');
-const stamp = new Date('2026-01-02T03:04:05Z');
-utimesSync(join(L, 'tricky.txt'), stamp, stamp);
-utimesSync(join(R, 'tricky.txt'), stamp, stamp);
+writeFileSync(join(L, "tricky.txt"), "aaaa\n");
+writeFileSync(join(R, "tricky.txt"), "bbbb\n");
+const stamp = new Date("2026-01-02T03:04:05Z");
+utimesSync(join(L, "tricky.txt"), stamp, stamp);
+utimesSync(join(R, "tricky.txt"), stamp, stamp);
 // Prettify: a minified JSON file against a formatted copy with one change, and an invalid one.
-const PADDING = 'x'.repeat(2100); // a line this long makes Delta suggest Prettify
-writeFileSync(join(F, 'min.json'), JSON.stringify({ name: 'delta', version: '1.0.0', padding: PADDING, scripts: { dev: 'electron-vite dev', test: 'vitest run' } }));
-writeFileSync(join(F, 'pretty.json'), JSON.stringify({ name: 'delta', version: '1.1.0', padding: PADDING, scripts: { dev: 'electron-vite dev', test: 'vitest run' } }, null, 4) + '\n');
-writeFileSync(join(F, 'broken.json'), '{"name":"delta","version":}');
+const PADDING = "x".repeat(2100); // a line this long makes Delta suggest Prettify
+writeFileSync(
+  join(F, "min.json"),
+  JSON.stringify({
+    name: "delta",
+    version: "1.0.0",
+    padding: PADDING,
+    scripts: { dev: "electron-vite dev", test: "vitest run" },
+  }),
+);
+writeFileSync(
+  join(F, "pretty.json"),
+  `${JSON.stringify(
+    {
+      name: "delta",
+      version: "1.1.0",
+      padding: PADDING,
+      scripts: { dev: "electron-vite dev", test: "vitest run" },
+    },
+    null,
+    4,
+  )}\n`,
+);
+writeFileSync(join(F, "broken.json"), '{"name":"delta","version":}');
 // A folder that disappears later, for the missing-path badge on the start screen.
-const GONE = join(T, 'gone');
+const GONE = join(T, "gone");
 mkdirSync(GONE);
-writeFileSync(join(GONE, 'a.txt'), 'a\n');
+writeFileSync(join(GONE, "a.txt"), "a\n");
 
 // ---- Results -----------------------------------------------------------------------------
 
 let failures = 0;
 let passes = 0;
-const check = (name, ok, detail = '') => {
+const check = (name, ok, detail = "") => {
   ok ? passes++ : failures++;
-  console.log(`${ok ? '  ✓' : '  ✗'} ${name}${!ok && detail ? `  (${detail})` : ''}`);
+  console.log(`${ok ? "  ✓" : "  ✗"} ${name}${!ok && detail ? `  (${detail})` : ""}`);
 };
 const section = (name) => console.log(`\n${name}`);
 
 // ---- Server ------------------------------------------------------------------------------
 
 // The server runs on Electron's own Node (ELECTRON_RUN_AS_NODE), so no separate Node is needed.
-const env = { ...process.env, DELTA_NO_BROWSER: '1', ELECTRON_RUN_AS_NODE: '1' };
-const server = spawn(process.execPath, [SERVER, '--port', String(PORT), '--data-dir', DATA, '--log-dir', LOGS], { env, stdio: ['ignore', 'pipe', 'pipe'] });
-server.stderr.on('data', (d) => appendFileSync(join(T, 'server.log'), d));
+const env = { ...process.env, DELTA_NO_BROWSER: "1", ELECTRON_RUN_AS_NODE: "1" };
+const server = spawn(
+  process.execPath,
+  [SERVER, "--port", String(PORT), "--data-dir", DATA, "--log-dir", LOGS],
+  { env, stdio: ["ignore", "pipe", "pipe"] },
+);
+server.stderr.on("data", (d) => appendFileSync(join(T, "server.log"), d));
 
 /** Launches Delta again with paths, as a user would; the running server takes them. Returns the URL. */
 function launch(...paths) {
-  const r = spawnSync(process.execPath, [SERVER, '--port', String(PORT), '--data-dir', DATA, '--log-dir', LOGS, ...paths], { env, encoding: 'utf8', timeout: 15000 });
+  const r = spawnSync(
+    process.execPath,
+    [SERVER, "--port", String(PORT), "--data-dir", DATA, "--log-dir", LOGS, ...paths],
+    { env, encoding: "utf8", timeout: 15000 },
+  );
   const url = /(http:\/\/\S+launch=[0-9a-f]+)/.exec(r.stdout)?.[1];
   if (!url) throw new Error(`no launch URL from: ${r.stdout} ${r.stderr}`);
   return { url, output: r.stdout };
@@ -91,7 +121,7 @@ function launch(...paths) {
 // ---- Page helpers ------------------------------------------------------------------------
 
 let win;
-let firstUrl = '';
+let firstUrl = "";
 const errors = [];
 let unloadPrompts = 0;
 const js = (s) => win.webContents.executeJavaScript(s);
@@ -104,9 +134,10 @@ async function waitFor(expr, ms = 8000) {
   return false;
 }
 async function key(keyCode, modifiers = []) {
-  win.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers });
-  if (keyCode.length === 1 && !modifiers.includes('meta') && !modifiers.includes('control')) win.webContents.sendInputEvent({ type: 'char', keyCode, modifiers });
-  win.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers });
+  win.webContents.sendInputEvent({ type: "keyDown", keyCode, modifiers });
+  if (keyCode.length === 1 && !modifiers.includes("meta") && !modifiers.includes("control"))
+    win.webContents.sendInputEvent({ type: "char", keyCode, modifiers });
+  win.webContents.sendInputEvent({ type: "keyUp", keyCode, modifiers });
   await sleep(60);
 }
 const type = async (text) => {
@@ -114,23 +145,33 @@ const type = async (text) => {
 };
 /** A real click at the centre of an element (or `dx` pixels from its left edge). */
 async function clickEl(selector, { dx, index = 0, count = 1 } = {}) {
-  const p = await js(`(() => { const el = document.querySelectorAll(${JSON.stringify(selector)})[${index}]; if (!el) return null; el.scrollIntoView({ block: 'nearest' }); const r = el.getBoundingClientRect(); return { x: Math.round(${dx === undefined ? 'r.left + r.width / 2' : `r.left + ${dx}`}), y: Math.round(r.top + r.height / 2) }; })()`);
+  const p = await js(
+    `(() => { const el = document.querySelectorAll(${JSON.stringify(selector)})[${index}]; if (!el) return null; el.scrollIntoView({ block: 'nearest' }); const r = el.getBoundingClientRect(); return { x: Math.round(${dx === undefined ? "r.left + r.width / 2" : `r.left + ${dx}`}), y: Math.round(r.top + r.height / 2) }; })()`,
+  );
   if (!p) throw new Error(`nothing matches ${selector}`);
-  win.webContents.sendInputEvent({ type: 'mouseMove', ...p });
+  win.webContents.sendInputEvent({ type: "mouseMove", ...p });
   for (let i = 1; i <= count; i++) {
-    win.webContents.sendInputEvent({ type: 'mouseDown', ...p, button: 'left', clickCount: i });
-    win.webContents.sendInputEvent({ type: 'mouseUp', ...p, button: 'left', clickCount: i });
+    win.webContents.sendInputEvent({ type: "mouseDown", ...p, button: "left", clickCount: i });
+    win.webContents.sendInputEvent({ type: "mouseUp", ...p, button: "left", clickCount: i });
   }
   await sleep(150);
 }
 const clickText = (selector, text) =>
-  js(`(() => { const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find((e) => e.innerText.trim().startsWith(${JSON.stringify(text)})); if (!el) throw new Error('no ' + ${JSON.stringify(`${selector} "${text}"`)}); el.click(); return true; })()`);
+  js(
+    `(() => { const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find((e) => e.innerText.trim().startsWith(${JSON.stringify(text)})); if (!el) throw new Error('no ' + ${JSON.stringify(`${selector} "${text}"`)}); el.click(); return true; })()`,
+  );
 /** Sets an input's value the way React notices. */
 const fill = (selector, value) =>
-  js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(value)}); el.dispatchEvent(new Event('input', { bubbles: true })); el.focus(); return true; })()`);
-const paneLines = (side) => js(`[...document.querySelectorAll('.pane-${side} .row')].map((r) => r.querySelector('.txt')?.innerText ?? '').filter(Boolean)`);
+  js(
+    `(() => { const el = document.querySelector(${JSON.stringify(selector)}); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(value)}); el.dispatchEvent(new Event('input', { bubbles: true })); el.focus(); return true; })()`,
+  );
+const paneLines = (side) =>
+  js(
+    `[...document.querySelectorAll('.pane-${side} .row')].map((r) => r.querySelector('.txt')?.innerText ?? '').filter(Boolean)`,
+  );
 const stats = () => js(`document.querySelector('.stats')?.innerText.replace(/\\s+/g, ' ').trim()`);
-const fileStatus = (side) => js(`document.querySelector('.file-status-${side}')?.innerText.replace(/\\s+/g, ' ').trim()`);
+const fileStatus = (side) =>
+  js(`document.querySelector('.file-status-${side}')?.innerText.replace(/\\s+/g, ' ').trim()`);
 async function open(url) {
   await win.loadURL(url);
   await waitFor(`!!document.querySelector('.menubar')`);
@@ -138,128 +179,298 @@ async function open(url) {
 }
 /** Picks a file in the in-app file browser: go to its folder, then double-click it. */
 async function pickFile(path) {
-  if (!(await waitFor(`!!document.querySelector('.file-browser')`))) throw new Error('the file browser did not open');
-  await fill('.fb-path', dirname(path));
-  await key('Return');
-  const name = path.split('/').pop();
-  await waitFor(`[...document.querySelectorAll('.fb-row .fb-name')].some((n) => n.innerText === ${JSON.stringify(name)})`);
-  await js(`[...document.querySelectorAll('.fb-row')].find((r) => r.querySelector('.fb-name').innerText === ${JSON.stringify(name)}).dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
+  if (!(await waitFor(`!!document.querySelector('.file-browser')`)))
+    throw new Error("the file browser did not open");
+  await fill(".fb-path", dirname(path));
+  await key("Return");
+  const name = path.split("/").pop();
+  await waitFor(
+    `[...document.querySelectorAll('.fb-row .fb-name')].some((n) => n.innerText === ${JSON.stringify(name)})`,
+  );
+  await js(
+    `[...document.querySelectorAll('.fb-row')].find((r) => r.querySelector('.fb-name').innerText === ${JSON.stringify(name)}).dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`,
+  );
   await sleep(300);
 }
-const rowStatus = (name) => js(`(() => { const r = [...document.querySelectorAll('.frow')].find((r) => r.querySelector('.fcell:not(.missing)')?.innerText.includes(${JSON.stringify(name)})); return r ? [...r.classList].find((c) => c.startsWith('st-'))?.slice(3) : null; })()`);
+const rowStatus = (name) =>
+  js(
+    `(() => { const r = [...document.querySelectorAll('.frow')].find((r) => r.querySelector('.fcell:not(.missing)')?.innerText.includes(${JSON.stringify(name)})); return r ? [...r.classList].find((c) => c.startsWith('st-'))?.slice(3) : null; })()`,
+  );
 
 // ---- Scenarios ---------------------------------------------------------------------------
 
 async function run() {
-  section('Start screen');
+  section("Start screen");
   await open(firstUrl);
-  check('loads with the menu bar and both choices', await js(`!!document.querySelector('.start') && document.querySelectorAll('.start-choice').length === 2 && [...document.querySelectorAll('.menubar-title')].map((b) => b.innerText).join() === 'File,Edit,View,Help'`));
+  check(
+    "loads with the menu bar and both choices",
+    await js(
+      `!!document.querySelector('.start') && document.querySelectorAll('.start-choice').length === 2 && [...document.querySelectorAll('.menubar-title')].map((b) => b.innerText).join() === 'File,Edit,View,Help'`,
+    ),
+  );
 
-  section('Comparing files through the in-app file browser');
-  await key('o', [MOD]);
-  await pickFile(join(F, 'left.txt'));
-  await pickFile(join(F, 'right.txt'));
-  check('both files open side by side', await waitFor(`!!document.querySelector('.diff-view') && document.querySelectorAll('.diff-view .pane-title').length === 2`));
-  check('the headers show full paths', await js(`[...document.querySelectorAll('.pane-title')].map((t) => t.title).join('|') === ${JSON.stringify(`${join(F, 'left.txt')}|${join(F, 'right.txt')}`)}`));
+  section("Comparing files through the in-app file browser");
+  await key("o", [MOD]);
+  await pickFile(join(F, "left.txt"));
+  await pickFile(join(F, "right.txt"));
+  check(
+    "both files open side by side",
+    await waitFor(
+      `!!document.querySelector('.diff-view') && document.querySelectorAll('.diff-view .pane-title').length === 2`,
+    ),
+  );
+  check(
+    "the headers show full paths",
+    await js(
+      `[...document.querySelectorAll('.pane-title')].map((t) => t.title).join('|') === ${JSON.stringify(`${join(F, "left.txt")}|${join(F, "right.txt")}`)}`,
+    ),
+  );
   const s1 = await stats();
-  check('differences are counted', s1?.startsWith('3 differences') && s1.includes('1 modified') && s1.includes('1 inserted') && s1.includes('1 deleted'), s1);
-  await clickEl('.pane-b .row', { dx: 120 });
-  await key('F7');
-  check('F7 goes to the first difference', (await js(`document.querySelector('.detail-b .detail-ln')?.innerText`)) === '2');
+  check(
+    "differences are counted",
+    s1?.startsWith("3 differences") &&
+      s1.includes("1 modified") &&
+      s1.includes("1 inserted") &&
+      s1.includes("1 deleted"),
+    s1,
+  );
+  await clickEl(".pane-b .row", { dx: 120 });
+  await key("F7");
+  check(
+    "F7 goes to the first difference",
+    (await js(`document.querySelector('.detail-b .detail-ln')?.innerText`)) === "2",
+  );
   // The line number shown in the strip, from whichever side has a line on that row.
-  const detailLine = () => js(`document.querySelector('.detail-b .detail-ln')?.innerText || document.querySelector('.detail-a .detail-ln')?.innerText`);
+  const detailLine = () =>
+    js(
+      `document.querySelector('.detail-b .detail-ln')?.innerText || document.querySelector('.detail-a .detail-ln')?.innerText`,
+    );
   await clickEl('[aria-label="Next difference"]');
   const afterNext = await detailLine();
-  check('the toolbar ↓ arrow goes to the next difference', afterNext !== '2' && Number(afterNext) > 2, afterNext);
+  check(
+    "the toolbar ↓ arrow goes to the next difference",
+    afterNext !== "2" && Number(afterNext) > 2,
+    afterNext,
+  );
   await clickEl('[aria-label="Previous difference"]');
-  check('and ↑ goes back to the previous one', (await detailLine()) === '2', await detailLine());
-  check('the difference landed on is outlined in both panes, and counted', (await js(`document.querySelectorAll('.diff-landed').length`)) === 2 && (await stats())?.startsWith('1 of 3 differences'), await stats());
-  await clickEl('.pane-b .row', { dx: 120 }); // line 1, outside the difference
-  check('clicking elsewhere clears the outline and the count', (await js(`document.querySelectorAll('.diff-landed').length`)) === 0 && (await stats())?.startsWith('3 differences'), await stats());
-  await key('F7'); // back to the first difference, on the right, for the steps below
-  check('the arrows sit in the middle of the toolbar', await js(`(() => { const t = document.querySelector('.toolbar').getBoundingClientRect(); const n = document.querySelector('.diff-nav').getBoundingClientRect(); return Math.abs((t.left + t.width / 2) - (n.left + n.width / 2)) <= 2; })()`));
-  await clickText('.menubar-title', 'View');
-  check('Next and Previous Difference are no longer menu items', !(await js(`[...document.querySelectorAll('.menubar-panel [role^=menuitem]')].some((b) => /Difference/.test(b.innerText))`)));
-  await clickText('.menubar-title', 'View');
+  check("and ↑ goes back to the previous one", (await detailLine()) === "2", await detailLine());
+  check(
+    "the difference landed on is outlined in both panes, and counted",
+    (await js(`document.querySelectorAll('.diff-landed').length`)) === 2 &&
+      (await stats())?.startsWith("1 of 3 differences"),
+    await stats(),
+  );
+  await clickEl(".pane-b .row", { dx: 120 }); // line 1, outside the difference
+  check(
+    "clicking elsewhere clears the outline and the count",
+    (await js(`document.querySelectorAll('.diff-landed').length`)) === 0 &&
+      (await stats())?.startsWith("3 differences"),
+    await stats(),
+  );
+  await key("F7"); // back to the first difference, on the right, for the steps below
+  check(
+    "the arrows sit in the middle of the toolbar",
+    await js(
+      `(() => { const t = document.querySelector('.toolbar').getBoundingClientRect(); const n = document.querySelector('.diff-nav').getBoundingClientRect(); return Math.abs((t.left + t.width / 2) - (n.left + n.width / 2)) <= 2; })()`,
+    ),
+  );
+  await clickText(".menubar-title", "View");
+  check(
+    "Next and Previous Difference are no longer menu items",
+    !(await js(
+      `[...document.querySelectorAll('.menubar-panel [role^=menuitem]')].some((b) => /Difference/.test(b.innerText))`,
+    )),
+  );
+  await clickText(".menubar-title", "View");
   // The arrows leave the editor focused, with the caret at the difference: typing carries on there.
 
-  section('Editing, saving, merging, undo');
-  await key('End');
-  await type('!');
-  check('typing marks the side edited', await waitFor(`!!document.querySelector('.pane-header .edited')`));
-  check('editing clears the outline once the comparison updates', await waitFor(`document.querySelectorAll('.diff-landed').length === 0 && !document.querySelector('.stats strong')?.innerText.includes(' of ')`));
-  check('the status line shows the encoding, line endings, lines and size, marked edited', (await fileStatus('b')) === 'ASCII LF 5 lines 33 B (edited)', await fileStatus('b'));
-  await key('s', [MOD]);
+  section("Editing, saving, merging, undo");
+  await key("End");
+  await type("!");
+  check(
+    "typing marks the side edited",
+    await waitFor(`!!document.querySelector('.pane-header .edited')`),
+  );
+  check(
+    "editing clears the outline once the comparison updates",
+    await waitFor(
+      `document.querySelectorAll('.diff-landed').length === 0 && !document.querySelector('.stats strong')?.innerText.includes(' of ')`,
+    ),
+  );
+  check(
+    "the status line shows the encoding, line endings, lines and size, marked edited",
+    (await fileStatus("b")) === "ASCII LF 5 lines 33 B (edited)",
+    await fileStatus("b"),
+  );
+  await key("s", [MOD]);
   await sleep(500);
-  check('Cmd/Ctrl+S saves the active side to disk', readFileSync(join(F, 'right.txt'), 'utf8') === 'alpha\nBRAVO!\ncharlie\necho\nfoxtrot\n', JSON.stringify(readFileSync(join(F, 'right.txt'), 'utf8')));
-  check('saving clears the edited mark', !(await js(`!!document.querySelector('.pane-header .edited')`)));
-  check('and the status line shows the saved size', (await fileStatus('b')) === 'ASCII LF 5 lines 34 B', await fileStatus('b'));
+  check(
+    "Cmd/Ctrl+S saves the active side to disk",
+    readFileSync(join(F, "right.txt"), "utf8") === "alpha\nBRAVO!\ncharlie\necho\nfoxtrot\n",
+    JSON.stringify(readFileSync(join(F, "right.txt"), "utf8")),
+  );
+  check(
+    "saving clears the edited mark",
+    !(await js(`!!document.querySelector('.pane-header .edited')`)),
+  );
+  check(
+    "and the status line shows the saved size",
+    (await fileStatus("b")) === "ASCII LF 5 lines 34 B",
+    await fileStatus("b"),
+  );
   await sleep(800); // let the re-diff settle so the merge arrows are live
   await clickEl('[aria-label="Copy to right"]');
-  check('a merge arrow copies the change across', (await paneLines('b'))[1] === 'bravo', JSON.stringify(await paneLines('b')));
-  await clickText('.menubar-title', 'File');
-  await clickText('.menubar-panel [role=menuitem]', 'Save Right');
+  check(
+    "a merge arrow copies the change across",
+    (await paneLines("b"))[1] === "bravo",
+    JSON.stringify(await paneLines("b")),
+  );
+  await clickText(".menubar-title", "File");
+  await clickText(".menubar-panel [role=menuitem]", "Save Right");
   await sleep(500);
-  check('File > Save Right writes it', readFileSync(join(F, 'right.txt'), 'utf8').startsWith('alpha\nbravo\n'));
+  check(
+    "File > Save Right writes it",
+    readFileSync(join(F, "right.txt"), "utf8").startsWith("alpha\nbravo\n"),
+  );
   const undoAt = Date.now();
-  await key('z', [MOD]);
-  check('undo brings the change back', (await paneLines('b'))[1] === 'BRAVO!', JSON.stringify(await paneLines('b')));
+  await key("z", [MOD]);
+  check(
+    "undo brings the change back",
+    (await paneLines("b"))[1] === "BRAVO!",
+    JSON.stringify(await paneLines("b")),
+  );
   // It compares again at once (no waiting for a typing pause), so the view is whole straight away.
-  check('and the comparison is complete again promptly', await waitFor(`!document.querySelector('.stats')?.innerText.includes('Comparing')`, 250), `${Date.now() - undoAt} ms`);
+  check(
+    "and the comparison is complete again promptly",
+    await waitFor(`!document.querySelector('.stats')?.innerText.includes('Comparing')`, 250),
+    `${Date.now() - undoAt} ms`,
+  );
 
-  section('Launching again while running, and the unsaved-changes guard');
-  const l1 = launch(join(F, 'latin1.txt'), join(F, 'other.txt'));
-  check('a second launch hands its files to the running copy', l1.output.includes('already running'));
-  win.webContents.once('will-prevent-unload', (e) => {
+  section("Launching again while running, and the unsaved-changes guard");
+  const l1 = launch(join(F, "latin1.txt"), join(F, "other.txt"));
+  check(
+    "a second launch hands its files to the running copy",
+    l1.output.includes("already running"),
+  );
+  win.webContents.once("will-prevent-unload", (e) => {
     unloadPrompts++;
     e.preventDefault(); // answer "Leave"
   });
   await open(l1.url);
-  check('leaving with unsaved edits asks first', unloadPrompts === 1);
-  check('the launched comparison opens', await js(`[...document.querySelectorAll('.pane-title')].map((t) => t.title).join('|') === ${JSON.stringify(`${join(F, 'latin1.txt')}|${join(F, 'other.txt')}`)}`));
+  check("leaving with unsaved edits asks first", unloadPrompts === 1);
+  check(
+    "the launched comparison opens",
+    await js(
+      `[...document.querySelectorAll('.pane-title')].map((t) => t.title).join('|') === ${JSON.stringify(`${join(F, "latin1.txt")}|${join(F, "other.txt")}`)}`,
+    ),
+  );
 
-  section('Saving keeps encoding and line endings');
-  await clickEl('.pane-a .row', { dx: 120 });
-  await key('End');
-  await type('s');
-  await key('s', [MOD]);
+  section("Saving keeps encoding and line endings");
+  await clickEl(".pane-a .row", { dx: 120 });
+  await key("End");
+  await type("s");
+  await key("s", [MOD]);
   await sleep(500);
-  check('Latin-1 and CRLF are preserved', readFileSync(join(F, 'latin1.txt')).equals(Buffer.from('caf\xe9s\r\nna\xefve\r\n', 'latin1')), readFileSync(join(F, 'latin1.txt')).toString('hex'));
-  check('the status line says Latin-1 and CRLF', (await fileStatus('a'))?.startsWith('Latin-1 CRLF 2 lines'), await fileStatus('a'));
-  await type('✓');
-  await key('s', [MOD]);
-  check('saving a character Latin-1 can’t hold asks to save as UTF-8', await waitFor(`document.querySelector('.confirm-dialog')?.innerText.includes('as UTF-8')`));
-  await clickEl('.confirm-dialog button.primary');
+  check(
+    "Latin-1 and CRLF are preserved",
+    readFileSync(join(F, "latin1.txt")).equals(Buffer.from("caf\xe9s\r\nna\xefve\r\n", "latin1")),
+    readFileSync(join(F, "latin1.txt")).toString("hex"),
+  );
+  check(
+    "the status line says Latin-1 and CRLF",
+    (await fileStatus("a"))?.startsWith("Latin-1 CRLF 2 lines"),
+    await fileStatus("a"),
+  );
+  await type("✓");
+  await key("s", [MOD]);
+  check(
+    "saving a character Latin-1 can’t hold asks to save as UTF-8",
+    await waitFor(`document.querySelector('.confirm-dialog')?.innerText.includes('as UTF-8')`),
+  );
+  await clickEl(".confirm-dialog button.primary");
   await sleep(500);
-  check('and afterwards the status line says UTF-8', (await fileStatus('a'))?.startsWith('UTF-8 CRLF 2 lines') && readFileSync(join(F, 'latin1.txt'), 'utf8') === 'cafés✓\r\nnaïve\r\n', await fileStatus('a'));
+  check(
+    "and afterwards the status line says UTF-8",
+    (await fileStatus("a"))?.startsWith("UTF-8 CRLF 2 lines") &&
+      readFileSync(join(F, "latin1.txt"), "utf8") === "cafés✓\r\nnaïve\r\n",
+    await fileStatus("a"),
+  );
 
-  section('Outside changes');
-  appendFileSync(join(F, 'other.txt'), 'added elsewhere\r\n');
-  check('a change made elsewhere is noticed', await waitFor(`document.querySelector('.notice')?.innerText.includes('changed on disk')`, 10000));
-  await clickText('.notice button', 'Reload');
-  check('Reload shows the new content', await waitFor(`[...document.querySelectorAll('.pane-b .txt')].some((t) => t.innerText === 'added elsewhere')`));
-  writeFileSync(join(F, 'other.txt'), 'cafe\r\nnaive\r\nmore\r\n');
-  await key('F5');
-  check('F5 reloads too (and not the page)', await waitFor(`[...document.querySelectorAll('.pane-b .txt')].some((t) => t.innerText === 'more')`));
+  section("Outside changes");
+  appendFileSync(join(F, "other.txt"), "added elsewhere\r\n");
+  check(
+    "a change made elsewhere is noticed",
+    await waitFor(
+      `document.querySelector('.notice')?.innerText.includes('changed on disk')`,
+      10000,
+    ),
+  );
+  await clickText(".notice button", "Reload");
+  check(
+    "Reload shows the new content",
+    await waitFor(
+      `[...document.querySelectorAll('.pane-b .txt')].some((t) => t.innerText === 'added elsewhere')`,
+    ),
+  );
+  writeFileSync(join(F, "other.txt"), "cafe\r\nnaive\r\nmore\r\n");
+  await key("F5");
+  check(
+    "F5 reloads too (and not the page)",
+    await waitFor(
+      `[...document.querySelectorAll('.pane-b .txt')].some((t) => t.innerText === 'more')`,
+    ),
+  );
 
-  section('The line details strip after a jump');
-  writeFileSync(join(F, 'det-a.txt'), 'one\ntwo\nthree\nfour\n');
-  writeFileSync(join(F, 'det-b.txt'), 'one\nTWO\nthree\nadded on the right\nfour\n');
-  await open(launch(join(F, 'det-a.txt'), join(F, 'det-b.txt')).url);
-  await clickEl('.pane-a .row', { dx: 120 }); // the caret on the left, line 1
-  const strip = async () => (await js(`[...document.querySelectorAll('.line-details .detail-line')].map((l) => l.innerText)`)).map((t) => t.replace(/[·¶]/g, ' ').replace(/\s+/g, ' ').trim());
-  await key('F7');
-  check('on a changed line, the strip shows that line on both sides', JSON.stringify(await strip()) === JSON.stringify(['2 two', '2 TWO']), JSON.stringify(await strip()));
-  await key('F7');
-  check('on lines only the other side has, it shows them, not the line below', JSON.stringify(await strip()) === JSON.stringify(['(no line on this side)', '4 added on the right']), JSON.stringify(await strip()));
-  await clickEl('.pane-a .row', { dx: 120 });
-  check('and after clicking, it follows the caret again', (await strip())[0] === '1 one', JSON.stringify(await strip()));
+  section("The line details strip after a jump");
+  writeFileSync(join(F, "det-a.txt"), "one\ntwo\nthree\nfour\n");
+  writeFileSync(join(F, "det-b.txt"), "one\nTWO\nthree\nadded on the right\nfour\n");
+  await open(launch(join(F, "det-a.txt"), join(F, "det-b.txt")).url);
+  await clickEl(".pane-a .row", { dx: 120 }); // the caret on the left, line 1
+  const strip = async () =>
+    (
+      await js(
+        `[...document.querySelectorAll('.line-details .detail-line')].map((l) => l.innerText)`,
+      )
+    ).map((t) => t.replace(/[·¶]/g, " ").replace(/\s+/g, " ").trim());
+  await key("F7");
+  check(
+    "on a changed line, the strip shows that line on both sides",
+    JSON.stringify(await strip()) === JSON.stringify(["2 two", "2 TWO"]),
+    JSON.stringify(await strip()),
+  );
+  await key("F7");
+  check(
+    "on lines only the other side has, it shows them, not the line below",
+    JSON.stringify(await strip()) ===
+      JSON.stringify(["(no line on this side)", "4 added on the right"]),
+    JSON.stringify(await strip()),
+  );
+  await clickEl(".pane-a .row", { dx: 120 });
+  check(
+    "and after clicking, it follows the caret again",
+    (await strip())[0] === "1 one",
+    JSON.stringify(await strip()),
+  );
 
-  section('File details');
-  await open(launch(join(F, 'plain.txt'), join(F, 'bom-crlf.txt')).url);
-  check('identical text in different encodings and line endings says so', (await stats())?.startsWith('Identical text; encoding and line endings differ'), await stats());
-  check('each side shows its own', (await fileStatus('a')) === 'ASCII LF 3 lines 14 B' && (await fileStatus('b')) === 'UTF-8 with BOM CRLF 3 lines 20 B', `${await fileStatus('a')} / ${await fileStatus('b')}`);
-  check('and what differs is emphasised on both sides', (await js(`[...document.querySelectorAll('.fs-item.differs')].map((e) => e.innerText).join('|')`)) === 'ASCII|LF|UTF-8 with BOM|CRLF');
+  section("File details");
+  await open(launch(join(F, "plain.txt"), join(F, "bom-crlf.txt")).url);
+  check(
+    "identical text in different encodings and line endings says so",
+    (await stats())?.startsWith("Identical text; encoding and line endings differ"),
+    await stats(),
+  );
+  check(
+    "each side shows its own",
+    (await fileStatus("a")) === "ASCII LF 3 lines 14 B" &&
+      (await fileStatus("b")) === "UTF-8 with BOM CRLF 3 lines 20 B",
+    `${await fileStatus("a")} / ${await fileStatus("b")}`,
+  );
+  check(
+    "and what differs is emphasised on both sides",
+    (await js(
+      `[...document.querySelectorAll('.fs-item.differs')].map((e) => e.innerText).join('|')`,
+    )) === "ASCII|LF|UTF-8 with BOM|CRLF",
+  );
 
   section('A final newline on one side only');
   writeFileSync(join(F, 'nl-a.yml'), 'version: 2\nupdates:\n  - "x"\n');
@@ -305,92 +516,237 @@ async function run() {
   await key('s', [MOD]);
   await key('z', [MOD]);
   await sleep(300);
-  check('typing, Backspace, Save and Undo do nothing', !(await js(`!!document.querySelector('.pane-header .edited')`)) && readFileSync(join(F, 'pretty.json'), 'utf8') === rightBefore && (await stats())?.startsWith('1 difference'));
-  check('the merge arrows are disabled, saying why', await js(`[...document.querySelectorAll('.merge')].every((b) => b.disabled && b.title.includes('read-only'))`));
-  check('so are Save and Undo in the menu', await (async () => { await clickText('.menubar-title', 'File'); const d = await js(`[...document.querySelectorAll('.menubar-panel [role=menuitem]')].filter((b) => /^Save/.test(b.innerText)).every((b) => b.disabled)`); await clickText('.menubar-title', 'File'); return d; })());
-  writeFileSync(join(F, 'pretty.json'), rightBefore.replace('"1.1.0"', '"2.0.0"'));
-  await key('F5');
-  check('Refresh re-reads and prettifies again', await waitFor(`[...document.querySelectorAll('.pane-b .txt')].some((t) => t.innerText.includes('"2.0.0"')) && !!document.querySelector('.prettify-bar') && !document.querySelector('.prettify-bar').innerText.includes('Prettifying')`));
-  await clickText('.prettify-bar button', 'Turn off');
-  check('turning it off restores the original texts and editing', await waitFor(`!document.querySelector('.prettify-bar') && [...document.querySelectorAll('.pane-a .row .txt')].filter((t) => t.innerText).length === 1`) && (await js(`document.querySelector('.prettify-button').getAttribute('aria-pressed')`)) === 'false');
-  await open(launch(join(F, 'broken.json'), join(F, 'pretty.json')).url);
-  await clickEl('.toolbar .prettify-button');
-  check("a side that doesn't parse is shown as it is, with the reason", await waitFor(`document.querySelector('.notice')?.innerText.includes(${JSON.stringify(`left file couldn't be prettified (Unexpected "}" at line 1, column 27)`)})`) && (await paneLines('a'))[0] === '{"name":"delta","version":}', await js(`document.querySelector('.notice')?.innerText`));
-  check('while the other side is still formatted', (await paneLines('b'))[0] === '{' && (await paneLines('b')).length > 3);
-  await clickEl('.toolbar .prettify-button');
-  await open(launch(join(F, 'min.json'), join(F, 'pretty.json')).url);
-  await clickEl('.pane-b .row', { dx: 60 });
-  await type('q');
-  await clickEl('.toolbar .prettify-button');
-  check('with unsaved edits, Prettify asks first', await waitFor(`document.querySelector('.confirm-dialog')?.innerText.includes('Discard your changes')`));
-  await clickText('.confirm-dialog button', 'Cancel');
+  check(
+    "typing, Backspace, Save and Undo do nothing",
+    !(await js(`!!document.querySelector('.pane-header .edited')`)) &&
+      readFileSync(join(F, "pretty.json"), "utf8") === rightBefore &&
+      (await stats())?.startsWith("1 difference"),
+  );
+  check(
+    "the merge arrows are disabled, saying why",
+    await js(
+      `[...document.querySelectorAll('.merge')].every((b) => b.disabled && b.title.includes('read-only'))`,
+    ),
+  );
+  check(
+    "so are Save and Undo in the menu",
+    await (async () => {
+      await clickText(".menubar-title", "File");
+      const d = await js(
+        `[...document.querySelectorAll('.menubar-panel [role=menuitem]')].filter((b) => /^Save/.test(b.innerText)).every((b) => b.disabled)`,
+      );
+      await clickText(".menubar-title", "File");
+      return d;
+    })(),
+  );
+  writeFileSync(join(F, "pretty.json"), rightBefore.replace('"1.1.0"', '"2.0.0"'));
+  await key("F5");
+  check(
+    "Refresh re-reads and prettifies again",
+    await waitFor(
+      `[...document.querySelectorAll('.pane-b .txt')].some((t) => t.innerText.includes('"2.0.0"')) && !!document.querySelector('.prettify-bar') && !document.querySelector('.prettify-bar').innerText.includes('Prettifying')`,
+    ),
+  );
+  await clickText(".prettify-bar button", "Turn off");
+  check(
+    "turning it off restores the original texts and editing",
+    (await waitFor(
+      `!document.querySelector('.prettify-bar') && [...document.querySelectorAll('.pane-a .row .txt')].filter((t) => t.innerText).length === 1`,
+    )) &&
+      (await js(`document.querySelector('.prettify-button').getAttribute('aria-pressed')`)) ===
+        "false",
+  );
+  await open(launch(join(F, "broken.json"), join(F, "pretty.json")).url);
+  await clickEl(".toolbar .prettify-button");
+  check(
+    "a side that doesn't parse is shown as it is, with the reason",
+    (await waitFor(
+      `document.querySelector('.notice')?.innerText.includes(${JSON.stringify(`left file couldn't be prettified (Unexpected "}" at line 1, column 27)`)})`,
+    )) && (await paneLines("a"))[0] === '{"name":"delta","version":}',
+    await js(`document.querySelector('.notice')?.innerText`),
+  );
+  check(
+    "while the other side is still formatted",
+    (await paneLines("b"))[0] === "{" && (await paneLines("b")).length > 3,
+  );
+  await clickEl(".toolbar .prettify-button");
+  await open(launch(join(F, "min.json"), join(F, "pretty.json")).url);
+  await clickEl(".pane-b .row", { dx: 60 });
+  await type("q");
+  await clickEl(".toolbar .prettify-button");
+  check(
+    "with unsaved edits, Prettify asks first",
+    await waitFor(
+      `document.querySelector('.confirm-dialog')?.innerText.includes('Discard your changes')`,
+    ),
+  );
+  await clickText(".confirm-dialog button", "Cancel");
   await sleep(300);
-  check('and cancelling keeps the edits, not prettified', (await js(`!!document.querySelector('.pane-header .edited') && !document.querySelector('.prettify-bar')`)));
-  await clickEl('.toolbar .prettify-button');
+  check(
+    "and cancelling keeps the edits, not prettified",
+    await js(
+      `!!document.querySelector('.pane-header .edited') && !document.querySelector('.prettify-bar')`,
+    ),
+  );
+  await clickEl(".toolbar .prettify-button");
   await waitFor(`!!document.querySelector('.confirm-dialog')`);
-  await clickEl('.confirm-dialog button.primary');
-  check('discarding re-reads the file and prettifies it', await waitFor(`document.querySelector('.file-status-b')?.innerText.includes('lines (prettified)')`) && (await js(`!document.querySelector('.pane-header .edited')`)) && !(await paneLines('b')).some((l) => l.includes('q')));
+  await clickEl(".confirm-dialog button.primary");
+  check(
+    "discarding re-reads the file and prettifies it",
+    (await waitFor(
+      `document.querySelector('.file-status-b')?.innerText.includes('lines (prettified)')`,
+    )) &&
+      (await js(`!document.querySelector('.pane-header .edited')`)) &&
+      !(await paneLines("b")).some((l) => l.includes("q")),
+  );
   // Merging and saving, then Prettify: it must show what was saved, not the text as first opened.
-  writeFileSync(join(F, 'merge-a.json'), '{"name":"delta","version":"1.0.0"}');
-  writeFileSync(join(F, 'merge-b.json'), '{"name":"delta","version":"1.0.0","extra":true}');
-  await open(launch(join(F, 'merge-a.json'), join(F, 'merge-b.json')).url);
+  writeFileSync(join(F, "merge-a.json"), '{"name":"delta","version":"1.0.0"}');
+  writeFileSync(join(F, "merge-b.json"), '{"name":"delta","version":"1.0.0","extra":true}');
+  await open(launch(join(F, "merge-a.json"), join(F, "merge-b.json")).url);
   await clickEl('[aria-label="Copy to left"]');
   await sleep(300);
-  await clickEl('.pane-a .row', { dx: 60 });
-  await key('s', [MOD]);
+  await clickEl(".pane-a .row", { dx: 60 });
+  await key("s", [MOD]);
   await sleep(500);
-  check('a merge saved to disk', readFileSync(join(F, 'merge-a.json'), 'utf8').includes('"extra":true'));
-  await clickEl('.toolbar .prettify-button');
-  check('Prettify after saving shows the saved text', await waitFor(`document.querySelector('.file-status-a')?.innerText.includes('(prettified)') && [...document.querySelectorAll('.pane-a .txt')].some((t) => t.innerText.includes('"extra": true')) && document.querySelector('.stats')?.innerText.startsWith('Identical')`), await stats());
-  await clickText('.prettify-bar button', 'Turn off');
-  check('and turning it off shows the saved text too', await waitFor(`!document.querySelector('.prettify-bar') && document.querySelector('.stats')?.innerText.startsWith('Identical') && document.querySelector('.pane-a .txt')?.innerText.includes('"extra":true')`), await stats());
+  check(
+    "a merge saved to disk",
+    readFileSync(join(F, "merge-a.json"), "utf8").includes('"extra":true'),
+  );
+  await clickEl(".toolbar .prettify-button");
+  check(
+    "Prettify after saving shows the saved text",
+    await waitFor(
+      `document.querySelector('.file-status-a')?.innerText.includes('(prettified)') && [...document.querySelectorAll('.pane-a .txt')].some((t) => t.innerText.includes('"extra": true')) && document.querySelector('.stats')?.innerText.startsWith('Identical')`,
+    ),
+    await stats(),
+  );
+  await clickText(".prettify-bar button", "Turn off");
+  check(
+    "and turning it off shows the saved text too",
+    await waitFor(
+      `!document.querySelector('.prettify-bar') && document.querySelector('.stats')?.innerText.startsWith('Identical') && document.querySelector('.pane-a .txt')?.innerText.includes('"extra":true')`,
+    ),
+    await stats(),
+  );
 
-  win.webContents.once('will-prevent-unload', (e) => e.preventDefault());
-  await open(launch(join(F, 'left.txt'), join(F, 'right.txt')).url);
-  check('Prettify is unavailable for plain text, saying why', await js(`document.querySelector('.prettify-button').disabled && document.querySelector('.prettify-button').title.includes('Prettify works on')`));
+  win.webContents.once("will-prevent-unload", (e) => e.preventDefault());
+  await open(launch(join(F, "left.txt"), join(F, "right.txt")).url);
+  check(
+    "Prettify is unavailable for plain text, saying why",
+    await js(
+      `document.querySelector('.prettify-button').disabled && document.querySelector('.prettify-button').title.includes('Prettify works on')`,
+    ),
+  );
 
-  section('Comparing folders');
+  section("Comparing folders");
   await open(launch(L, R).url);
-  check('the folder comparison opens', await waitFor(`document.querySelectorAll('.frow').length > 0`));
-  check('statuses: same, different, left only, right only', (await rowStatus('same.txt')) === 'same' && (await rowStatus('diff.txt')) === 'different' && (await rowStatus('left-only.txt')) === 'left-only' && (await rowStatus('right-only')) === 'right-only');
-  check('a folder with a difference inside is marked different', (await rowStatus('sub')) === 'different');
-  check('contents mode sees through equal size and date', (await rowStatus('tricky.txt')) === 'different');
-  await clickEl('.toolbar .options-button');
-  await clickText('.options-menu [role=menuitemradio], .options-menu button', 'Size and modified date');
+  check(
+    "the folder comparison opens",
+    await waitFor(`document.querySelectorAll('.frow').length > 0`),
+  );
+  check(
+    "statuses: same, different, left only, right only",
+    (await rowStatus("same.txt")) === "same" &&
+      (await rowStatus("diff.txt")) === "different" &&
+      (await rowStatus("left-only.txt")) === "left-only" &&
+      (await rowStatus("right-only")) === "right-only",
+  );
+  check(
+    "a folder with a difference inside is marked different",
+    (await rowStatus("sub")) === "different",
+  );
+  check(
+    "contents mode sees through equal size and date",
+    (await rowStatus("tricky.txt")) === "different",
+  );
+  await clickEl(".toolbar .options-button");
+  await clickText(
+    ".options-menu [role=menuitemradio], .options-menu button",
+    "Size and modified date",
+  );
   await waitFor(`!document.querySelector('.scan-progress')`);
   await sleep(300);
-  check('size-and-date mode treats it as the same', (await rowStatus('tricky.txt')) === 'same', await rowStatus('tricky.txt'));
-  await clickEl('.toolbar .options-button');
-  await clickText('.options-menu [role=menuitemradio], .options-menu button', 'Contents');
+  check(
+    "size-and-date mode treats it as the same",
+    (await rowStatus("tricky.txt")) === "same",
+    await rowStatus("tricky.txt"),
+  );
+  await clickEl(".toolbar .options-button");
+  await clickText(".options-menu [role=menuitemradio], .options-menu button", "Contents");
   await waitFor(`!document.querySelector('.scan-progress')`);
   await sleep(300);
   await clickEl('[aria-label="Copy left-only.txt to the right"]');
   await sleep(600);
-  check('copying a file across writes it', readFileSync(join(R, 'left-only.txt'), 'utf8') === 'only on the left\n');
-  check('and it now shows as the same', (await rowStatus('left-only.txt')) === 'same');
-  check('by re-comparing just that entry, not rescanning both folders', /Updated after changes made elsewhere  entries=1/.test(logText().split('INFO  folders  Copied').pop()) && !/Comparing folders/.test(logText().split('INFO  folders  Copied').pop()));
+  check(
+    "copying a file across writes it",
+    readFileSync(join(R, "left-only.txt"), "utf8") === "only on the left\n",
+  );
+  check("and it now shows as the same", (await rowStatus("left-only.txt")) === "same");
+  check(
+    "by re-comparing just that entry, not rescanning both folders",
+    /Updated after changes made elsewhere {2}entries=1/.test(
+      logText().split("INFO  folders  Copied").pop(),
+    ) && !/Comparing folders/.test(logText().split("INFO  folders  Copied").pop()),
+  );
   await clickEl('[aria-label="Copy diff.txt to the right"]');
-  check('replacing a file asks first', await waitFor(`!!document.querySelector('.confirm-dialog')`));
-  await clickEl('.confirm-dialog button.primary');
+  check(
+    "replacing a file asks first",
+    await waitFor(`!!document.querySelector('.confirm-dialog')`),
+  );
+  await clickEl(".confirm-dialog button.primary");
   await sleep(600);
-  check('and replaces it after confirming', readFileSync(join(R, 'diff.txt'), 'utf8') === 'left version\n');
+  check(
+    "and replaces it after confirming",
+    readFileSync(join(R, "diff.txt"), "utf8") === "left version\n",
+  );
   await js(`document.querySelector('.folder-list').scrollTop = 0; true`);
   await clickEl('[aria-label="Copy sub to the right"]');
-  check('replacing a folder names what only the other side has, and says it will be deleted', await waitFor(`document.querySelector('.confirm-dialog')?.innerText.includes('only on the right and will be deleted: right-extra.txt')`), await js(`document.querySelector('.confirm-dialog')?.innerText`));
-  await clickEl('.confirm-dialog button.primary');
+  check(
+    "replacing a folder names what only the other side has, and says it will be deleted",
+    await waitFor(
+      `document.querySelector('.confirm-dialog')?.innerText.includes('only on the right and will be deleted: right-extra.txt')`,
+    ),
+    await js(`document.querySelector('.confirm-dialog')?.innerText`),
+  );
+  await clickEl(".confirm-dialog button.primary");
   await sleep(600);
-  check('and afterwards the folder matches exactly', !existsSync(join(R, 'sub', 'right-extra.txt')) && readFileSync(join(R, 'sub', 'nested.txt'), 'utf8') === 'one\n' && (await rowStatus('sub')) === 'same', await rowStatus('sub'));
+  check(
+    "and afterwards the folder matches exactly",
+    !existsSync(join(R, "sub", "right-extra.txt")) &&
+      readFileSync(join(R, "sub", "nested.txt"), "utf8") === "one\n" &&
+      (await rowStatus("sub")) === "same",
+    await rowStatus("sub"),
+  );
 
-  section('Keeping the folder comparison current');
+  section("Keeping the folder comparison current");
   await sleep(1500); // the watch starts once the comparison is shown
-  writeFileSync(join(R, 'same.txt'), 'changed by another program\n');
-  check('a file changed elsewhere updates its row, without a rescan', await waitFor(`(() => { const r = [...document.querySelectorAll('.frow')].find((r) => r.innerText.includes('same.txt')); return r?.classList.contains('st-different'); })()`, 8000), await rowStatus('same.txt'));
-  writeFileSync(join(L, 'brand-new.txt'), 'new\n');
-  check('a new file appears, in order', await waitFor(`[...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('brand-new.txt') && r.classList.contains('st-left-only'))`, 8000));
-  rmSync(join(L, 'left-only.txt'));
-  rmSync(join(R, 'left-only.txt'));
-  check('a file deleted on both sides disappears', await waitFor(`![...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('left-only.txt'))`, 8000));
-  writeFileSync(join(R, 'sub', 'nested.txt'), 'changed again\n');
+  writeFileSync(join(R, "same.txt"), "changed by another program\n");
+  check(
+    "a file changed elsewhere updates its row, without a rescan",
+    await waitFor(
+      `(() => { const r = [...document.querySelectorAll('.frow')].find((r) => r.innerText.includes('same.txt')); return r?.classList.contains('st-different'); })()`,
+      8000,
+    ),
+    await rowStatus("same.txt"),
+  );
+  writeFileSync(join(L, "brand-new.txt"), "new\n");
+  check(
+    "a new file appears, in order",
+    await waitFor(
+      `[...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('brand-new.txt') && r.classList.contains('st-left-only'))`,
+      8000,
+    ),
+  );
+  rmSync(join(L, "left-only.txt"));
+  rmSync(join(R, "left-only.txt"));
+  check(
+    "a file deleted on both sides disappears",
+    await waitFor(
+      `![...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('left-only.txt'))`,
+      8000,
+    ),
+  );
+  writeFileSync(join(R, "sub", "nested.txt"), "changed again\n");
   let subStatus = null;
   for (let i = 0; i < 80 && subStatus !== 'different'; i++, await sleep(100)) subStatus = await rowStatus('sub');
   check('a change inside a folder updates the folder', subStatus === 'different', subStatus);
@@ -414,77 +770,188 @@ async function run() {
   writeFileSync(join(R, 'same.txt'), 'same\n');
   check('and the folder put back is watched as before', await waitFor(`(() => { const r = [...document.querySelectorAll('.frow')].find((r) => r.innerText.includes('same.txt')); return r?.classList.contains('st-same'); })()`, 8000), await rowStatus('same.txt'));
 
-  section('Copying a large folder');
+  section("Copying a large folder");
   for (let i = 0; i < 6000; i++) {
-    const d = join(L, 'many', `d${i % 60}`);
+    const d = join(L, "many", `d${i % 60}`);
     if (i < 60) mkdirSync(d, { recursive: true });
     writeFileSync(join(d, `f${i}.txt`), `file ${i}\n`);
   }
   await clickEl('[aria-label="Rescan"]');
-  await waitFor(`[...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('many'))`, 15000);
+  await waitFor(
+    `[...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('many'))`,
+    15000,
+  );
   await js(`document.querySelector('[aria-label="Copy many to the right"]').click(); true`);
-  check('a long copy shows its progress, with Cancel', await waitFor(`/of 6,000 files/.test(document.querySelector('.copy-bar')?.innerText ?? '')`, 5000), await js(`document.querySelector('.copy-bar')?.innerText`));
-  check('meanwhile Rescan and the other copy arrows wait', await js(`document.querySelector('[aria-label="Rescan"]').disabled && [...document.querySelectorAll('.factions .merge')].every((b) => b.disabled)`));
-  await clickText('.copy-bar button', 'Cancel');
-  check('Cancel stops it and changes nothing', await waitFor(`document.querySelector('.notice')?.innerText.includes('nothing was changed')`, 8000) && !existsSync(join(R, 'many')) && !readdirSync(R).some((n) => n.includes('.delta-')));
-  await clickText('.notice button', 'Dismiss');
+  check(
+    "a long copy shows its progress, with Cancel",
+    await waitFor(
+      `/of 6,000 files/.test(document.querySelector('.copy-bar')?.innerText ?? '')`,
+      5000,
+    ),
+    await js(`document.querySelector('.copy-bar')?.innerText`),
+  );
+  check(
+    "meanwhile Rescan and the other copy arrows wait",
+    await js(
+      `document.querySelector('[aria-label="Rescan"]').disabled && [...document.querySelectorAll('.factions .merge')].every((b) => b.disabled)`,
+    ),
+  );
+  await clickText(".copy-bar button", "Cancel");
+  check(
+    "Cancel stops it and changes nothing",
+    (await waitFor(
+      `document.querySelector('.notice')?.innerText.includes('nothing was changed')`,
+      8000,
+    )) &&
+      !existsSync(join(R, "many")) &&
+      !readdirSync(R).some((n) => n.includes(".delta-")),
+  );
+  await clickText(".notice button", "Dismiss");
   await js(`document.querySelector('[aria-label="Copy many to the right"]').click(); true`);
   let manyStatus = null;
-  for (let i = 0; i < 300 && manyStatus !== 'same'; i++, await sleep(100)) manyStatus = await rowStatus('many');
-  check('copied in full, it shows as the same', manyStatus === 'same' && readdirSync(join(R, 'many')).length === 60, manyStatus);
+  for (let i = 0; i < 300 && manyStatus !== "same"; i++, await sleep(100))
+    manyStatus = await rowStatus("many");
+  check(
+    "copied in full, it shows as the same",
+    manyStatus === "same" && readdirSync(join(R, "many")).length === 60,
+    manyStatus,
+  );
 
-  section('Opening a file from the folder comparison and going back');
+  section("Opening a file from the folder comparison and going back");
   await js(`document.querySelector('.folder-list').scrollTop = 0; true`);
-  await js(`[...document.querySelectorAll('.frow')].find((r) => r.innerText.includes('tricky.txt')).dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
-  check('double-clicking a file compares it', await waitFor(`!!document.querySelector('.diff-view') && document.querySelector('.pane-a .txt')?.innerText === 'aaaa'`));
-  writeFileSync(join(R, 'brand-new.txt'), 'new\n'); // now on both sides, the same
+  await js(
+    `[...document.querySelectorAll('.frow')].find((r) => r.innerText.includes('tricky.txt')).dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`,
+  );
+  check(
+    "double-clicking a file compares it",
+    await waitFor(
+      `!!document.querySelector('.diff-view') && document.querySelector('.pane-a .txt')?.innerText === 'aaaa'`,
+    ),
+  );
+  writeFileSync(join(R, "brand-new.txt"), "new\n"); // now on both sides, the same
   await sleep(2000);
-  await clickText('.toolbar button', '← Folders');
-  check('changes made while a file was open are already in the list', (await rowStatus('brand-new.txt')) === 'same', await rowStatus('brand-new.txt'));
-  check('"← Folders" returns to the list without rescanning', (await js(`!document.querySelector('.diff-view') && document.querySelectorAll('.frow').length > 0 && !document.querySelector('.scan-progress')`)) === true);
+  await clickText(".toolbar button", "← Folders");
+  check(
+    "changes made while a file was open are already in the list",
+    (await rowStatus("brand-new.txt")) === "same",
+    await rowStatus("brand-new.txt"),
+  );
+  check(
+    '"← Folders" returns to the list without rescanning',
+    (await js(
+      `!document.querySelector('.diff-view') && document.querySelectorAll('.frow').length > 0 && !document.querySelector('.scan-progress')`,
+    )) === true,
+  );
 
-  section('Recent comparisons');
+  section("Recent comparisons");
   await open(launch(GONE, R).url);
   await waitFor(`document.querySelectorAll('.frow').length > 0`);
   rmSync(GONE, { recursive: true });
   await open(`http://127.0.0.1:${PORT}/`);
   await waitFor(`!!document.querySelector('.recents')`);
-  const recents = await js(`[...document.querySelectorAll('.recents li, .recents .recent')].map((e) => e.innerText.replace(/\\s+/g, ' '))`);
-  check('comparisons are listed on the start screen', recents.some((r) => r.includes('latin1.txt')) && recents.some((r) => r.includes('L') && r.includes('R')), JSON.stringify(recents));
-  check('a path that no longer exists is flagged', await js(`[...document.querySelectorAll('.recents .flag.warn')].some((f) => f.innerText === 'Not found')`));
+  const recents = await js(
+    `[...document.querySelectorAll('.recents li, .recents .recent')].map((e) => e.innerText.replace(/\\s+/g, ' '))`,
+  );
+  check(
+    "comparisons are listed on the start screen",
+    recents.some((r) => r.includes("latin1.txt")) &&
+      recents.some((r) => r.includes("L") && r.includes("R")),
+    JSON.stringify(recents),
+  );
+  check(
+    "a path that no longer exists is flagged",
+    await js(
+      `[...document.querySelectorAll('.recents .flag.warn')].some((f) => f.innerText === 'Not found')`,
+    ),
+  );
 
-  section('Logging');
+  section("Logging");
   await sleep(1500); // the page sends its entries about once a second
   const text = logText();
-  check('the server logs that it started', /INFO  server   Delta started .*level=info/.test(text));
-  check("the page's actions are logged", ['ui.files Comparing files', 'ui.merge Copied a change to the right', 'ui.edit  Undo', 'ui.view  Next difference', 'ui.folders Compare by changed', 'ui.files Reloaded from disk'].every((s) => text.includes(s)), text.slice(-1500));
-  check('so are saves and copies, with paths and sizes', /INFO  files    Saved  path=\S+right\.txt bytes=\d+/.test(text) && text.includes('INFO  folders  Copied'));
-  check('file contents never are', !['bravo', 'BRAVO', 'charlie', 'foxtrot', 'only on the left', 'caf'].some((w) => text.includes(w)));
-  const checkedNow = () => js(`[...document.querySelectorAll('.menubar-panel [role=menuitemcheckbox]')].map((b) => b.getAttribute('aria-checked')).join()`);
-  await clickText('.menubar-title', 'Help');
-  check('Help offers Debug Logging, Open Logs Folder and Copy Diagnostic Info', (await js(`[...document.querySelectorAll('.menubar-panel [role^=menuitem]')].map((b) => b.innerText.replace('✓', '').trim()).join('|')`)) === 'Debug Logging|Open Logs Folder|Copy Diagnostic Info');
-  check('Debug Logging starts off', (await checkedNow()) === 'false');
-  await clickText('.menubar-panel [role=menuitemcheckbox]', 'Debug Logging');
-  check('turning it on says where the log is', await waitFor(`document.querySelector('.notice')?.innerText.includes('Debug logging is on')`));
-  await clickText('.menubar-title', 'Help');
-  check('and shows a check mark', (await checkedNow()) === 'true');
-  await clickText('.menubar-title', 'Help'); // closes it
-  await waitFor(`!!document.querySelector('.recents') && !document.querySelector('.menubar-panel')`);
+  check(
+    "the server logs that it started",
+    /INFO {2}server {3}Delta started .*level=info/.test(text),
+  );
+  check(
+    "the page's actions are logged",
+    [
+      "ui.files Comparing files",
+      "ui.merge Copied a change to the right",
+      "ui.edit  Undo",
+      "ui.view  Next difference",
+      "ui.folders Compare by changed",
+      "ui.files Reloaded from disk",
+    ].every((s) => text.includes(s)),
+    text.slice(-1500),
+  );
+  check(
+    "so are saves and copies, with paths and sizes",
+    /INFO {2}files {4}Saved {2}path=\S+right\.txt bytes=\d+/.test(text) &&
+      text.includes("INFO  folders  Copied"),
+  );
+  check(
+    "file contents never are",
+    !["bravo", "BRAVO", "charlie", "foxtrot", "only on the left", "caf"].some((w) =>
+      text.includes(w),
+    ),
+  );
+  const checkedNow = () =>
+    js(
+      `[...document.querySelectorAll('.menubar-panel [role=menuitemcheckbox]')].map((b) => b.getAttribute('aria-checked')).join()`,
+    );
+  await clickText(".menubar-title", "Help");
+  check(
+    "Help offers Debug Logging, Open Logs Folder and Copy Diagnostic Info",
+    (await js(
+      `[...document.querySelectorAll('.menubar-panel [role^=menuitem]')].map((b) => b.innerText.replace('✓', '').trim()).join('|')`,
+    )) === "Debug Logging|Open Logs Folder|Copy Diagnostic Info",
+  );
+  check("Debug Logging starts off", (await checkedNow()) === "false");
+  await clickText(".menubar-panel [role=menuitemcheckbox]", "Debug Logging");
+  check(
+    "turning it on says where the log is",
+    await waitFor(`document.querySelector('.notice')?.innerText.includes('Debug logging is on')`),
+  );
+  await clickText(".menubar-title", "Help");
+  check("and shows a check mark", (await checkedNow()) === "true");
+  await clickText(".menubar-title", "Help"); // closes it
+  await waitFor(
+    `!!document.querySelector('.recents') && !document.querySelector('.menubar-panel')`,
+  );
   await sleep(1500);
-  check('requests are logged while it is on', /DEBUG server   POST \/api\/recents\/list  status=200/.test(logText()));
-  check('and it is saved for the next start', JSON.parse(readFileSync(join(DATA, 'settings.json'), 'utf8')).logLevel === 'debug');
-  await clickText('.menubar-title', 'Help');
+  check(
+    "requests are logged while it is on",
+    /DEBUG server {3}POST \/api\/recents\/list {2}status=200/.test(logText()),
+  );
+  check(
+    "and it is saved for the next start",
+    JSON.parse(readFileSync(join(DATA, "settings.json"), "utf8")).logLevel === "debug",
+  );
+  await clickText(".menubar-title", "Help");
   await js(`document.querySelector('.menubar-panel [role=menuitemcheckbox]').click(); true`); // its text now starts with ✓
-  check('turning it off clears the setting', await waitFor(`document.querySelector('.notice')?.innerText.includes('Debug logging is off')`) && !('logLevel' in JSON.parse(readFileSync(join(DATA, 'settings.json'), 'utf8'))));
+  check(
+    "turning it off clears the setting",
+    (await waitFor(
+      `document.querySelector('.notice')?.innerText.includes('Debug logging is off')`,
+    )) && !("logLevel" in JSON.parse(readFileSync(join(DATA, "settings.json"), "utf8"))),
+  );
   // A hidden window never has focus, which the real clipboard requires; capture what's written instead.
-  await js(`window.copied = null; navigator.clipboard.write = async (items) => { window.copied = await (await items[0].getType('text/plain')).text(); }; true`);
-  await clickText('.menubar-title', 'Help');
-  await clickText('.menubar-panel [role=menuitem]', 'Copy Diagnostic Info');
+  await js(
+    `window.copied = null; navigator.clipboard.write = async (items) => { window.copied = await (await items[0].getType('text/plain')).text(); }; true`,
+  );
+  await clickText(".menubar-title", "Help");
+  await clickText(".menubar-panel [role=menuitem]", "Copy Diagnostic Info");
   await waitFor(`document.querySelector('.notice')?.innerText.includes('Diagnostic info copied')`);
-  const copied = (await js('window.copied')) ?? '';
-  check('Copy Diagnostic Info copies versions and recent entries', copied.includes('(browser version)') && copied.includes('Interface: ') && copied.includes('Latest log entries:'), copied.slice(0, 200) || (await js(`document.querySelector('.notice')?.innerText`)));
+  const copied = (await js("window.copied")) ?? "";
+  check(
+    "Copy Diagnostic Info copies versions and recent entries",
+    copied.includes("(browser version)") &&
+      copied.includes("Interface: ") &&
+      copied.includes("Latest log entries:"),
+    copied.slice(0, 200) || (await js(`document.querySelector('.notice')?.innerText`)),
+  );
 
-  check('no errors in the page console', errors.length === 0, errors.join(' / '));
+  check("no errors in the page console", errors.length === 0, errors.join(" / "));
 }
 
 // ---- Main --------------------------------------------------------------------------------
@@ -493,25 +960,33 @@ async function run() {
   let code = 1;
   try {
     await new Promise((resolve, reject) => {
-      server.stdout.on('data', (d) => {
+      server.stdout.on("data", (d) => {
         const m = /running at (http:\/\/\S+)/.exec(String(d));
         if (m) {
           firstUrl = m[1];
           resolve();
         }
       });
-      server.on('exit', () => reject(new Error('the server exited; see ' + join(T, 'server.log'))));
-      setTimeout(() => reject(new Error('the server did not start')), 15000);
+      server.on("exit", () => reject(new Error(`the server exited; see ${join(T, "server.log")}`)));
+      setTimeout(() => reject(new Error("the server did not start")), 15000);
     });
     await app.whenReady();
-    win = new BrowserWindow({ width: 1400, height: 900, show: false, webPreferences: { backgroundThrottling: false } });
-    win.webContents.on('console-message', (e) => e.level === 'error' && errors.push(e.message.slice(0, 200)));
+    win = new BrowserWindow({
+      width: 1400,
+      height: 900,
+      show: false,
+      webPreferences: { backgroundThrottling: false },
+    });
+    win.webContents.on(
+      "console-message",
+      (e) => e.level === "error" && errors.push(e.message.slice(0, 200)),
+    );
     console.log(`Delta browser version: end-to-end checks (port ${PORT})`);
     await run();
     console.log(`\n${passes} passed, ${failures} failed`);
     code = failures ? 1 : 0;
   } catch (err) {
-    console.error('\nStopped:', err.stack ?? err);
+    console.error("\nStopped:", err.stack ?? err);
   } finally {
     server.kill();
     rmSync(T, { recursive: true, force: true });

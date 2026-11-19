@@ -1,5 +1,5 @@
 export interface NoticeState {
-  kind: 'error' | 'info';
+  kind: "error" | "info";
   text: string;
   /** Optional buttons shown before Dismiss. */
   actions?: { label: string; run: () => void }[];
@@ -8,7 +8,10 @@ export interface NoticeState {
 /** A dismissable bar under the toolbar for errors and questions that should not block. */
 export function Notice({ notice, onDismiss }: { notice: NoticeState; onDismiss: () => void }) {
   return (
-    <div className={`notice notice-${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>
+    <div
+      className={`notice notice-${notice.kind}`}
+      role={notice.kind === "error" ? "alert" : "status"}
+    >
       <span className="notice-text">{notice.text}</span>
       {notice.actions?.map((a) => (
         <button key={a.label} type="button" onClick={a.run}>

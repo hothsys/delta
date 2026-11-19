@@ -1,6 +1,21 @@
-import { constants as fsConstants, type Dirent, type Stats } from 'node:fs';
-import { chmod, copyFile, lstat, mkdir, open, readdir, readlink, realpath, rename, rm, stat, symlink, utimes } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { constants as fsConstants, type Dirent, type Stats } from "node:fs";
+import {
+  type FileHandle,
+  chmod,
+  copyFile,
+  lstat,
+  mkdir,
+  open,
+  readdir,
+  readlink,
+  realpath,
+  rename,
+  rm,
+  stat,
+  symlink,
+  utimes,
+} from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   TIMESTAMP_TOLERANCE_MS,
   type CopyProgress,
@@ -13,12 +28,12 @@ import {
   type FolderEntriesResult,
   type FolderNode,
   type FolderProgress,
-} from '../shared/api';
-import { BINARY_SNIFF_BYTES, errorMessage, looksBinary } from './files';
-import { log } from './log';
+} from "../shared/api";
+import { BINARY_SNIFF_BYTES, errorMessage, looksBinary } from "./files";
+import { log } from "./log";
 
 /** Never interesting in a comparison and often huge or noisy. */
-export const IGNORED_NAMES = new Set(['.git', '.DS_Store']);
+export const IGNORED_NAMES = new Set([".git", ".DS_Store"]);
 const CHUNK_BYTES = 64 * 1024;
 /** File comparisons in flight at once. */
 const MAX_PARALLEL_COMPARES = 16;
@@ -52,11 +67,17 @@ interface Context {
 export async function compareFolders(
   leftRoot: string,
   rightRoot: string,
-  mode: FolderCompareMode = 'contents',
+  mode: FolderCompareMode = "contents",
   options: CompareOptions = {},
 ): Promise<FolderCompareResult> {
   const t0 = performance.now();
-  const progress: FolderProgress = { entries: 0, filesCompared: 0, bytesRead: 0, current: '', elapsedMs: 0 };
+  const progress: FolderProgress = {
+    entries: 0,
+    filesCompared: 0,
+    bytesRead: 0,
+    current: "",
+    elapsedMs: 0,
+  };
   let lastReport = 0;
   const ctx: Context = {
     mode,
@@ -69,8 +90,13 @@ export async function compareFolders(
       options.onProgress({ ...progress, elapsedMs: now - t0 });
     },
   };
-  log.info('folders', 'Comparing folders', { left: leftRoot, right: rightRoot, mode });
-  const totals = () => ({ entries: progress.entries, files: progress.filesCompared, bytesRead: progress.bytesRead, ms: Math.round(performance.now() - t0) });
+  log.info("folders", "Comparing folders", { left: leftRoot, right: rightRoot, mode });
+  const totals = () => ({
+    entries: progress.entries,
+    files: progress.filesCompared,
+    bytesRead: progress.bytesRead,
+    ms: Math.round(performance.now() - t0),
+  });
   try {
     // The roots themselves may be links to folders (entries inside are never followed).
     const [l, r] = await Promise.all([rootInfo(leftRoot), rootInfo(rightRoot)]);
@@ -83,18 +109,27 @@ export async function compareFolders(
     const root = await compareDir(ctx, '', '', leftRoot, rightRoot, l, r);
     const elapsedMs = performance.now() - t0;
     // Always finish with the final totals, however recently the last throttled report went out.
-    options.onProgress?.({ ...progress, current: '', elapsedMs });
+    options.onProgress?.({ ...progress, current: "", elapsedMs });
     const unreadable = unreadableEntries(root);
-    log.info('folders', 'Folder comparison finished', { status: root.status, ...totals(), unreadable: unreadable.length || undefined });
-    for (const node of unreadable.slice(0, MAX_LOGGED_ERRORS)) log.warn('folders', "Couldn't read", { relPath: node.relPath || '.', error: node.error });
-    if (unreadable.length > MAX_LOGGED_ERRORS) log.warn('folders', `…and ${unreadable.length - MAX_LOGGED_ERRORS} more that couldn't be read`);
+    log.info("folders", "Folder comparison finished", {
+      status: root.status,
+      ...totals(),
+      unreadable: unreadable.length || undefined,
+    });
+    for (const node of unreadable.slice(0, MAX_LOGGED_ERRORS))
+      log.warn("folders", "Couldn't read", { relPath: node.relPath || ".", error: node.error });
+    if (unreadable.length > MAX_LOGGED_ERRORS)
+      log.warn(
+        "folders",
+        `…and ${unreadable.length - MAX_LOGGED_ERRORS} more that couldn't be read`,
+      );
     return { ok: true, root, leftRoot, rightRoot, elapsedMs };
   } catch (err) {
     if (err instanceof Cancelled) {
-      log.info('folders', 'Folder comparison cancelled', totals());
-      return { ok: false, cancelled: true, message: 'The comparison was cancelled.' };
+      log.info("folders", "Folder comparison cancelled", totals());
+      return { ok: false, cancelled: true, message: "The comparison was cancelled." };
     }
-    log.error('folders', 'Folder comparison failed', totals(), err);
+    log.error("folders", "Folder comparison failed", totals(), err);
     return { ok: false, message: errorMessage(err) };
   }
 }
@@ -111,27 +146,50 @@ export async function compareEntries(
   leftRoot: string,
   rightRoot: string,
   relPaths: string[],
-  mode: FolderCompareMode = 'contents',
+  mode: FolderCompareMode = "contents",
 ): Promise<FolderEntriesResult> {
   const t0 = performance.now();
-  const ctx: Context = { mode, progress: { entries: 0, filesCompared: 0, bytesRead: 0, current: '', elapsedMs: 0 }, report: () => {} };
+  const ctx: Context = {
+    mode,
+    progress: { entries: 0, filesCompared: 0, bytesRead: 0, current: "", elapsedMs: 0 },
+    report: () => {},
+  };
   try {
     const updates = await Promise.all(
       relPaths.map(async (relPath) => {
-        const parts = relPath.split('/').filter(Boolean);
-        if (parts.length === 0) throw new Error('A compared folder itself can only be scanned again in full.');
-        const clean = parts.join('/');
+        const parts = relPath.split("/").filter(Boolean);
+        if (parts.length === 0)
+          throw new Error("A compared folder itself can only be scanned again in full.");
+        const clean = parts.join("/");
         const lPath = inside(leftRoot, clean);
         const rPath = inside(rightRoot, clean);
         const [l, r] = await Promise.all([info(lPath), info(rPath)]);
         if (!l && !r) return { relPath: clean, node: null };
-        return { relPath: clean, node: await compareEntry(ctx, parts[parts.length - 1], clean, l ? lPath : null, r ? rPath : null, l, r) };
+        return {
+          relPath: clean,
+          node: await compareEntry(
+            ctx,
+            parts[parts.length - 1],
+            clean,
+            l ? lPath : null,
+            r ? rPath : null,
+            l,
+            r,
+          ),
+        };
       }),
     );
-    log.debug('folders', 'Re-compared changed entries', { entries: relPaths.length, mode, ms: Math.round(performance.now() - t0) });
+    log.debug("folders", "Re-compared changed entries", {
+      entries: relPaths.length,
+      mode,
+      ms: Math.round(performance.now() - t0),
+    });
     return { ok: true, updates };
   } catch (err) {
-    log.warn('folders', 'Could not re-compare changed entries', { entries: relPaths.length, error: errorMessage(err) });
+    log.warn("folders", "Could not re-compare changed entries", {
+      entries: relPaths.length,
+      error: errorMessage(err),
+    });
     return { ok: false, message: errorMessage(err) };
   }
 }
@@ -178,11 +236,19 @@ async function compareDir(
   children.sort(byKindThenName);
 
   let status: EntryStatus;
-  if (!left) status = 'right-only';
-  else if (!right) status = 'left-only';
+  if (!left) status = "right-only";
+  else if (!right) status = "left-only";
   // An unreadable folder can't be called the same, whatever (little) could be listed.
-  else status = !error && children.every((c) => c.status === 'same') ? 'same' : 'different';
-  return { name, relPath, left: publicInfo(left), right: publicInfo(right), status, children, ...(error && { error }) };
+  else status = !error && children.every((c) => c.status === "same") ? "same" : "different";
+  return {
+    name,
+    relPath,
+    left: publicInfo(left),
+    right: publicInfo(right),
+    status,
+    children,
+    ...(error && { error }),
+  };
 }
 
 async function compareEntry(
@@ -194,14 +260,14 @@ async function compareEntry(
   left?: Stat,
   right?: Stat,
 ): Promise<FolderNode> {
-  const isDir = (left ?? right)!.kind === 'dir';
+  const isDir = (left ?? right)!.kind === "dir";
   if (left && right && left.kind !== right.kind) {
     // Show what is inside whichever side is a folder.
     const dir =
-      left.kind === 'dir'
+      left.kind === "dir"
         ? await compareDir(ctx, name, relPath, leftAbs, null, left)
         : await compareDir(ctx, name, relPath, null, rightAbs, undefined, right);
-    return { ...dir, left: publicInfo(left), right: publicInfo(right), status: 'kind-mismatch' };
+    return { ...dir, left: publicInfo(left), right: publicInfo(right), status: "kind-mismatch" };
   }
   if (isDir) return compareDir(ctx, name, relPath, leftAbs, rightAbs, left, right);
 
@@ -210,15 +276,17 @@ async function compareEntry(
   const r = publicInfo(right);
   let status: EntryStatus;
   let error: string | undefined;
-  if (!left) status = 'right-only';
-  else if (!right) status = 'left-only';
+  if (!left) status = "right-only";
+  else if (!right) status = "left-only";
   else {
     try {
-      status = (await sameFile(ctx, leftAbs!, rightAbs!, left, right, l!, r!)) ? 'same' : 'different';
+      status = (await sameFile(ctx, leftAbs!, rightAbs!, left, right, l!, r!))
+        ? "same"
+        : "different";
     } catch (err) {
       if (err instanceof Cancelled) throw err;
       // One unreadable (or vanished) file is that entry's problem, not the whole comparison's.
-      status = 'different';
+      status = "different";
       error = errorMessage(err);
     }
     ctx.progress.filesCompared++;
@@ -227,7 +295,7 @@ async function compareEntry(
   // Only Contents mode opens files, so only it can tell which ones are binary. Files on one
   // side (and pairs whose sizes differ) are checked here; equal-sized pairs got it from the
   // comparison's first read.
-  if (ctx.mode === 'contents') {
+  if (ctx.mode === "contents") {
     if (l && l.binary === undefined) l.binary = await sniffBinary(ctx, leftAbs!, left!.size);
     if (r && r.binary === undefined) r.binary = await sniffBinary(ctx, rightAbs!, right!.size);
   }
@@ -245,19 +313,27 @@ function publicInfo(s: Stat | undefined): EntryInfo | undefined {
 const byKindThenName = (a: FolderNode, b: FolderNode) => {
   const ad = a.children ? 0 : 1;
   const bd = b.children ? 0 : 1;
-  return ad - bd || a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
+  return ad - bd || a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true });
 };
 
 /**
  * Whether two files present on both sides count as the same under the context's mode. In
  * Contents mode it also records whether each file is binary when it reads them anyway.
  */
-async function sameFile(ctx: Context, a: string, b: string, sa: Stat, sb: Stat, ia: EntryInfo, ib: EntryInfo): Promise<boolean> {
+async function sameFile(
+  ctx: Context,
+  a: string,
+  b: string,
+  sa: Stat,
+  sb: Stat,
+  ia: EntryInfo,
+  ib: EntryInfo,
+): Promise<boolean> {
   // Symbolic links are the same when they point to the same place.
   if (sa.link !== undefined || sb.link !== undefined) return sa.link === sb.link;
   const sameTime = Math.abs(sa.mtimeMs - sb.mtimeMs) <= TIMESTAMP_TOLERANCE_MS;
-  if (ctx.mode === 'date') return sameTime;
-  if (ctx.mode === 'size-date') return sameTime && sa.size === sb.size;
+  if (ctx.mode === "date") return sameTime;
+  if (ctx.mode === "size-date") return sameTime && sa.size === sb.size;
   if (sa.size !== sb.size) return false;
   if (sa.id && sa.id === sb.id) {
     // Literally the same file (e.g. a folder compared with itself, or hard links): no need to read it.
@@ -298,7 +374,7 @@ async function list(abs: string | null): Promise<{ entries: Map<string, Stat>; e
 async function rootInfo(abs: string): Promise<Stat | undefined> {
   try {
     const s = await stat(abs);
-    return { kind: s.isDirectory() ? 'dir' : 'file', size: 0, mtimeMs: s.mtimeMs, id: '' };
+    return { kind: s.isDirectory() ? "dir" : "file", size: 0, mtimeMs: s.mtimeMs, id: "" };
   } catch {
     return undefined;
   }
@@ -312,12 +388,13 @@ async function rootInfo(abs: string): Promise<Stat | undefined> {
 async function info(abs: string): Promise<Stat | undefined> {
   try {
     const s = await lstat(abs);
-    if (s.isSymbolicLink()) return { kind: 'file', size: 0, mtimeMs: s.mtimeMs, id: '', link: await readlink(abs) };
+    if (s.isSymbolicLink())
+      return { kind: "file", size: 0, mtimeMs: s.mtimeMs, id: "", link: await readlink(abs) };
     return {
-      kind: s.isDirectory() ? 'dir' : 'file',
+      kind: s.isDirectory() ? "dir" : "file",
       size: s.isDirectory() ? 0 : s.size,
       mtimeMs: s.mtimeMs,
-      id: process.platform === 'win32' || s.ino === 0 ? '' : `${s.dev}:${s.ino}`,
+      id: process.platform === "win32" || s.ino === 0 ? "" : `${s.dev}:${s.ino}`,
     };
   } catch {
     return undefined;
@@ -344,7 +421,7 @@ async function sniffBinary(ctx: Context, path: string, size: number): Promise<bo
   return limited(async () => {
     checkCancelled(ctx);
     try {
-      const f = await open(path, 'r');
+      const f = await open(path, "r");
       try {
         const buf = Buffer.alloc(BINARY_SNIFF_BYTES);
         const { bytesRead } = await f.read(buf, 0, BINARY_SNIFF_BYTES, 0);
@@ -363,15 +440,20 @@ async function sniffBinary(ctx: Context, path: string, size: number): Promise<bo
  * Byte-for-byte comparison of two equal-sized files, streamed in chunks and stopping at the
  * first difference. The first chunk also tells whether each file is binary.
  */
-async function contentsEqual(ctx: Context, a: string, b: string, size: number): Promise<{ equal: boolean; binaryA: boolean; binaryB: boolean }> {
+async function contentsEqual(
+  ctx: Context,
+  a: string,
+  b: string,
+  size: number,
+): Promise<{ equal: boolean; binaryA: boolean; binaryB: boolean }> {
   if (size === 0) return { equal: true, binaryA: false, binaryB: false };
   return limited(async () => {
     checkCancelled(ctx);
     // One after the other, so a failure opening the second can't leak the first.
-    const fa = await open(a, 'r');
-    let fb;
+    const fa = await open(a, "r");
+    let fb: FileHandle;
     try {
-      fb = await open(b, 'r');
+      fb = await open(b, "r");
     } catch (err) {
       await fa.close();
       throw err;
@@ -383,7 +465,10 @@ async function contentsEqual(ctx: Context, a: string, b: string, size: number): 
       let binaryB = false;
       for (let pos = 0; pos < size; ) {
         checkCancelled(ctx);
-        const [ra, rb] = await Promise.all([fa.read(ba, 0, CHUNK_BYTES, pos), fb.read(bb, 0, CHUNK_BYTES, pos)]);
+        const [ra, rb] = await Promise.all([
+          fa.read(ba, 0, CHUNK_BYTES, pos),
+          fb.read(bb, 0, CHUNK_BYTES, pos),
+        ]);
         ctx.progress.bytesRead += ra.bytesRead + rb.bytesRead;
         if (pos === 0) {
           binaryA = looksBinary(ba.subarray(0, ra.bytesRead));
@@ -391,7 +476,8 @@ async function contentsEqual(ctx: Context, a: string, b: string, size: number): 
         }
         if (ra.bytesRead !== rb.bytesRead) return { equal: false, binaryA, binaryB };
         if (ra.bytesRead === 0) break;
-        if (!ba.subarray(0, ra.bytesRead).equals(bb.subarray(0, rb.bytesRead))) return { equal: false, binaryA, binaryB };
+        if (!ba.subarray(0, ra.bytesRead).equals(bb.subarray(0, rb.bytesRead)))
+          return { equal: false, binaryA, binaryB };
         pos += ra.bytesRead;
         if (size > CHUNK_BYTES * 16) ctx.report();
       }
@@ -403,9 +489,18 @@ async function contentsEqual(ctx: Context, a: string, b: string, size: number): 
 }
 
 /** Byte-for-byte comparison of two files; different sizes short-circuit. Exported for tests. */
-export async function filesEqual(a: string, b: string, sizeA: number, sizeB: number): Promise<boolean> {
+export async function filesEqual(
+  a: string,
+  b: string,
+  sizeA: number,
+  sizeB: number,
+): Promise<boolean> {
   if (sizeA !== sizeB) return false;
-  const ctx: Context = { mode: 'contents', progress: { entries: 0, filesCompared: 0, bytesRead: 0, current: '', elapsedMs: 0 }, report: () => {} };
+  const ctx: Context = {
+    mode: "contents",
+    progress: { entries: 0, filesCompared: 0, bytesRead: 0, current: "", elapsedMs: 0 },
+    report: () => {},
+  };
   return (await contentsEqual(ctx, a, b, sizeA)).equal;
 }
 
@@ -436,9 +531,10 @@ export async function copyEntry(req: CopyRequest, options: CopyOptions = {}): Pr
   let plan: CopyPlan | undefined;
   try {
     // The roots themselves are never copied: replacing one would reach outside it.
-    if (req.relPath.split('/').filter(Boolean).length === 0) return { ok: false, message: 'Choose a file or folder inside the compared folders.' };
-    const srcRoot = req.from === 'left' ? req.leftRoot : req.rightRoot;
-    const dstRoot = req.from === 'left' ? req.rightRoot : req.leftRoot;
+    if (req.relPath.split("/").filter(Boolean).length === 0)
+      return { ok: false, message: "Choose a file or folder inside the compared folders." };
+    const srcRoot = req.from === "left" ? req.leftRoot : req.rightRoot;
+    const dstRoot = req.from === "left" ? req.rightRoot : req.leftRoot;
     const src = inside(srcRoot, req.relPath);
     const dst = inside(dstRoot, req.relPath);
     await insideReally(dstRoot, dst);
@@ -450,20 +546,42 @@ export async function copyEntry(req: CopyRequest, options: CopyOptions = {}): Pr
     await runCopy(plan, staging, req.relPath, t0, options);
     await swapIn(staging, dst, d);
     staging = undefined;
-    log.info('folders', 'Copied', { from: src, to: dst, kind: s.isDirectory() ? 'dir' : 'file', replaced: !!d, files: plan.files.length, bytes: plan.bytes, ms: Math.round(performance.now() - t0) });
+    log.info("folders", "Copied", {
+      from: src,
+      to: dst,
+      kind: s.isDirectory() ? "dir" : "file",
+      replaced: !!d,
+      files: plan.files.length,
+      bytes: plan.bytes,
+      ms: Math.round(performance.now() - t0),
+    });
     return { ok: true };
   } catch (err) {
     if (staging) await rm(staging, { recursive: true, force: true }).catch(() => {});
     if (err instanceof Cancelled) {
-      log.info('folders', 'Copy cancelled', { relPath: req.relPath, from: req.from, ms: Math.round(performance.now() - t0) });
-      return { ok: false, cancelled: true, message: 'The copy was cancelled; nothing was changed.' };
+      log.info("folders", "Copy cancelled", {
+        relPath: req.relPath,
+        from: req.from,
+        ms: Math.round(performance.now() - t0),
+      });
+      return {
+        ok: false,
+        cancelled: true,
+        message: "The copy was cancelled; nothing was changed.",
+      };
     }
     const code = (err as NodeJS.ErrnoException).code;
     const message =
-      code === 'ENOSPC'
-        ? `There isn't enough free space on the ${req.from === 'left' ? 'right' : 'left'} drive for the copy${plan ? ` (it needs about ${formatBytes(plan.bytes)})` : ''}. Nothing was changed.`
+      code === "ENOSPC"
+        ? `There isn't enough free space on the ${req.from === "left" ? "right" : "left"} drive for the copy${plan ? ` (it needs about ${formatBytes(plan.bytes)})` : ""}. Nothing was changed.`
         : errorMessage(err);
-    log.error('folders', 'Could not copy', { relPath: req.relPath, from: req.from, leftRoot: req.leftRoot, rightRoot: req.rightRoot, error: errorMessage(err) });
+    log.error("folders", "Could not copy", {
+      relPath: req.relPath,
+      from: req.from,
+      leftRoot: req.leftRoot,
+      rightRoot: req.rightRoot,
+      error: errorMessage(err),
+    });
     return { ok: false, message };
   }
 }
@@ -482,7 +600,8 @@ async function planCopy(src: string, top: Stats, signal?: AbortSignal): Promise<
   const plan: CopyPlan = { dirs: [], files: [], bytes: 0, src };
   const visit = async (abs: string, rel: string, st: Stats): Promise<void> => {
     if (signal?.aborted) throw new Cancelled();
-    if (st.isSymbolicLink()) plan.files.push({ rel, size: 0, link: true, atime: st.atime, mtime: st.mtime });
+    if (st.isSymbolicLink())
+      plan.files.push({ rel, size: 0, link: true, atime: st.atime, mtime: st.mtime });
     else if (st.isFile()) {
       plan.files.push({ rel, size: st.size, link: false, atime: st.atime, mtime: st.mtime });
       plan.bytes += st.size;
@@ -490,18 +609,35 @@ async function planCopy(src: string, top: Stats, signal?: AbortSignal): Promise<
       plan.dirs.push({ rel, mode: st.mode & 0o7777, atime: st.atime, mtime: st.mtime });
       const names = await readdir(abs);
       const stats = await Promise.all(names.map((n) => lstat(join(abs, n))));
-      for (let i = 0; i < names.length; i++) await visit(join(abs, names[i]), rel ? `${rel}/${names[i]}` : names[i], stats[i]);
-    } else throw new Error(`${abs} can't be copied: it's a device, socket or pipe, not a file or folder.`);
+      for (let i = 0; i < names.length; i++)
+        await visit(join(abs, names[i]), rel ? `${rel}/${names[i]}` : names[i], stats[i]);
+    } else
+      throw new Error(
+        `${abs} can't be copied: it's a device, socket or pipe, not a file or folder.`,
+      );
   };
-  await visit(src, '', top);
+  await visit(src, "", top);
   return plan;
 }
 
 /** Makes the copy at `dest` (which must not exist): folders, then files in parallel, then folder times. */
-async function runCopy(plan: CopyPlan, dest: string, relPath: string, t0: number, options: CopyOptions): Promise<void> {
+async function runCopy(
+  plan: CopyPlan,
+  dest: string,
+  relPath: string,
+  t0: number,
+  options: CopyOptions,
+): Promise<void> {
   const { signal, onProgress } = options;
-  const at = (rel: string) => (rel ? join(dest, ...rel.split('/')) : dest);
-  const progress: CopyProgress = { files: 0, totalFiles: plan.files.length, bytes: 0, totalBytes: plan.bytes, current: relPath, elapsedMs: 0 };
+  const at = (rel: string) => (rel ? join(dest, ...rel.split("/")) : dest);
+  const progress: CopyProgress = {
+    files: 0,
+    totalFiles: plan.files.length,
+    bytes: 0,
+    totalBytes: plan.bytes,
+    current: relPath,
+    elapsedMs: 0,
+  };
   let lastReport = 0;
   const report = (force = false) => {
     const now = performance.now();
@@ -527,7 +663,7 @@ async function runCopy(plan: CopyPlan, dest: string, relPath: string, t0: number
       const f = plan.files[next++];
       try {
         check();
-        const from = f.rel ? join(plan.src, ...f.rel.split('/')) : plan.src;
+        const from = f.rel ? join(plan.src, ...f.rel.split("/")) : plan.src;
         const to = at(f.rel);
         if (f.link) await symlink(await readlink(from), to);
         else {
@@ -584,7 +720,7 @@ function formatBytes(n: number): string {
 /** Resolves `relPath` under `root`, refusing anything that would escape it. */
 function inside(root: string, relPath: string): string {
   const base = resolve(root);
-  const full = resolve(base, ...relPath.split('/'));
+  const full = resolve(base, ...relPath.split("/"));
   if (!within(base, full)) throw new Error(`Refusing to touch a path outside ${root}.`);
   return full;
 }
@@ -592,7 +728,7 @@ function inside(root: string, relPath: string): string {
 /** Whether `full` is `base` or inside it (also right for roots like "/", "E:\\" and shares). */
 function within(base: string, full: string): boolean {
   const rel = relative(base, full);
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
 /**
@@ -606,10 +742,11 @@ async function insideReally(root: string, path: string): Promise<void> {
   for (;;) {
     try {
       const real = await realpath(existing);
-      if (!within(realRoot, real)) throw new Error(`Refusing to copy through a link that leads outside ${root}.`);
+      if (!within(realRoot, real))
+        throw new Error(`Refusing to copy through a link that leads outside ${root}.`);
       return;
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
       const up = dirname(existing);
       if (up === existing) return;
       existing = up;

@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import type { Range } from '../../../engine';
-import { BAND_WIDTH, CELL_PADDING, clipRanges, columnSlice, LONG_LINE, TAB_SIZE } from './layout';
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import type { Range } from "../../../engine";
+import { BAND_WIDTH, CELL_PADDING, clipRanges, columnSlice, LONG_LINE, TAB_SIZE } from "./layout";
 
 interface DetailLine {
   /** 1-based line number, or null when this side has no line on the row. */
@@ -38,7 +38,9 @@ export function LineDetails({ left, right, charWidth: cw, rowKey }: LineDetailsP
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const firsts = [left, right].filter((l) => l.ranges.length).map((l) => visualCol(l.text, l.ranges[0].start));
+    const firsts = [left, right]
+      .filter((l) => l.ranges.length)
+      .map((l) => visualCol(l.text, l.ranges[0].start));
     const col = firsts.length ? Math.min(...firsts) : 0;
     const x = col * cw;
     el.scrollLeft = x > el.clientWidth - numberWidth - 4 * cw ? Math.max(0, x - 8 * cw) : 0;
@@ -48,7 +50,7 @@ export function LineDetails({ left, right, charWidth: cw, rowKey }: LineDetailsP
   const firstCol = Math.floor((Math.max(0, hBand - 1) * BAND_WIDTH) / cw);
   const lastCol = Math.ceil(((hBand + 2) * BAND_WIDTH + width) / cw);
 
-  const line = (l: DetailLine, side: 'a' | 'b') => {
+  const line = (l: DetailLine, side: "a" | "b") => {
     let content: ReactNode;
     let style: CSSProperties | undefined;
     if (l.number === null) {
@@ -57,14 +59,17 @@ export function LineDetails({ left, right, charWidth: cw, rowKey }: LineDetailsP
       const s = columnSlice(l.text, firstCol, lastCol);
       content = visible(l.text.slice(s.start, s.end), clipRanges(l.ranges, s.start, s.end), l.highlight, s.end === l.text.length && l.lineBreak);
       // The full width keeps the strip's scroll range; the slice sits at its own column.
-      style = { paddingLeft: CELL_PADDING + s.col * cw, minWidth: 2 * CELL_PADDING + (visualCol(l.text, l.text.length) + 1) * cw };
+      style = {
+        paddingLeft: CELL_PADDING + s.col * cw,
+        minWidth: 2 * CELL_PADDING + (visualCol(l.text, l.text.length) + 1) * cw,
+      };
     } else {
       content = visible(l.text, l.ranges, l.highlight, l.lineBreak);
     }
     return (
       <div className={`detail-line detail-${side}`}>
         <span className="detail-ln" style={{ width: numberWidth }}>
-          {l.number ?? ''}
+          {l.number ?? ""}
         </span>
         <span className="detail-text" style={style}>
           {content}
@@ -83,15 +88,16 @@ export function LineDetails({ left, right, charWidth: cw, rowKey }: LineDetailsP
         setWidth(e.currentTarget.clientWidth);
       }}
     >
-      {line(left, 'a')}
-      {line(right, 'b')}
+      {line(left, "a")}
+      {line(right, "b")}
     </div>
   );
 }
 
 function visualCol(text: string, col: number): number {
   let v = 0;
-  for (let i = 0; i < col && i < text.length; i++) v = text.charCodeAt(i) === 9 ? v + TAB_SIZE - (v % TAB_SIZE) : v + 1;
+  for (let i = 0; i < col && i < text.length; i++)
+    v = text.charCodeAt(i) === 9 ? v + TAB_SIZE - (v % TAB_SIZE) : v + 1;
   return v;
 }
 
@@ -103,20 +109,28 @@ function visible(text: string, ranges: Range[], highlight: string, lineEnd: bool
   // Turns a slice into nodes, replacing spaces and tabs with marker glyphs.
   const render = (slice: string): ReactNode[] => {
     const nodes: ReactNode[] = [];
-    let plain = '';
+    let plain = "";
     const flush = () => {
       if (plain) nodes.push(plain);
-      plain = '';
+      plain = "";
     };
     for (const ch of slice) {
-      if (ch === ' ') {
+      if (ch === " ") {
         flush();
-        nodes.push(<span key={key++} className="ws">·</span>);
+        nodes.push(
+          <span key={key++} className="ws">
+            ·
+          </span>,
+        );
         col++;
-      } else if (ch === '\t') {
+      } else if (ch === "\t") {
         flush();
         const width = TAB_SIZE - (col % TAB_SIZE);
-        nodes.push(<span key={key++} className="ws">{'→'.padEnd(width, ' ')}</span>);
+        nodes.push(
+          <span key={key++} className="ws">
+            {"→".padEnd(width, " ")}
+          </span>,
+        );
         col += width;
       } else {
         plain += ch;
@@ -137,6 +151,11 @@ function visible(text: string, ranges: Range[], highlight: string, lineEnd: bool
     pos = r.end;
   }
   if (pos < text.length) out.push(...render(text.slice(pos)));
-  if (lineEnd) out.push(<span key={key++} className="ws eol">¶</span>);
+  if (lineEnd)
+    out.push(
+      <span key={key++} className="ws eol">
+        ¶
+      </span>,
+    );
   return out;
 }

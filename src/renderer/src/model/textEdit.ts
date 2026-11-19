@@ -53,11 +53,16 @@ export function ordered(s: Selection): [Pos, Pos] {
 }
 
 /** Builds the edit that replaces the text between `from` and `to` with `text`, and where the caret ends up. */
-export function replaceRange(lines: readonly string[], from: Pos, to: Pos, text: string): { op: EditOp; end: Pos } {
+export function replaceRange(
+  lines: readonly string[],
+  from: Pos,
+  to: Pos,
+  text: string,
+): { op: EditOp; end: Pos } {
   const parts = text.split(/\r\n|\r|\n/);
   const empty = lines.length === 0;
-  const prefix = empty ? '' : lines[from.line].slice(0, from.col);
-  const suffix = empty ? '' : lines[to.line].slice(to.col);
+  const prefix = empty ? "" : lines[from.line].slice(0, from.col);
+  const suffix = empty ? "" : lines[to.line].slice(to.col);
   const inserted = parts.slice();
   inserted[0] = prefix + inserted[0];
   const lastLen = parts[parts.length - 1].length;
@@ -96,17 +101,18 @@ export function invertOp(op: EditOp): EditOp {
 /** A single op equivalent to `first` followed by `second`, when `second` rewrites exactly what `first` produced. */
 export function composeOps(first: EditOp, second: EditOp): EditOp | null {
   if (second.start !== first.start || second.removed.length !== first.inserted.length) return null;
-  for (let i = 0; i < second.removed.length; i++) if (second.removed[i] !== first.inserted[i]) return null;
+  for (let i = 0; i < second.removed.length; i++)
+    if (second.removed[i] !== first.inserted[i]) return null;
   return { start: first.start, removed: first.removed, inserted: second.inserted };
 }
 
 export function textInRange(lines: readonly string[], from: Pos, to: Pos): string {
-  if (lines.length === 0) return '';
+  if (lines.length === 0) return "";
   if (from.line === to.line) return lines[from.line].slice(from.col, to.col);
   const out = [lines[from.line].slice(from.col)];
   for (let l = from.line + 1; l < to.line; l++) out.push(lines[l]);
   out.push(lines[to.line].slice(0, to.col));
-  return out.join('\n');
+  return out.join("\n");
 }
 
 export function clampPos(lines: readonly string[], p: Pos): Pos {
@@ -119,14 +125,19 @@ export function clampPos(lines: readonly string[], p: Pos): Pos {
 export function transformPos(p: Pos, op: EditOp): Pos {
   const oldEnd = op.start + op.removed.length;
   if (p.line < op.start) return p;
-  if (p.line >= oldEnd) return { line: p.line + op.inserted.length - op.removed.length, col: p.col };
-  return { line: op.start + Math.min(p.line - op.start, Math.max(0, op.inserted.length - 1)), col: p.col };
+  if (p.line >= oldEnd)
+    return { line: p.line + op.inserted.length - op.removed.length, col: p.col };
+  return {
+    line: op.start + Math.min(p.line - op.start, Math.max(0, op.inserted.length - 1)),
+    col: p.col,
+  };
 }
 
 /** Display column of offset `col`, with tabs expanded to the next multiple of `tabSize`. */
 export function visualColumn(text: string, col: number, tabSize: number): number {
   let v = 0;
-  for (let i = 0; i < col && i < text.length; i++) v = text.charCodeAt(i) === 9 ? v + tabSize - (v % tabSize) : v + 1;
+  for (let i = 0; i < col && i < text.length; i++)
+    v = text.charCodeAt(i) === 9 ? v + tabSize - (v % tabSize) : v + 1;
   return v;
 }
 

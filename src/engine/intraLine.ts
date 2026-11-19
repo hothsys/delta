@@ -1,7 +1,7 @@
-import { Interner } from './intern';
-import { diffSequences, marksToHunks, type Hunk } from './myers';
-import { isWhitespace } from './normalize';
-import type { CompareOptions, IntraLineDiff, Range, WhitespaceMode } from './types';
+import { Interner } from "./intern";
+import { diffSequences, marksToHunks, type Hunk } from "./myers";
+import { isWhitespace } from "./normalize";
+import type { CompareOptions, IntraLineDiff, Range, WhitespaceMode } from "./types";
 
 /** Letters, digits and underscores form words; anything else is a token on its own. */
 const WORD = /[\p{L}\p{N}_]/u;
@@ -26,12 +26,12 @@ interface Tokens {
  * be called lazily, only for rows that are on screen.
  */
 export function diffChars(a: string, b: string, options: CompareOptions = {}): IntraLineDiff {
-  const ws = options.whitespace ?? 'exact';
+  const ws = options.whitespace ?? "exact";
   const ignoreCase = options.ignoreCase ?? false;
   const interner = new Interner();
   // With all whitespace ignored, "a b" must equal "ab", so compare characters; highlights are
   // widened to whole words afterwards.
-  const byChar = ws === 'ignore';
+  const byChar = ws === "ignore";
   const ta = tokenize(a, byChar, ignoreCase, interner);
   const tb = tokenize(b, byChar, ignoreCase, interner);
 
@@ -40,11 +40,14 @@ export function diffChars(a: string, b: string, options: CompareOptions = {}): I
   if (ta.keys.length + tb.keys.length > MAX_TOKENS) {
     const middle = changedMiddle(ta, tb);
     // Every word matches, yet the lines differ: only spacing changed. Show it character by character.
-    if (!middle.a.length && !middle.b.length && ws === 'exact' && a !== b) return changedChars(a, b);
+    if (!middle.a.length && !middle.b.length && ws === "exact" && a !== b)
+      return changedChars(a, b);
     return middle;
   }
   const { changedA, changedB } = diffSequences(ta.keys, tb.keys, { minimal: true });
-  const hunks = absorbShortEqualities(marksToHunks(changedA, changedB), (from, to) => isFiller(a, ta, from, to));
+  const hunks = absorbShortEqualities(marksToHunks(changedA, changedB), (from, to) =>
+    isFiller(a, ta, from, to),
+  );
 
   const ra: Range[] = [];
   const rb: Range[] = [];
@@ -74,7 +77,8 @@ function changedMiddle(ta: Tokens, tb: Tokens): IntraLineDiff {
   while (pre < n && pre < m && ta.keys[pre] === tb.keys[pre]) pre++;
   let suf = 0;
   while (suf < n - pre && suf < m - pre && ta.keys[n - 1 - suf] === tb.keys[m - 1 - suf]) suf++;
-  const range = (t: Tokens, end: number): Range[] => (end > pre ? [{ start: t.starts[pre], end: t.ends[end - 1] }] : []);
+  const range = (t: Tokens, end: number): Range[] =>
+    end > pre ? [{ start: t.starts[pre], end: t.ends[end - 1] }] : [];
   return { a: range(ta, n - suf), b: range(tb, m - suf) };
 }
 
@@ -83,7 +87,12 @@ function changedChars(a: string, b: string): IntraLineDiff {
   let pre = 0;
   while (pre < a.length && pre < b.length && a.charCodeAt(pre) === b.charCodeAt(pre)) pre++;
   let suf = 0;
-  while (suf < a.length - pre && suf < b.length - pre && a.charCodeAt(a.length - 1 - suf) === b.charCodeAt(b.length - 1 - suf)) suf++;
+  while (
+    suf < a.length - pre &&
+    suf < b.length - pre &&
+    a.charCodeAt(a.length - 1 - suf) === b.charCodeAt(b.length - 1 - suf)
+  )
+    suf++;
   const range = (len: number): Range[] => (len - suf > pre ? [{ start: pre, end: len - suf }] : []);
   return { a: range(a.length), b: range(b.length) };
 }
@@ -96,15 +105,15 @@ const SHARED_WORD = /[\p{L}\p{N}_]{3,}/u;
  * letters, and under half of the shorter line's non-space text.
  */
 function rewritten(a: string, b: string, changedInA: Range[]): boolean {
-  let unchanged = '';
+  let unchanged = "";
   let pos = 0;
   for (const r of changedInA) {
-    unchanged += a.slice(pos, r.start) + ' ';
+    unchanged += `${a.slice(pos, r.start)} `;
     pos = r.end;
   }
   unchanged += a.slice(pos);
   if (SHARED_WORD.test(unchanged)) return false;
-  const solid = (t: string) => t.replace(/\s+/g, '').length;
+  const solid = (t: string) => t.replace(/\s+/g, "").length;
   return solid(unchanged) < 0.5 * Math.min(solid(a), solid(b));
 }
 
@@ -133,14 +142,15 @@ function spacingChanges(
   ra: Range[],
   rb: Range[],
 ): void {
-  const differs = (x: string, y: string) => (ws === 'collapse' ? (x === '') !== (y === '') : x !== y);
+  const differs = (x: string, y: string) =>
+    ws === "collapse" ? (x === "") !== (y === "") : x !== y;
   const mark = (xs: Range, ys: Range) => {
     if (!differs(a.slice(xs.start, xs.end), b.slice(ys.start, ys.end))) return;
     if (xs.end > xs.start) ra.push(xs);
     if (ys.end > ys.start) rb.push(ys);
   };
   if (ta.keys.length === 0 && tb.keys.length === 0) {
-    if (ws === 'exact') mark({ start: 0, end: a.length }, { start: 0, end: b.length });
+    if (ws === "exact") mark({ start: 0, end: a.length }, { start: 0, end: b.length });
     return;
   }
   // Matched tokens pair up in order.
@@ -156,7 +166,7 @@ function spacingChanges(
     if (i2 !== i + 1 || j2 !== j + 1) continue;
     mark({ start: ta.ends[i], end: ta.starts[i2] }, { start: tb.ends[j], end: tb.starts[j2] });
   }
-  if (ws !== 'exact' || pairs.length === 0) return;
+  if (ws !== "exact" || pairs.length === 0) return;
   const [fi, fj] = pairs[0];
   if (fi === 0 && fj === 0) mark({ start: 0, end: ta.starts[0] }, { start: 0, end: tb.starts[0] });
   const [li, lj] = pairs[pairs.length - 1];
@@ -214,7 +224,11 @@ function tokenize(s: string, byChar: boolean, ignoreCase: boolean, interner: Int
     ends.push(end);
     i = end;
   }
-  return { keys: Int32Array.from(keys), starts: Int32Array.from(starts), ends: Int32Array.from(ends) };
+  return {
+    keys: Int32Array.from(keys),
+    starts: Int32Array.from(starts),
+    ends: Int32Array.from(ends),
+  };
 }
 
 /**
@@ -223,7 +237,10 @@ function tokenize(s: string, byChar: boolean, ignoreCase: boolean, interner: Int
  * than separate words. Only gaps of filler (punctuation, words of one or two letters) are
  * merged: a real word that is on both sides stays unhighlighted.
  */
-function absorbShortEqualities(hunks: Hunk[], isFillerGap: (fromToken: number, toToken: number) => boolean): Hunk[] {
+function absorbShortEqualities(
+  hunks: Hunk[],
+  isFillerGap: (fromToken: number, toToken: number) => boolean,
+): Hunk[] {
   const out: Hunk[] = [];
   const size = (h: Hunk) => Math.max(h.aEnd - h.aStart, h.bEnd - h.bStart);
   for (const h of hunks) {

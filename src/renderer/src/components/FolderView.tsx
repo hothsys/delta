@@ -1,4 +1,14 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 import {
   TIMESTAMP_TOLERANCE_MS,
   type CopyProgress,
@@ -6,15 +16,15 @@ import {
   type FolderCompareResult,
   type FolderNode,
   type FolderProgress,
-} from '../../../shared/api';
-import { countFiles, flattenTree, folderPaths } from '../model/folderTree';
-import { ratioAt, useSplit } from './split';
-import type { Theme } from './Toolbar';
-import { FolderCompareOptions } from './FolderCompareOptions';
-import { HomeButton } from './HomeButton';
-import { MergeIcon, RefreshIcon } from './icons';
-import { GUTTER_WIDTH } from './layout';
-import { ThemeButton } from './ThemeButton';
+} from "../../../shared/api";
+import { countFiles, flattenTree, folderPaths } from "../model/folderTree";
+import { ratioAt, useSplit } from "./split";
+import type { Theme } from "./Toolbar";
+import { FolderCompareOptions } from "./FolderCompareOptions";
+import { HomeButton } from "./HomeButton";
+import { MergeIcon, RefreshIcon } from "./icons";
+import { GUTTER_WIDTH } from "./layout";
+import { ThemeButton } from "./ThemeButton";
 
 /** Width of the centre column holding the copy arrows; it doubles as the divider. */
 /** The middle column with the copy arrows: as wide as the text view's gutter. */
@@ -28,7 +38,7 @@ const SLOW_SCAN_HINT_MS = 4000;
 /** Where the list was scrolled, per pair of roots, so returning from a file comparison keeps the place. */
 const savedScroll = new Map<string, number>();
 
-export type TreeSide = 'left' | 'right';
+export type TreeSide = "left" | "right";
 
 interface FolderViewProps {
   leftRoot: string;
@@ -80,15 +90,19 @@ interface FolderViewProps {
 export function FolderView(props: FolderViewProps) {
   const { result, expanded, hideSame, selected } = props;
   const root = result?.ok ? result.root : null;
-  const rows = useMemo(() => (root ? flattenTree(root, expanded, hideSame) : []), [root, expanded, hideSame]);
+  const rows = useMemo(
+    () => (root ? flattenTree(root, expanded, hideSame) : []),
+    [root, expanded, hideSame],
+  );
   const counts = useMemo(() => (root ? countFiles(root) : null), [root]);
   const listRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const [split, setSplit] = useSplit('delta.split.folders');
+  const [split, setSplit] = useSplit("delta.split.folders");
   const dragging = useRef(false);
 
   // The centre column is the divider: drag to resize the two sides, double-click to reset.
-  const onButton = (e: { target: EventTarget }) => (e.target as HTMLElement).closest('button') !== null;
+  const onButton = (e: { target: EventTarget }) =>
+    (e.target as HTMLElement).closest("button") !== null;
   const divider = {
     onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0 || onButton(e)) return;
@@ -99,7 +113,8 @@ export function FolderView(props: FolderViewProps) {
     },
     onPointerMove: (e: PointerEvent<HTMLDivElement>) => {
       const rect = rootRef.current?.getBoundingClientRect();
-      if (dragging.current && rect) setSplit(ratioAt(e.clientX, rect, DIVIDER_WIDTH, DIVIDER_WIDTH));
+      if (dragging.current && rect)
+        setSplit(ratioAt(e.clientX, rect, DIVIDER_WIDTH, DIVIDER_WIDTH));
     },
     onPointerUp: () => {
       dragging.current = false;
@@ -110,7 +125,9 @@ export function FolderView(props: FolderViewProps) {
       setSplit(0.5);
     },
   };
-  const columns = { '--split-cols': `minmax(0, ${split}fr) ${DIVIDER_WIDTH}px minmax(0, ${1 - split}fr)` } as CSSProperties;
+  const columns = {
+    "--split-cols": `minmax(0, ${split}fr) ${DIVIDER_WIDTH}px minmax(0, ${1 - split}fr)`,
+  } as CSSProperties;
 
   const toggle = (relPath: string, open?: boolean) => {
     const next = new Set(expanded);
@@ -118,30 +135,31 @@ export function FolderView(props: FolderViewProps) {
     else next.delete(relPath);
     props.onExpandedChange(next);
   };
-  const activate = (node: FolderNode) => (node.children ? toggle(node.relPath) : props.onOpen(node));
+  const activate = (node: FolderNode) =>
+    node.children ? toggle(node.relPath) : props.onOpen(node);
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const i = rows.findIndex((r) => r.node.relPath === selected);
     const row = rows[i];
     switch (e.key) {
-      case 'ArrowDown':
+      case "ArrowDown":
         if (rows.length) props.onSelect(rows[Math.min(rows.length - 1, i + 1)].node.relPath);
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         if (rows.length) props.onSelect(rows[Math.max(0, i - 1)].node.relPath);
         break;
-      case 'ArrowRight':
+      case "ArrowRight":
         if (row?.isDir) toggle(row.node.relPath, true);
         break;
-      case 'ArrowLeft':
+      case "ArrowLeft":
         if (row?.isDir && row.expanded) toggle(row.node.relPath, false);
         else if (row) {
           // Jump to the parent folder.
-          const parent = row.node.relPath.split('/').slice(0, -1).join('/');
+          const parent = row.node.relPath.split("/").slice(0, -1).join("/");
           if (parent) props.onSelect(parent);
         }
         break;
-      case 'Enter':
+      case "Enter":
         if (row) activate(row.node);
         break;
       default:
@@ -170,7 +188,10 @@ export function FolderView(props: FolderViewProps) {
     setBand(Math.floor(el.scrollTop / (FBAND_ROWS * FROW_HEIGHT)));
   }, [scrollKey, !root, props.busy]);
   const firstRow = Math.max(0, (band - 1) * FBAND_ROWS);
-  const lastRow = Math.min(rows.length, (band + 2 + Math.ceil(listHeight / (FBAND_ROWS * FROW_HEIGHT))) * FBAND_ROWS);
+  const lastRow = Math.min(
+    rows.length,
+    (band + 2 + Math.ceil(listHeight / (FBAND_ROWS * FROW_HEIGHT))) * FBAND_ROWS,
+  );
 
   // Keep the selected row in view when it moves with the keyboard (it may not be rendered yet).
   useEffect(() => {
@@ -179,22 +200,26 @@ export function FolderView(props: FolderViewProps) {
     if (!el || i < 0) return;
     const top = i * FROW_HEIGHT;
     if (top < el.scrollTop) el.scrollTop = top;
-    else if (top + FROW_HEIGHT > el.scrollTop + el.clientHeight) el.scrollTop = top + FROW_HEIGHT - el.clientHeight;
+    else if (top + FROW_HEIGHT > el.scrollTop + el.clientHeight)
+      el.scrollTop = top + FROW_HEIGHT - el.clientHeight;
   }, [selected]);
 
   const cell = (node: FolderNode, side: TreeSide, depth: number, isDir: boolean, open: boolean) => {
-    const entry = side === 'left' ? node.left : node.right;
+    const entry = side === "left" ? node.left : node.right;
     if (!entry) return <div className="fcell missing" />;
     const picked = props.pickedKey === `${side}:${node.relPath}`;
     return (
-      <div className={`fcell${picked ? ' picked' : ''}${entry.binary ? ' binary' : ''}`}>
+      <div className={`fcell${picked ? " picked" : ""}${entry.binary ? " binary" : ""}`}>
         <span className="fname" style={{ paddingLeft: depth * 16 }}>
-          <span className="twisty">{isDir ? (open ? '▾' : '▸') : ''}</span>
+          <span className="twisty">{isDir ? (open ? "▾" : "▸") : ""}</span>
           {node.name}
-          {entry.kind === 'dir' ? '/' : ''}
+          {entry.kind === "dir" ? "/" : ""}
         </span>
         {entry.binary && (
-          <span className="ftag" title="Binary file: it can be copied across, but not compared as text">
+          <span
+            className="ftag"
+            title="Binary file: it can be copied across, but not compared as text"
+          >
             binary
           </span>
         )}
@@ -204,10 +229,10 @@ export function FolderView(props: FolderViewProps) {
           </span>
         )}
         <span className="fmeta">
-          {entry.kind === 'file' && `${formatSize(entry.size)}  `}
+          {entry.kind === "file" && `${formatSize(entry.size)}  `}
           <span
-            className={newerSide(node) === side ? 'newer' : undefined}
-            title={newerSide(node) === side ? 'Newer than the other side' : undefined}
+            className={newerSide(node) === side ? "newer" : undefined}
+            title={newerSide(node) === side ? "Newer than the other side" : undefined}
           >
             {formatDate(entry.mtimeMs)}
           </span>
@@ -221,7 +246,12 @@ export function FolderView(props: FolderViewProps) {
       <div className="toolbar">
         <HomeButton onClick={props.onHome} />
         <span className="toolbar-sep" />
-        <FolderCompareOptions mode={props.compareMode} onChange={props.onCompareModeChange} autoUpdate={props.autoUpdate} onAutoUpdateChange={props.onAutoUpdateChange} />
+        <FolderCompareOptions
+          mode={props.compareMode}
+          onChange={props.onCompareModeChange}
+          autoUpdate={props.autoUpdate}
+          onAutoUpdateChange={props.onAutoUpdateChange}
+        />
         <button
           type="button"
           className="icon-button"
@@ -232,14 +262,22 @@ export function FolderView(props: FolderViewProps) {
         >
           <RefreshIcon />
         </button>
-        <button type="button" onClick={() => root && props.onExpandedChange(new Set(folderPaths(root)))} disabled={!root}>
+        <button
+          type="button"
+          onClick={() => root && props.onExpandedChange(new Set(folderPaths(root)))}
+          disabled={!root}
+        >
           Expand all
         </button>
         <button type="button" onClick={() => props.onExpandedChange(new Set())} disabled={!root}>
           Collapse all
         </button>
         <label className="check">
-          <input type="checkbox" checked={hideSame} onChange={(e) => props.onHideSameChange(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={hideSame}
+            onChange={(e) => props.onHideSameChange(e.target.checked)}
+          />
           Hide identical
         </label>
         <div className="spacer" />
@@ -254,34 +292,46 @@ export function FolderView(props: FolderViewProps) {
           {!props.busy && counts && (
             <>
               <strong>
-                {counts.different + counts['left-only'] + counts['right-only'] + counts['kind-mismatch'] === 0
-                  ? 'Identical'
-                  : `${counts.different + counts['kind-mismatch']} different`}
+                {counts.different +
+                  counts["left-only"] +
+                  counts["right-only"] +
+                  counts["kind-mismatch"] ===
+                0
+                  ? "Identical"
+                  : `${counts.different + counts["kind-mismatch"]} different`}
               </strong>
-              <span className="stat del">{counts['left-only']} left only</span>
-              <span className="stat ins">{counts['right-only']} right only</span>
+              <span className="stat del">{counts["left-only"]} left only</span>
+              <span className="stat ins">{counts["right-only"]} right only</span>
               <span className="elapsed">{counts.same} same</span>
             </>
           )}
         </span>
-        <ThemeButton theme={props.theme} onToggle={() => props.onThemeChange(props.theme === 'dark' ? 'light' : 'dark')} />
+        <ThemeButton
+          theme={props.theme}
+          onToggle={() => props.onThemeChange(props.theme === "dark" ? "light" : "dark")}
+        />
       </div>
 
       {props.copying && <CopyBar {...props.copying} />}
       {props.notice}
 
       <div className="folder-roots">
-        {(['left', 'right'] as const).map((side) => [
+        {(["left", "right"] as const).map((side) => [
           <div key={side} className="pane-header">
-            <span className="pane-title" title={side === 'left' ? props.leftRoot : props.rightRoot}>
-              {side === 'left' ? props.leftRoot : props.rightRoot}
+            <span className="pane-title" title={side === "left" ? props.leftRoot : props.rightRoot}>
+              {side === "left" ? props.leftRoot : props.rightRoot}
             </span>
             <button type="button" className="header-button" onClick={() => props.onBrowse(side)}>
               Browse…
             </button>
           </div>,
-          side === 'left' && (
-            <div key="divider" className="folder-divider" title="Drag to resize; double-click to reset" {...divider} />
+          side === "left" && (
+            <div
+              key="divider"
+              className="folder-divider"
+              title="Drag to resize; double-click to reset"
+              {...divider}
+            />
           ),
         ])}
       </div>
@@ -303,61 +353,78 @@ export function FolderView(props: FolderViewProps) {
         {props.busy && (
           <ScanProgress
             progress={props.progress}
-            slowContentsScan={props.compareMode === 'contents' && (props.progress?.elapsedMs ?? 0) > SLOW_SCAN_HINT_MS}
+            slowContentsScan={
+              props.compareMode === "contents" &&
+              (props.progress?.elapsedMs ?? 0) > SLOW_SCAN_HINT_MS
+            }
             onCancel={props.onCancel}
-            onUseFastMode={() => props.onCompareModeChange('size-date')}
+            onUseFastMode={() => props.onCompareModeChange("size-date")}
           />
         )}
-        {!props.busy && !result && <div className="placeholder">Nothing compared yet. Press Rescan (the circular arrow) or F5 to compare these folders.</div>}
-        {!props.busy && root && rows.length === 0 && <div className="placeholder">{hideSame ? 'No differences.' : 'Both folders are empty.'}</div>}
+        {!props.busy && !result && (
+          <div className="placeholder">
+            Nothing compared yet. Press Rescan (the circular arrow) or F5 to compare these folders.
+          </div>
+        )}
+        {!props.busy && root && rows.length === 0 && (
+          <div className="placeholder">
+            {hideSame ? "No differences." : "Both folders are empty."}
+          </div>
+        )}
         <div className="folder-rows" style={{ height: props.busy ? 0 : rows.length * FROW_HEIGHT }}>
-          {!props.busy && rows.slice(firstRow, lastRow).map(({ node, depth, isDir, expanded: open }, k) => (
-            <div
-              key={node.relPath}
-              style={{ top: (firstRow + k) * FROW_HEIGHT }}
-              className={`frow st-${node.status}${node.relPath === selected ? ' selected' : ''}${props.copying?.relPath === node.relPath ? ' copying' : ''}`}
-              onClick={() => props.onSelect(node.relPath)}
-              onDoubleClick={() => activate(node)}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                props.onSelect(node.relPath);
-                // Which column was clicked decides which side's entry the menu is about.
-                const rect = e.currentTarget.getBoundingClientRect();
-                props.onEntryContextMenu(node, e.clientX < rect.left + rect.width / 2 ? 'left' : 'right', e.clientX, e.clientY);
-              }}
-            >
-              {cell(node, 'left', depth, isDir, open)}
-              <div className="factions" {...divider}>
-                <button
-                  type="button"
-                  className="merge merge-from-a"
-                  disabled={!node.left || node.status === 'same' || !!props.copying}
-                  title="Copy to the right"
-                  aria-label={`Copy ${node.relPath} to the right`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    props.onCopy(node, 'left');
-                  }}
-                >
-                  <MergeIcon toward="right" />
-                </button>
-                <button
-                  type="button"
-                  className="merge merge-from-b"
-                  disabled={!node.right || node.status === 'same' || !!props.copying}
-                  title="Copy to the left"
-                  aria-label={`Copy ${node.relPath} to the left`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    props.onCopy(node, 'right');
-                  }}
-                >
-                  <MergeIcon toward="left" />
-                </button>
+          {!props.busy &&
+            rows.slice(firstRow, lastRow).map(({ node, depth, isDir, expanded: open }, k) => (
+              <div
+                key={node.relPath}
+                style={{ top: (firstRow + k) * FROW_HEIGHT }}
+                className={`frow st-${node.status}${node.relPath === selected ? " selected" : ""}${props.copying?.relPath === node.relPath ? " copying" : ""}`}
+                onClick={() => props.onSelect(node.relPath)}
+                onDoubleClick={() => activate(node)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  props.onSelect(node.relPath);
+                  // Which column was clicked decides which side's entry the menu is about.
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  props.onEntryContextMenu(
+                    node,
+                    e.clientX < rect.left + rect.width / 2 ? "left" : "right",
+                    e.clientX,
+                    e.clientY,
+                  );
+                }}
+              >
+                {cell(node, "left", depth, isDir, open)}
+                <div className="factions" {...divider}>
+                  <button
+                    type="button"
+                    className="merge merge-from-a"
+                    disabled={!node.left || node.status === "same" || !!props.copying}
+                    title="Copy to the right"
+                    aria-label={`Copy ${node.relPath} to the right`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      props.onCopy(node, "left");
+                    }}
+                  >
+                    <MergeIcon toward="right" />
+                  </button>
+                  <button
+                    type="button"
+                    className="merge merge-from-b"
+                    disabled={!node.right || node.status === "same" || !!props.copying}
+                    title="Copy to the left"
+                    aria-label={`Copy ${node.relPath} to the left`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      props.onCopy(node, "right");
+                    }}
+                  >
+                    <MergeIcon toward="left" />
+                  </button>
+                </div>
+                {cell(node, "right", depth, isDir, open)}
               </div>
-              {cell(node, 'right', depth, isDir, open)}
-            </div>
-          ))}
+            ))}
         </div>
       </div>
     </div>
@@ -365,7 +432,7 @@ export function FolderView(props: FolderViewProps) {
 }
 
 function formatDate(ms: number): string {
-  return new Date(ms).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+  return new Date(ms).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
 }
 
 /**
@@ -374,9 +441,9 @@ function formatDate(ms: number): string {
  */
 function newerSide(node: FolderNode): TreeSide | null {
   const { left, right } = node;
-  if (node.status !== 'different' || left?.kind !== 'file' || right?.kind !== 'file') return null;
+  if (node.status !== "different" || left?.kind !== "file" || right?.kind !== "file") return null;
   if (Math.abs(left.mtimeMs - right.mtimeMs) <= TIMESTAMP_TOLERANCE_MS) return null;
-  return left.mtimeMs > right.mtimeMs ? 'left' : 'right';
+  return left.mtimeMs > right.mtimeMs ? "left" : "right";
 }
 
 function formatSize(bytes: number): string {
@@ -400,7 +467,7 @@ function ScanProgress(props: {
       <div className="scan-counts">
         {p
           ? `${p.entries.toLocaleString()} items · ${p.filesCompared.toLocaleString()} files compared · ${formatSize(p.bytesRead)} read · ${formatElapsed(p.elapsedMs)}`
-          : 'Starting…'}
+          : "Starting…"}
       </div>
       {p?.current && (
         <div className="scan-current" title={p.current}>
@@ -412,7 +479,8 @@ function ScanProgress(props: {
       </button>
       {props.slowContentsScan && (
         <div className="scan-hint">
-          Comparing contents reads every file. For large folders, comparing by size and modified date is much faster.
+          Comparing contents reads every file. For large folders, comparing by size and modified
+          date is much faster.
           <button type="button" onClick={props.onUseFastMode}>
             Use size and modified date
           </button>
@@ -424,7 +492,7 @@ function ScanProgress(props: {
 
 function formatElapsed(ms: number): string {
   const s = Math.floor(ms / 1000);
-  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
 }
 
 /** A file's fixed cost in a copy, as if it were this many bytes larger (for the progress bar). */
@@ -434,7 +502,15 @@ const FILE_COST_BYTES = 128 * 1024;
 const COPY_BAR_DELAY_MS = 400;
 
 /** Progress of a copy across: files and bytes, a bar, and Cancel. */
-function CopyBar({ relPath, progress, onCancel }: { relPath: string; progress: CopyProgress | null; onCancel: () => void }) {
+function CopyBar({
+  relPath,
+  progress,
+  onCancel,
+}: {
+  relPath: string;
+  progress: CopyProgress | null;
+  onCancel: () => void;
+}) {
   const [shown, setShown] = useState(false);
   useEffect(() => {
     const timer = window.setTimeout(() => setShown(true), COPY_BAR_DELAY_MS);
@@ -445,7 +521,10 @@ function CopyBar({ relPath, progress, onCancel }: { relPath: string; progress: C
   // Each file costs a fixed amount (creating it, setting its times) besides its bytes, and on
   // the same drive big files are cloned almost for free: weighing bytes alone fills the bar
   // early when large files happen to come first.
-  const fraction = p && p.totalFiles + p.totalBytes > 0 ? (p.files * FILE_COST_BYTES + p.bytes) / (p.totalFiles * FILE_COST_BYTES + p.totalBytes) : 0;
+  const fraction =
+    p && p.totalFiles + p.totalBytes > 0
+      ? (p.files * FILE_COST_BYTES + p.bytes) / (p.totalFiles * FILE_COST_BYTES + p.totalBytes)
+      : 0;
   // One file (or no count yet): there's no progress within a file to show, so the bar moves instead.
   const indeterminate = !p || p.totalFiles <= 1;
   return (
@@ -454,13 +533,14 @@ function CopyBar({ relPath, progress, onCancel }: { relPath: string; progress: C
         Copying <strong>{relPath}</strong>
         {p && p.totalFiles > 1 && (
           <>
-            {': '}
-            {p.files.toLocaleString('en-US')} of {p.totalFiles.toLocaleString('en-US')} files ({formatSize(p.bytes)} of {formatSize(p.totalBytes)})
+            {": "}
+            {p.files.toLocaleString("en-US")} of {p.totalFiles.toLocaleString("en-US")} files (
+            {formatSize(p.bytes)} of {formatSize(p.totalBytes)})
           </>
         )}
         …
       </span>
-      <div className={`copy-progress${indeterminate ? ' indeterminate' : ''}`} aria-hidden="true">
+      <div className={`copy-progress${indeterminate ? " indeterminate" : ""}`} aria-hidden="true">
         <div style={indeterminate ? undefined : { width: `${Math.round(fraction * 100)}%` }} />
       </div>
       <button type="button" onClick={onCancel}>
