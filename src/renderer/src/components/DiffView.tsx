@@ -1048,7 +1048,7 @@ export function DiffView(props: DiffViewProps) {
         : [];
     return {
       number: line < 0 ? null : line + 1,
-      text: line < 0 ? '' : linesOf(side)[line],
+      text: line < 0 ? "" : linesOf(side)[line],
       // Every line but the last ends with a line break (a final break starts an empty last line).
       lineBreak: line >= 0 && line < linesOf(side).length - 1,
       ranges,

@@ -4,7 +4,7 @@
  * replaces one line with one line, Enter replaces one line with two, a merge replaces a block.
  */
 
-import { splitLines, type SplitText } from '../../../engine';
+import { splitLines, type SplitText } from "../../../engine";
 
 /**
  * A text's lines as an editor shows them: every line break starts a new line, so a text that
@@ -12,17 +12,19 @@ import { splitLines, type SplitText } from '../../../engine';
  * compared and merged like any other. Joining the lines with line breaks gives the text back
  * exactly; an empty text has no lines.
  */
-export function editorLines(text: string): { lines: string[]; eol: SplitText['eol'] } {
+export function editorLines(text: string): { lines: string[]; eol: SplitText["eol"] } {
   const s = splitLines(text);
-  if (s.trailingNewline) s.lines.push('');
+  if (s.trailingNewline) s.lines.push("");
   return { lines: s.lines, eol: s.eol };
 }
 
 /** Whether the text ends with a line break (its last line is the empty one after it). */
-export const endsWithNewline = (lines: readonly string[]): boolean => lines.length > 1 && lines[lines.length - 1] === '';
+export const endsWithNewline = (lines: readonly string[]): boolean =>
+  lines.length > 1 && lines[lines.length - 1] === "";
 
 /** Lines as a file counts them (`wc -l`, the status line): the empty line after a final line break isn't one. */
-export const fileLineCount = (lines: readonly string[]): number => (endsWithNewline(lines) ? lines.length - 1 : lines.length);
+export const fileLineCount = (lines: readonly string[]): number =>
+  endsWithNewline(lines) ? lines.length - 1 : lines.length;
 
 export interface Pos {
   line: number;

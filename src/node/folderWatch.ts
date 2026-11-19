@@ -1,8 +1,8 @@
-import { statSync, watch, type FSWatcher } from 'node:fs';
-import type { FolderChange } from '../shared/api';
-import { errorMessage } from './files';
-import { IGNORED_NAMES } from './folders';
-import { log } from './log';
+import { statSync, watch, type FSWatcher } from "node:fs";
+import type { FolderChange } from "../shared/api";
+import { errorMessage } from "./files";
+import { IGNORED_NAMES } from "./folders";
+import { log } from "./log";
 
 /**
  * Whoever wants to hear about outside changes in a folder comparison: an Electron window, or
@@ -61,7 +61,11 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
   let firstAt = 0;
   let stopped = false;
   /** Per root: the folder being watched (`id` null while there's none at that path) and its watcher. */
-  const watched = [...new Set(roots)].map((path) => ({ path, id: folderIdentity(path), watcher: null as FSWatcher | null }));
+  const watched = [...new Set(roots)].map((path) => ({
+    path,
+    id: folderIdentity(path),
+    watcher: null as FSWatcher | null,
+  }));
   const stop = () => {
     stopped = true;
     clearTimeout(timer);
@@ -90,7 +94,11 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
       const id = folderIdentity(r.path);
       if (id === r.id) continue;
       changed = true;
-      log.info('watch', id === null ? 'A compared folder is gone' : 'A compared folder was replaced or is back', { root: r.path });
+      log.info(
+        "watch",
+        id === null ? "A compared folder is gone" : "A compared folder was replaced or is back",
+        { root: r.path },
+      );
       r.watcher?.close();
       r.watcher = null;
       r.id = id;
@@ -145,14 +153,16 @@ export function watchFolders(owner: FolderChangeSubscriber, roots: string[] | nu
   const failed = (root: string, err: unknown) => {
     stop();
     if (active.get(owner) === stop) active.delete(owner);
-    log.warn('watch', 'Folder watching stopped', { root, error: errorMessage(err) });
+    log.warn("watch", "Folder watching stopped", { root, error: errorMessage(err) });
     if (!owner.closed()) owner.send({ error: errorMessage(err) });
   };
 
   /** Throws if the system won't watch the folder; later errors stop watching altogether. */
   function startWatcher(r: (typeof watched)[number]) {
-    const w = watch(r.path, { recursive: true, persistent: false }, (_event, filename) => noted(filename === null ? null : String(filename)));
-    w.on('error', (err) => {
+    const w = watch(r.path, { recursive: true, persistent: false }, (_event, filename) =>
+      noted(filename === null ? null : String(filename)),
+    );
+    w.on("error", (err) => {
       if (r.watcher !== w) return;
       // The folder itself went away (some systems report that as an error): wait for it.
       if (folderIdentity(r.path) === null) {

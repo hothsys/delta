@@ -57,7 +57,12 @@ export function LineDetails({ left, right, charWidth: cw, rowKey }: LineDetailsP
       content = <span className="detail-none">(no line on this side)</span>;
     } else if (l.text.length > LONG_LINE) {
       const s = columnSlice(l.text, firstCol, lastCol);
-      content = visible(l.text.slice(s.start, s.end), clipRanges(l.ranges, s.start, s.end), l.highlight, s.end === l.text.length && l.lineBreak);
+      content = visible(
+        l.text.slice(s.start, s.end),
+        clipRanges(l.ranges, s.start, s.end),
+        l.highlight,
+        s.end === l.text.length && l.lineBreak,
+      );
       // The full width keeps the strip's scroll range; the slice sits at its own column.
       style = {
         paddingLeft: CELL_PADDING + s.col * cw,

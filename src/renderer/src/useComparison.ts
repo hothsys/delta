@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { type Anchor, type DiffBlock, type LineDiffOptions, type SplitText } from '../../engine';
-import { addAnchor, removeAnchor, transformAnchors } from './model/anchors';
-import { patchRows, type RowModel, type Side } from './model/rowModel';
-import { applyOp, editorLines, invertOp, type EditOp, type Selection } from './model/textEdit';
-import { UndoHistory, type UndoEntry } from './model/undo';
-import { useDiff, type DiffInput } from './useDiff';
-import type { EolCounts, LineEnding, TextEncoding } from '../../shared/api';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { type Anchor, type DiffBlock, type LineDiffOptions, type SplitText } from "../../engine";
+import { addAnchor, removeAnchor, transformAnchors } from "./model/anchors";
+import { patchRows, type RowModel, type Side } from "./model/rowModel";
+import { applyOp, editorLines, invertOp, type EditOp, type Selection } from "./model/textEdit";
+import { UndoHistory, type UndoEntry } from "./model/undo";
+import { useDiff, type DiffInput } from "./useDiff";
+import type { EolCounts, LineEnding, TextEncoding } from "../../shared/api";
 
 /**
  * An open text. `lines` is edited in place for speed on large files; `version` changes on
@@ -14,10 +14,9 @@ import type { EolCounts, LineEnding, TextEncoding } from '../../shared/api';
  */
 export interface Doc {
   lines: string[];
-  eol: SplitText['eol'];
+  eol: SplitText["eol"];
   version: number;
 }
-
 
 export type Docs = Record<Side, Doc>;
 

@@ -1,10 +1,16 @@
-import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { compareEntries, copyEntry } from '../../src/node/folders';
-import { folderWatchCount, MAX_BATCH_PATHS, MISSING_ROOT_POLL_MS, watchFolders, type FolderChangeSubscriber } from '../../src/node/folderWatch';
-import type { FolderChange } from '../../src/shared/api';
+import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { compareEntries, copyEntry } from "../../src/node/folders";
+import {
+  folderWatchCount,
+  MAX_BATCH_PATHS,
+  MISSING_ROOT_POLL_MS,
+  watchFolders,
+  type FolderChangeSubscriber,
+} from "../../src/node/folderWatch";
+import type { FolderChange } from "../../src/shared/api";
 
 function roots() {
   const base = mkdtempSync(join(tmpdir(), "delta-fwatch-"));
@@ -156,61 +162,76 @@ describe("watchFolders", () => {
 
   // Deleting a compared folder and putting one back under the same name (or Finder's Replace)
   // is reported as one change to the root itself, with nothing about what's inside.
-  it('asks for a full rescan when a compared folder is replaced, and watches the new one', async () => {
+  it("asks for a full rescan when a compared folder is replaced, and watches the new one", async () => {
     const { left, right } = roots();
-    const staged = join(right, '../staged');
+    const staged = join(right, "../staged");
     mkdirSync(staged);
-    writeFileSync(join(staged, 'from-elsewhere.txt'), 'x');
+    writeFileSync(join(staged, "from-elsewhere.txt"), "x");
     const sub = subscriber();
     opened.push(sub.s);
     watchFolders(sub.s, [left, right]);
     await new Promise((r) => setTimeout(r, 200));
     rmSync(right, { recursive: true });
     renameSync(staged, right);
-    expect(await until(() => sub.batches.some((b) => 'overflow' in b))).toBe(true);
+    expect(await until(() => sub.batches.some((b) => "overflow" in b))).toBe(true);
     const seen = sub.batches.length;
-    writeFileSync(join(right, 'later.txt'), 'edited in the new folder');
-    expect(await until(() => sub.batches.slice(seen).some((b) => 'paths' in b && b.paths.includes('later.txt')))).toBe(true);
+    writeFileSync(join(right, "later.txt"), "edited in the new folder");
+    expect(
+      await until(() =>
+        sub.batches.slice(seen).some((b) => "paths" in b && b.paths.includes("later.txt")),
+      ),
+    ).toBe(true);
   });
 
-  it('when a compared folder is deleted, rescans, then rescans again once it is back', async () => {
+  it("when a compared folder is deleted, rescans, then rescans again once it is back", async () => {
     const { left, right } = roots();
     const sub = subscriber();
     opened.push(sub.s);
     watchFolders(sub.s, [left, right]);
     await new Promise((r) => setTimeout(r, 200));
     rmSync(right, { recursive: true });
-    expect(await until(() => sub.batches.some((b) => 'overflow' in b))).toBe(true);
+    expect(await until(() => sub.batches.some((b) => "overflow" in b))).toBe(true);
     await new Promise((r) => setTimeout(r, 1000)); // the deletion's events settle
     const seen = sub.batches.length;
     await new Promise((r) => setTimeout(r, 2 * MISSING_ROOT_POLL_MS + 300));
-    expect(sub.batches.length, 'nothing more while it is gone').toBe(seen);
+    expect(sub.batches.length, "nothing more while it is gone").toBe(seen);
     mkdirSync(right);
-    writeFileSync(join(right, 'a.txt'), 'back');
-    expect(await until(() => sub.batches.slice(seen).some((b) => 'overflow' in b), MISSING_ROOT_POLL_MS + 3000)).toBe(true);
+    writeFileSync(join(right, "a.txt"), "back");
+    expect(
+      await until(
+        () => sub.batches.slice(seen).some((b) => "overflow" in b),
+        MISSING_ROOT_POLL_MS + 3000,
+      ),
+    ).toBe(true);
     const after = sub.batches.length;
-    writeFileSync(join(right, 'later.txt'), 'x');
-    expect(await until(() => sub.batches.slice(after).some((b) => 'paths' in b && b.paths.includes('later.txt')))).toBe(true);
+    writeFileSync(join(right, "later.txt"), "x");
+    expect(
+      await until(() =>
+        sub.batches.slice(after).some((b) => "paths" in b && b.paths.includes("later.txt")),
+      ),
+    ).toBe(true);
   }, 20000);
 
-  it('waits for a folder that does not exist yet, and rescans when it appears', async () => {
+  it("waits for a folder that does not exist yet, and rescans when it appears", async () => {
     const { left } = roots();
-    const later = join(left, '../not-yet');
+    const later = join(left, "../not-yet");
     const sub = subscriber();
     opened.push(sub.s);
     expect(watchFolders(sub.s, [left, later])).toBeNull();
     mkdirSync(later);
-    expect(await until(() => sub.batches.some((b) => 'overflow' in b), MISSING_ROOT_POLL_MS + 3000)).toBe(true);
+    expect(
+      await until(() => sub.batches.some((b) => "overflow" in b), MISSING_ROOT_POLL_MS + 3000),
+    ).toBe(true);
   });
 
-  it('keeps reporting changes inside the folders normally (no rescan for ordinary edits)', async () => {
+  it("keeps reporting changes inside the folders normally (no rescan for ordinary edits)", async () => {
     const { left, right } = roots();
     const sub = subscriber();
     opened.push(sub.s);
     watchFolders(sub.s, [left, right]);
     await new Promise((r) => setTimeout(r, 200));
-    writeFileSync(join(right, 'a.txt'), 'edited');
-    expect(await until(() => sub.paths().has('a.txt'))).toBe(true);
-    expect(sub.batches.some((b) => 'overflow' in b)).toBe(false);
+    writeFileSync(join(right, "a.txt"), "edited");
+    expect(await until(() => sub.paths().has("a.txt"))).toBe(true);
+    expect(sub.batches.some((b) => "overflow" in b)).toBe(false);
   });
 });

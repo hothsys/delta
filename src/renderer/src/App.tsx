@@ -15,26 +15,32 @@ import type {
   ReadResult,
   RecentComparison,
   RecentList,
-} from '../../shared/api';
-import { commandForKey, isShortcutOnly } from '../../shared/menu';
-import { ContextMenu, type MenuItem } from './components/ContextMenu';
-import { DiffView, type DiffViewHandle } from './components/DiffView';
-import { FolderView, type TreeSide } from './components/FolderView';
-import { MenuBar } from './components/MenuBar';
-import { Notice, type NoticeState } from './components/Notice';
-import { PrettifyBar } from './components/PrettifyBar';
-import { LONG_LINE } from './components/layout';
-import { prettifyAvailability } from './prettify/kinds';
-import { usePrettify } from './usePrettify';
-import { StartScreen } from './components/StartScreen';
-import { Toolbar, type Theme } from './components/Toolbar';
-import { log, setLogLevel } from './log';
-import { conventionsDiffer, identicalNote, isAsciiText, savedEolCounts, type FileDetails } from './model/fileDetails';
-import { entriesToRecompare, patchTree } from './model/folderTree';
-import type { Side } from './model/rowModel';
-import { api } from './platform';
-import { newSourceId, useComparison, type Source } from './useComparison';
-import { endsWithNewline, fileLineCount } from './model/textEdit';
+} from "../../shared/api";
+import { commandForKey, isShortcutOnly } from "../../shared/menu";
+import { ContextMenu, type MenuItem } from "./components/ContextMenu";
+import { DiffView, type DiffViewHandle } from "./components/DiffView";
+import { FolderView, type TreeSide } from "./components/FolderView";
+import { MenuBar } from "./components/MenuBar";
+import { Notice, type NoticeState } from "./components/Notice";
+import { PrettifyBar } from "./components/PrettifyBar";
+import { LONG_LINE } from "./components/layout";
+import { prettifyAvailability } from "./prettify/kinds";
+import { usePrettify } from "./usePrettify";
+import { StartScreen } from "./components/StartScreen";
+import { Toolbar, type Theme } from "./components/Toolbar";
+import { log, setLogLevel } from "./log";
+import {
+  conventionsDiffer,
+  identicalNote,
+  isAsciiText,
+  savedEolCounts,
+  type FileDetails,
+} from "./model/fileDetails";
+import { entriesToRecompare, patchTree } from "./model/folderTree";
+import type { Side } from "./model/rowModel";
+import { api } from "./platform";
+import { newSourceId, useComparison, type Source } from "./useComparison";
+import { endsWithNewline, fileLineCount } from "./model/textEdit";
 
 const THEME_KEY = "delta.theme";
 const SCAN_CANCELLED = "The folder comparison was cancelled.";
@@ -291,13 +297,13 @@ export function App() {
     // A file being created (missing from one folder) follows its counterpart's conventions.
     const other = side === "a" ? "b" : "a";
     const model = source.file ?? sources[other].file;
-    const eol = model?.eol ?? '\n';
-    const encoding = model?.encoding ?? 'utf8';
+    const eol = model?.eol ?? "\n";
+    const encoding = model?.encoding ?? "utf8";
     // The document holds a final line break as an empty last line, so joining its lines gives the text exactly.
     const trailingNewline = endsWithNewline(doc.lines);
     const version = doc.version;
     const text = joinLines(doc.lines, eol, false);
-    if (encoding === 'latin1' && /[^\u0000-\u00ff]/.test(text)) {
+    if (encoding === "latin1" && /[^\u0000-\u00ff]/.test(text)) {
       const ok = await api.confirm({
         message: `Save ${source.label} as UTF-8?`,
         detail:
@@ -344,7 +350,7 @@ export function App() {
           size: result.size,
           // Saving writes every line with one ending, which settles mixed endings.
           eolCounts: savedEolCounts(fileLineCount(doc.lines), eol, trailingNewline),
-          asciiOnly: result.encoding === 'utf8' && isAsciiText(text),
+          asciiOnly: result.encoding === "utf8" && isAsciiText(text),
         },
       },
     }));
@@ -1196,8 +1202,15 @@ export function App() {
 
   // The status lines under the panes, and what differs between the files beyond their text.
   const fileDetails = (side: Side): FileDetails | null => sources[side].file ?? null;
-  const sideFacts = (side: Side) => ({ details: fileDetails(side), trailingNewline: endsWithNewline(cmp.docs[side].lines), lines: fileLineCount(cmp.docs[side].lines) });
-  const differs = mode === 'files' ? conventionsDiffer(sideFacts('a'), sideFacts('b')) : { encoding: false, eol: false, newline: false };
+  const sideFacts = (side: Side) => ({
+    details: fileDetails(side),
+    trailingNewline: endsWithNewline(cmp.docs[side].lines),
+    lines: fileLineCount(cmp.docs[side].lines),
+  });
+  const differs =
+    mode === "files"
+      ? conventionsDiffer(sideFacts("a"), sideFacts("b"))
+      : { encoding: false, eol: false, newline: false };
 
   const noticeBar = notice && <Notice notice={notice} onDismiss={() => setNotice(null)} />;
   const menuBar = !api.capabilities.nativeMenu && (

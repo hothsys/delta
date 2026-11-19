@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from 'react';
-import type { Anchor, DiffBlock } from '../../../engine';
-import { blockAtRow, visibleConnectors, type Connector } from '../model/gutter';
-import type { RowModel, Side } from '../model/rowModel';
-import { cssVar, prepareCanvas, useElementSize } from './canvas';
-import { mergeTitle } from '../model/merge';
-import { MergeIcon } from './icons';
-import { ROW_HEIGHT } from './layout';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  type ReactNode,
+  type Ref,
+} from "react";
+import type { Anchor, DiffBlock } from "../../../engine";
+import { blockAtRow, visibleConnectors, type Connector } from "../model/gutter";
+import type { RowModel, Side } from "../model/rowModel";
+import { cssVar, prepareCanvas, useElementSize } from "./canvas";
+import { mergeTitle } from "../model/merge";
+import { MergeIcon } from "./icons";
+import { ROW_HEIGHT } from "./layout";
 
 export interface GutterHandle {
   /** Redraws for a new scroll offset. Called straight from the scroll handler so it never lags a frame. */

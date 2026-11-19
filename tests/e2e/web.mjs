@@ -4,12 +4,24 @@
 //   npm run test:e2e        (builds first)
 //
 // Everything runs against temporary files and a temporary settings folder, on a spare port.
-import electron from 'electron';
-import { spawn, spawnSync } from 'node:child_process';
-import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import electron from "electron";
+import { spawn, spawnSync } from "node:child_process";
+import {
+  appendFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const { app, BrowserWindow } = electron;
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -472,49 +484,125 @@ async function run() {
     )) === "ASCII|LF|UTF-8 with BOM|CRLF",
   );
 
-  section('A final newline on one side only');
-  writeFileSync(join(F, 'nl-a.yml'), 'version: 2\nupdates:\n  - "x"\n');
-  writeFileSync(join(F, 'nl-b.yml'), 'version: 2\nupdates:\n  - "x"');
-  await open(launch(join(F, 'nl-a.yml'), join(F, 'nl-b.yml')).url);
-  const delRows = () => js(`[...document.querySelectorAll('.pane-a .row.del .ln')].map((n) => n.innerText).join()`);
-  check('the final newline starts an empty line 4 on the left, as in an editor', (await delRows()) === '4' && (await stats())?.startsWith('1 difference 0 modified 0 inserted 1 deleted'), `${await delRows()} / ${await stats()}`);
-  check('with nothing beside it on the right', (await js(`[...document.querySelectorAll('.pane-b .row.filler')].length`)) === 1);
-  check('the status lines still count the file’s 3 lines', (await fileStatus('a'))?.includes('3 lines Newline at end') && (await fileStatus('b'))?.includes('3 lines No newline at end'), `${await fileStatus('a')} / ${await fileStatus('b')}`);
-  check('the merge arrow copies that line', (await js(`document.querySelector('[aria-label="Copy to right"]')?.title`)) === 'Copy left line 4 to the right');
+  section("A final newline on one side only");
+  writeFileSync(join(F, "nl-a.yml"), 'version: 2\nupdates:\n  - "x"\n');
+  writeFileSync(join(F, "nl-b.yml"), 'version: 2\nupdates:\n  - "x"');
+  await open(launch(join(F, "nl-a.yml"), join(F, "nl-b.yml")).url);
+  const delRows = () =>
+    js(`[...document.querySelectorAll('.pane-a .row.del .ln')].map((n) => n.innerText).join()`);
+  check(
+    "the final newline starts an empty line 4 on the left, as in an editor",
+    (await delRows()) === "4" &&
+      (await stats())?.startsWith("1 difference 0 modified 0 inserted 1 deleted"),
+    `${await delRows()} / ${await stats()}`,
+  );
+  check(
+    "with nothing beside it on the right",
+    (await js(`[...document.querySelectorAll('.pane-b .row.filler')].length`)) === 1,
+  );
+  check(
+    "the status lines still count the file’s 3 lines",
+    (await fileStatus("a"))?.includes("3 lines Newline at end") &&
+      (await fileStatus("b"))?.includes("3 lines No newline at end"),
+    `${await fileStatus("a")} / ${await fileStatus("b")}`,
+  );
+  check(
+    "the merge arrow copies that line",
+    (await js(`document.querySelector('[aria-label="Copy to right"]')?.title`)) ===
+      "Copy left line 4 to the right",
+  );
   await sleep(800);
   await clickEl('[aria-label="Copy to right"]');
-  check('copying it across makes them identical', await waitFor(`document.querySelector('.stats strong')?.innerText === 'Identical'`), await stats());
-  await clickText('.menubar-title', 'File');
-  await clickText('.menubar-panel [role=menuitem]', 'Save Right');
+  check(
+    "copying it across makes them identical",
+    await waitFor(`document.querySelector('.stats strong')?.innerText === 'Identical'`),
+    await stats(),
+  );
+  await clickText(".menubar-title", "File");
+  await clickText(".menubar-panel [role=menuitem]", "Save Right");
   await sleep(500);
-  check('and saving writes the newline', readFileSync(join(F, 'nl-b.yml'), 'utf8') === 'version: 2\nupdates:\n  - "x"\n', JSON.stringify(readFileSync(join(F, 'nl-b.yml'), 'utf8')));
-  await key('z', [MOD]);
-  check('undo takes it away again', await waitFor(`document.querySelector('.stats strong')?.innerText === '1 difference'`) && (await fileStatus('b'))?.includes('No newline at end'), `${await stats()} / ${await fileStatus('b')}`);
-  await clickText('.menubar-title', 'File');
-  await clickText('.menubar-panel [role=menuitem]', 'Save Right'); // leave nothing unsaved
+  check(
+    "and saving writes the newline",
+    readFileSync(join(F, "nl-b.yml"), "utf8") === 'version: 2\nupdates:\n  - "x"\n',
+    JSON.stringify(readFileSync(join(F, "nl-b.yml"), "utf8")),
+  );
+  await key("z", [MOD]);
+  check(
+    "undo takes it away again",
+    (await waitFor(`document.querySelector('.stats strong')?.innerText === '1 difference'`)) &&
+      (await fileStatus("b"))?.includes("No newline at end"),
+    `${await stats()} / ${await fileStatus("b")}`,
+  );
+  await clickText(".menubar-title", "File");
+  await clickText(".menubar-panel [role=menuitem]", "Save Right"); // leave nothing unsaved
   await sleep(500);
-  check('saving that removes it from the file again', readFileSync(join(F, 'nl-b.yml'), 'utf8') === 'version: 2\nupdates:\n  - "x"', JSON.stringify(readFileSync(join(F, 'nl-b.yml'), 'utf8')));
-  await clickEl('.pane-a .row', { dx: 120, index: 3 }); // the empty line 4
-  await key('Backspace');
-  check('Backspace on the empty line removes the newline, as in an editor', await waitFor(`document.querySelector('.stats strong')?.innerText === 'Identical'`) && (await fileStatus('a'))?.includes('No newline at end'), `${await stats()} / ${await fileStatus('a')}`);
-  await key('z', [MOD]);
-  check('and undo puts it back, unedited', await waitFor(`document.querySelector('.stats strong')?.innerText === '1 difference'`) && !(await js(`!!document.querySelector('.pane-header .edited')`)));
+  check(
+    "saving that removes it from the file again",
+    readFileSync(join(F, "nl-b.yml"), "utf8") === 'version: 2\nupdates:\n  - "x"',
+    JSON.stringify(readFileSync(join(F, "nl-b.yml"), "utf8")),
+  );
+  await clickEl(".pane-a .row", { dx: 120, index: 3 }); // the empty line 4
+  await key("Backspace");
+  check(
+    "Backspace on the empty line removes the newline, as in an editor",
+    (await waitFor(`document.querySelector('.stats strong')?.innerText === 'Identical'`)) &&
+      (await fileStatus("a"))?.includes("No newline at end"),
+    `${await stats()} / ${await fileStatus("a")}`,
+  );
+  await key("z", [MOD]);
+  check(
+    "and undo puts it back, unedited",
+    (await waitFor(`document.querySelector('.stats strong')?.innerText === '1 difference'`)) &&
+      !(await js(`!!document.querySelector('.pane-header .edited')`)),
+  );
 
-  section('Prettify');
-  await open(launch(join(F, 'min.json'), join(F, 'pretty.json')).url);
-  check('a minified file suggests Prettify', await waitFor(`document.querySelector('.notice')?.innerText.includes('looks minified')`));
-  check('before: a one-line file against a formatted one, nearly every line differs', (await paneLines('a')).length === 1, JSON.stringify(await paneLines('a')));
-  await clickText('.notice button', 'Prettify');
-  check('Prettify formats both sides', await waitFor(`document.querySelector('.prettify-bar')?.innerText.includes('read-only') && document.querySelector('.file-status-a')?.innerText.includes('9 lines (prettified)')`));
-  check('leaving one real difference', (await stats())?.startsWith('1 difference 1 modified'), await stats());
-  check('the toolbar button shows it is on, and so does View > Prettify', (await js(`document.querySelector('.prettify-button').getAttribute('aria-pressed')`)) === 'true' && (await (async () => { await clickText('.menubar-title', 'View'); const c = await js(`document.querySelector('.menubar-panel [role=menuitemcheckbox]').getAttribute('aria-checked')`); await clickText('.menubar-title', 'View'); return c; })()) === 'true');
-  check('the status line counts prettified lines', (await fileStatus('a'))?.includes('lines (prettified)'), await fileStatus('a'));
-  const rightBefore = readFileSync(join(F, 'pretty.json'), 'utf8');
-  await clickEl('.pane-b .row', { dx: 120 });
-  await type('zz');
-  await key('Backspace');
-  await key('s', [MOD]);
-  await key('z', [MOD]);
+  section("Prettify");
+  await open(launch(join(F, "min.json"), join(F, "pretty.json")).url);
+  check(
+    "a minified file suggests Prettify",
+    await waitFor(`document.querySelector('.notice')?.innerText.includes('looks minified')`),
+  );
+  check(
+    "before: a one-line file against a formatted one, nearly every line differs",
+    (await paneLines("a")).length === 1,
+    JSON.stringify(await paneLines("a")),
+  );
+  await clickText(".notice button", "Prettify");
+  check(
+    "Prettify formats both sides",
+    await waitFor(
+      `document.querySelector('.prettify-bar')?.innerText.includes('read-only') && document.querySelector('.file-status-a')?.innerText.includes('9 lines (prettified)')`,
+    ),
+  );
+  check(
+    "leaving one real difference",
+    (await stats())?.startsWith("1 difference 1 modified"),
+    await stats(),
+  );
+  check(
+    "the toolbar button shows it is on, and so does View > Prettify",
+    (await js(`document.querySelector('.prettify-button').getAttribute('aria-pressed')`)) ===
+      "true" &&
+      (await (async () => {
+        await clickText(".menubar-title", "View");
+        const c = await js(
+          `document.querySelector('.menubar-panel [role=menuitemcheckbox]').getAttribute('aria-checked')`,
+        );
+        await clickText(".menubar-title", "View");
+        return c;
+      })()) === "true",
+  );
+  check(
+    "the status line counts prettified lines",
+    (await fileStatus("a"))?.includes("lines (prettified)"),
+    await fileStatus("a"),
+  );
+  const rightBefore = readFileSync(join(F, "pretty.json"), "utf8");
+  await clickEl(".pane-b .row", { dx: 120 });
+  await type("zz");
+  await key("Backspace");
+  await key("s", [MOD]);
+  await key("z", [MOD]);
   await sleep(300);
   check(
     "typing, Backspace, Save and Undo do nothing",
@@ -748,27 +836,63 @@ async function run() {
   );
   writeFileSync(join(R, "sub", "nested.txt"), "changed again\n");
   let subStatus = null;
-  for (let i = 0; i < 80 && subStatus !== 'different'; i++, await sleep(100)) subStatus = await rowStatus('sub');
-  check('a change inside a folder updates the folder', subStatus === 'different', subStatus);
-  check('by updating just those entries, not scanning again', /Updated after changes made elsewhere/.test(logText()) && !/scanning again/.test(logText()));
-  await clickEl('.toolbar .options-button');
-  check('"Update automatically" is in the Compare by menu, on', (await js(`document.querySelector('.options-menu [role=menuitemcheckbox]')?.getAttribute('aria-checked')`)) === 'true');
-  await clickEl('.toolbar .options-button');
+  for (let i = 0; i < 80 && subStatus !== "different"; i++, await sleep(100))
+    subStatus = await rowStatus("sub");
+  check("a change inside a folder updates the folder", subStatus === "different", subStatus);
+  check(
+    "by updating just those entries, not scanning again",
+    /Updated after changes made elsewhere/.test(logText()) && !/scanning again/.test(logText()),
+  );
+  await clickEl(".toolbar .options-button");
+  check(
+    '"Update automatically" is in the Compare by menu, on',
+    (await js(
+      `document.querySelector('.options-menu [role=menuitemcheckbox]')?.getAttribute('aria-checked')`,
+    )) === "true",
+  );
+  await clickEl(".toolbar .options-button");
   // A compared folder deleted and put back whole (moved in, or Finder's Replace): the system
   // reports only the folder itself, nothing about what's inside it.
-  const R_AWAY = join(T, 'R-away');
+  const R_AWAY = join(T, "R-away");
   renameSync(R, R_AWAY);
-  check('a compared folder deleted elsewhere says so', await waitFor(`document.querySelector('.notice-error')?.innerText.includes("doesn't exist")`, 8000), await js(`document.querySelector('.notice-error')?.innerText`));
-  const STAGED = join(T, 'R-staged');
+  check(
+    "a compared folder deleted elsewhere says so",
+    await waitFor(
+      `document.querySelector('.notice-error')?.innerText.includes("doesn't exist")`,
+      8000,
+    ),
+    await js(`document.querySelector('.notice-error')?.innerText`),
+  );
+  const STAGED = join(T, "R-staged");
   cpSync(R_AWAY, STAGED, { recursive: true });
-  writeFileSync(join(STAGED, 'came-back.txt'), 'only in the folder put back\n');
+  writeFileSync(join(STAGED, "came-back.txt"), "only in the folder put back\n");
   renameSync(STAGED, R);
-  check('and putting a folder back under that name shows its contents', await waitFor(`!document.querySelector('.notice-error') && [...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('came-back.txt') && r.classList.contains('st-right-only'))`, 8000), await rowStatus('came-back.txt'));
+  check(
+    "and putting a folder back under that name shows its contents",
+    await waitFor(
+      `!document.querySelector('.notice-error') && [...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('came-back.txt') && r.classList.contains('st-right-only'))`,
+      8000,
+    ),
+    await rowStatus("came-back.txt"),
+  );
   rmSync(R, { recursive: true });
   renameSync(R_AWAY, R); // replaced in one step this time; the original is back for what follows
-  check('replacing it in one step does too', await waitFor(`![...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('came-back.txt')) && [...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('brand-new.txt'))`, 8000));
-  writeFileSync(join(R, 'same.txt'), 'same\n');
-  check('and the folder put back is watched as before', await waitFor(`(() => { const r = [...document.querySelectorAll('.frow')].find((r) => r.innerText.includes('same.txt')); return r?.classList.contains('st-same'); })()`, 8000), await rowStatus('same.txt'));
+  check(
+    "replacing it in one step does too",
+    await waitFor(
+      `![...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('came-back.txt')) && [...document.querySelectorAll('.frow')].some((r) => r.innerText.includes('brand-new.txt'))`,
+      8000,
+    ),
+  );
+  writeFileSync(join(R, "same.txt"), "same\n");
+  check(
+    "and the folder put back is watched as before",
+    await waitFor(
+      `(() => { const r = [...document.querySelectorAll('.frow')].find((r) => r.innerText.includes('same.txt')); return r?.classList.contains('st-same'); })()`,
+      8000,
+    ),
+    await rowStatus("same.txt"),
+  );
 
   section("Copying a large folder");
   for (let i = 0; i < 6000; i++) {
