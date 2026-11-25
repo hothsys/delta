@@ -4,7 +4,7 @@
 
 <h1 align="center">Delta</h1>
 
-A fast, friendly app for comparing and merging text files and folders. Desktop app for macOS, Windows and Linux, or in your browser.
+<p align="center">A fast, friendly app for comparing and merging text files and folders. Desktop app for macOS, Windows and Linux, or in your browser.</p>
 
 Delta shows two text files or two folders side by side and makes their differences easy to read, review and merge. Edit either side right in the comparison, copy changes across with one click, and save.
 
