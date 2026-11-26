@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { joinLines, type WhitespaceMode } from "../../engine";
+import { commentSyntaxForExtension, joinLines, type WhitespaceMode } from "../../engine";
 import type {
   Command,
   ComparisonKind,
@@ -79,6 +79,31 @@ const fromFile = (f: LoadedFile): Source => ({
 
 const sideName = (side: Side) => (side === "a" ? "left" : "right");
 
+/** File extension without the dot, lowercased, or `undefined` when the path has none. */
+const extensionOf = (path: string | undefined): string | undefined => {
+  if (!path) return undefined;
+  const name = path.split(/[\\/]/).pop() ?? "";
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0) return undefined;
+  return name.slice(dot + 1).toLowerCase();
+};
+
+/**
+ * The extension whose comment syntax a comparison uses: the left file's when
+ * the engine knows its syntax, else the right file's. Undefined when neither
+ * side resolves to a known comment syntax.
+ */
+const resolveCommentExtension = (
+  leftPath: string | undefined,
+  rightPath: string | undefined,
+): string | undefined => {
+  const left = extensionOf(leftPath);
+  if (left && commentSyntaxForExtension(left)) return left;
+  const right = extensionOf(rightPath);
+  if (right && commentSyntaxForExtension(right)) return right;
+  return undefined;
+};
+
 /** How often the start screen re-checks whether recent paths (and their drives) are available. */
 const RECENTS_REFRESH_MS = 3000;
 
@@ -93,6 +118,7 @@ export function App() {
   }));
   const [whitespace, setWhitespace] = useState<WhitespaceMode>("exact");
   const [ignoreCase, setIgnoreCase] = useState(false);
+  const [ignoreComments, setIgnoreComments] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const view = useRef<DiffViewHandle>(null);
@@ -162,7 +188,24 @@ export function App() {
   const toggleTheme = () =>
     changeTheme((pendingTheme.current ?? theme) === "dark" ? "light" : "dark");
 
-  const options = useMemo(() => ({ whitespace, ignoreCase }), [whitespace, ignoreCase]);
+  /**
+   * The extension whose comment syntax the comparison uses: the left file's
+   * when it has one, else the right file's. Undefined when neither side has a
+   * known comment syntax, which greys out the Ignore comments checkbox.
+   */
+  const commentExtension = useMemo(
+    () =>
+      resolveCommentExtension(
+        sources.a.file?.path ?? sources.a.missingPath,
+        sources.b.file?.path ?? sources.b.missingPath,
+      ),
+    [sources.a.file?.path, sources.a.missingPath, sources.b.file?.path, sources.b.missingPath],
+  );
+
+  const options = useMemo(
+    () => ({ whitespace, ignoreCase, ignoreComments, extension: commentExtension }),
+    [whitespace, ignoreCase, ignoreComments, commentExtension],
+  );
 
   // Prettify: both sides formatted for a read-only comparison. The documents shown are swapped
   // for formatted ones; the originals stay as they are, so turning it off returns to them.
@@ -1323,6 +1366,12 @@ export function App() {
           log.info("view", "Ignore case changed", { ignoreCase: on });
           setIgnoreCase(on);
         }}
+        ignoreComments={ignoreComments}
+        onIgnoreCommentsChange={(on) => {
+          log.info("view", "Ignore comments changed", { ignoreComments: on });
+          setIgnoreComments(on);
+        }}
+        commentsAvailable={commentExtension !== undefined}
         theme={theme}
         onThemeChange={changeTheme}
         stats={cmp.stats}

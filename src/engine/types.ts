@@ -18,6 +18,12 @@ export interface CompareOptions {
   whitespace?: WhitespaceMode;
   /** Treat letters that differ only in case as equal. Default `false`. */
   ignoreCase?: boolean;
+  /**
+   * Treat lines that differ only in comments as unimportant. Default `false`.
+   * The comment syntax comes from `LineDiffOptions.extension`; without a known
+   * extension the option has no effect.
+   */
+  ignoreComments?: boolean;
 }
 
 /** A user-forced alignment: line `a` (left, 0-based) must sit on the same row as line `b` (right). */
@@ -29,6 +35,13 @@ export interface Anchor {
 export interface LineDiffOptions extends CompareOptions {
   /** Manual alignments. Out-of-range or crossing anchors are dropped; see `LineDiffResult.anchors`. */
   anchors?: readonly Anchor[];
+  /**
+   * File extension of the compared files, without the dot (for example `'ts'`).
+   * Picks the comment syntax for `ignoreComments`, resolved by the caller from
+   * the compared files, left first. When absent or unknown, comment stripping
+   * is a no-op.
+   */
+  extension?: string;
   /** Always find a minimal diff, even when that is very expensive. Default `false`. Implies Myers. */
   minimal?: boolean;
   /**

@@ -12,6 +12,10 @@ interface ToolbarProps {
   onWhitespaceChange: (mode: WhitespaceMode) => void;
   ignoreCase: boolean;
   onIgnoreCaseChange: (value: boolean) => void;
+  ignoreComments: boolean;
+  onIgnoreCommentsChange: (value: boolean) => void;
+  /** False when neither compared file has a known comment syntax. */
+  commentsAvailable: boolean;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   stats: DiffStats | null;
@@ -61,6 +65,9 @@ export function Toolbar(props: ToolbarProps) {
           onWhitespaceChange={props.onWhitespaceChange}
           ignoreCase={props.ignoreCase}
           onIgnoreCaseChange={props.onIgnoreCaseChange}
+          ignoreComments={props.ignoreComments}
+          onIgnoreCommentsChange={props.onIgnoreCommentsChange}
+          commentsAvailable={props.commentsAvailable}
         />
         <button
           type="button"

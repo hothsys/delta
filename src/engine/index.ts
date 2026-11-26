@@ -2,6 +2,11 @@ import { diffLines } from "./lineDiff";
 import { type SplitText, splitLines } from "./text";
 import type { LineDiffOptions, LineDiffResult } from "./types";
 
+export {
+  type CommentSyntax,
+  commentSyntaxForExtension,
+  stripComments,
+} from "./comments";
 export { diffChars } from "./intraLine";
 export { diffLines } from "./lineDiff";
 export { type Eol, joinLines, type SplitText, splitLines } from "./text";

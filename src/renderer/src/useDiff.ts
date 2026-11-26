@@ -100,7 +100,7 @@ export function useDiff(input: DiffInput, options: Omit<LineDiffOptions, "anchor
     };
   }, []);
 
-  const { whitespace, ignoreCase, minimal } = options;
+  const { whitespace, ignoreCase, ignoreComments, extension, minimal } = options;
   useEffect(() => {
     const id = latest.current.id + 1;
     latest.current = { id, tag: input.tag };
@@ -109,10 +109,17 @@ export function useDiff(input: DiffInput, options: Omit<LineDiffOptions, "anchor
       id,
       left: input.left,
       right: input.right,
-      options: { whitespace, ignoreCase, anchors: input.anchors, minimal },
+      options: {
+        whitespace,
+        ignoreCase,
+        ignoreComments,
+        extension,
+        anchors: input.anchors,
+        minimal,
+      },
     };
     send(request);
-  }, [input, whitespace, ignoreCase, minimal]);
+  }, [input, whitespace, ignoreCase, ignoreComments, extension, minimal]);
 
   return state;
 }

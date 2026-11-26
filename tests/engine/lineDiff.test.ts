@@ -146,6 +146,54 @@ describe("diffLines", () => {
     });
   });
 
+  describe("ignoreComments option", () => {
+    const opts = { ignoreComments: true, extension: "ts" };
+
+    it("classifies a comment-only edit as unimportant", () => {
+      const r = diffLines(["const x = 1; // old note"], ["const x = 1; // new note"], opts);
+      expect(kinds(r)).toEqual(["unimportant"]);
+      expect(r.stats).toMatchObject({ unimportantLines: 1, changeBlocks: 0 });
+    });
+
+    it("classifies a trailing-comment-only edit as unimportant", () => {
+      const r = diffLines(["const x = 1;"], ["const x = 1; // added"], opts);
+      expect(kinds(r)).toEqual(["unimportant"]);
+    });
+
+    it("keeps a code-plus-comment edit important", () => {
+      const r = diffLines(["const x = 1; // note"], ["const x = 2; // note"], opts);
+      expect(kinds(r)).toEqual(["modify"]);
+    });
+
+    it("leaves a comment-only edit important when the option is off", () => {
+      const r = diffLines(["const x = 1; // old"], ["const x = 1; // new"]);
+      expect(kinds(r)).toEqual(["modify"]);
+    });
+
+    it("does nothing for an unknown extension", () => {
+      const r = diffLines(["const x = 1; // old"], ["const x = 1; // new"], {
+        ignoreComments: true,
+        extension: "xyz",
+      });
+      expect(kinds(r)).toEqual(["modify"]);
+    });
+
+    it("treats a comment-only line against a blank line as unimportant under exact whitespace", () => {
+      // Deliberate: stripping a comment-only line leaves an empty key, so it
+      // collides with a genuinely blank line.
+      const r = diffLines(["// note"], [""], opts);
+      expect(kinds(r)).toEqual(["unimportant"]);
+    });
+
+    it("keeps a change inside a multi-line block comment important", () => {
+      // Multi-line block comments are out of scope for v1: lines inside a block
+      // keep their text, so they still count as important.
+      const r = diffLines(["/*", "old text", "*/"], ["/*", "new text", "*/"], opts);
+      expect(kinds(r)).toEqual(["equal", "modify", "equal"]);
+      expect(r.stats.unimportantLines).toBe(0);
+    });
+  });
+
   describe("manual alignment", () => {
     it("forces two different lines onto the same row", () => {
       const a = ["alpha", "beta", "gamma"];

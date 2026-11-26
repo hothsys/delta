@@ -14,6 +14,10 @@ interface CompareOptionsProps {
   onWhitespaceChange: (mode: WhitespaceMode) => void;
   ignoreCase: boolean;
   onIgnoreCaseChange: (value: boolean) => void;
+  ignoreComments: boolean;
+  onIgnoreCommentsChange: (value: boolean) => void;
+  /** False when neither compared file has a known comment syntax. */
+  commentsAvailable: boolean;
 }
 
 /**
@@ -53,18 +57,23 @@ export function CompareOptions(props: CompareOptionsProps) {
     buttonRef.current?.focus();
   };
 
-  // Arrow keys move between the items.
+  // Arrow keys move between the items, skipping any that are disabled.
   const onMenuKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     e.preventDefault();
-    const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? []);
+    const items = Array.from(
+      menuRef.current?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? [],
+    );
     const i = items.indexOf(document.activeElement as HTMLButtonElement);
     const next =
       e.key === "ArrowDown" ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
     items[next]?.focus();
   };
 
-  const summary = WHITESPACE_LABELS[props.whitespace] + (props.ignoreCase ? " · Ignore case" : "");
+  const summary =
+    WHITESPACE_LABELS[props.whitespace] +
+    (props.ignoreCase ? " · Ignore case" : "") +
+    (props.ignoreComments && props.commentsAvailable ? " · Ignore comments" : "");
 
   return (
     <div className="options" ref={rootRef}>
@@ -116,6 +125,27 @@ export function CompareOptions(props: CompareOptionsProps) {
               {props.ignoreCase ? "✓" : ""}
             </span>
             Ignore case
+          </button>
+          <div className="options-separator" role="separator" />
+          <div className="options-heading" role="presentation">
+            Comments
+          </div>
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={props.ignoreComments}
+            disabled={!props.commentsAvailable}
+            title={
+              props.commentsAvailable
+                ? "Treat lines that differ only in comments as unimportant"
+                : "No comment syntax is known for these files, so comment-only changes still count as differences"
+            }
+            onClick={() => choose(() => props.onIgnoreCommentsChange(!props.ignoreComments))}
+          >
+            <span className="options-tick" aria-hidden="true">
+              {props.ignoreComments ? "✓" : ""}
+            </span>
+            Ignore comments
           </button>
         </div>
       )}
